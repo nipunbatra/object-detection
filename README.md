@@ -17,26 +17,26 @@ by step on one photo of a cat and a dog, with one idea per slide and real model 
 | 7 · Three grids | 6 | Why 12,600 cells; which grid found the bus and the far pedestrian. |
 | 8 · Measuring | 14 | TP/FP/FN on real detections, precision and recall, Part 1's bird at two score cut-offs, a ranked list walked one row at a time, AP as an area, mAP. |
 | Wrap-up | 5 | One question, one answer, three uses of IoU; back to the six jobs. |
-| Appendix A · DETR | — | The set-prediction answer: 100 learned queries, cross-attention maps, duplicates dropping out between decoder layers, GIoU, the matching cost one cell at a time, why greedy fails, the Hungarian algorithm, the loss, why no NMS; both detectors compared. |
-| Appendix B · More depth | — | YOLOv1, anchors, two-stage detectors, focal loss, box formats, letterboxing, after DETR. |
+| Appendix A · DETR | extra | The set-prediction answer: 100 learned queries, cross-attention maps, duplicates dropping out between decoder layers, GIoU, the matching cost one cell at a time, why greedy fails, the Hungarian algorithm, the loss, why no NMS; both detectors compared. |
+| Appendix B · More depth | extra | YOLOv1, anchors, two-stage detectors, focal loss, box formats, letterboxing, after DETR. |
 
 About 110 minutes with discussion: two class sessions, splitting after Part 4 (about 46 minutes) or after section
 5.1. A 60-minute route: Part 1 (two jobs and the bird), Part 2, Part 3 without the live figure, sections 5.2 to 5.5,
-Part 6 through the two dogs, and Part 8's precision–recall walk.
+Part 6 through the two dogs, and Part 8's walk down a ranked list.
 
 The appendices are outside the main route: open the deck with `?all`, or read them in the reading view and the PDFs.
 
 ## How it teaches
 
-One move per click, one running example, real numbers after every equation, a route map opening each part and a
-one-slide recap closing it. Slides stay light: the slide never repeats its story line, a slide that makes two moves
-is split in two, and `scripts/density.mjs` keeps every reveal under 100 words and every story line under 30. Two
-teachers shaped the rebuild:
+Each click makes one move, one photo runs through the whole lecture, and every equation is followed by real numbers.
+Each part opens with a route map and closes with a one-slide recap. Slides stay light: the slide never repeats its
+story line, a slide that makes two moves is split in two, and `scripts/density.mjs` keeps every reveal under 100 words
+and every story line under 30. Two teachers shaped the rebuild:
 
-- **Andrew Ng** (Deep Learning Specialization, Course 4, Week 3): localisation as a target vector with "?" for the
+- Andrew Ng (Deep Learning Specialization, Course 4, Week 3): localisation as a target vector with "?" for the
   entries that do not count; a classifier for crops, slid over the image; the convolutional form of sliding windows;
   the cell that holds the object's centre; NMS stated as a plain recipe.
-- **Andrej Karpathy** (Neural Networks: Zero to Hero; A Recipe for Training Neural Networks): show the end result
+- Andrej Karpathy (Neural Networks: Zero to Hero; A Recipe for Training Neural Networks): show the end result
   first; look at the data (a label file); print the shapes (the raw output tensor); build from the simplest model
   and show where it breaks; look at the failures (the missed bird, the false people on a windscreen); the whole
   thing in a few lines of code.
@@ -46,14 +46,14 @@ teachers shaped the rebuild:
 Every box, score, cell, attention map and cost on the slides comes from a real model run on these photos, read from
 [data/science.json](data/science.json):
 
-- **YOLOv8n** (Ultralytics, COCO-pretrained) run at each photo's own size, so a grid cell is a 32 × 32 block of the photo itself. We read its raw (84, 12,600) output before any post-processing; our NMS reproduces Ultralytics' output exactly.
-- **DETR** (facebook/detr-resnet-50) with every decoder layer and its cross-attention (Appendix A).
-- **ResNet-50** (ImageNet) for the one-label answer; **YOLOv8n-seg** for the segmentation masks.
-- **Ground truth** for the evaluation: boxes proposed by YOLOv8l and checked by eye ([data/annotations.json](data/annotations.json)).
-- **Cells, parcel and crack**, which no COCO detector knows: boxes we drew ([data/applications.json](data/applications.json)), shown in teal as annotations, never as model output.
+- YOLOv8n (Ultralytics, COCO-pretrained) run at each photo's own size, so a grid cell is a 32 × 32 block of the photo itself. We read its raw (84, 12,600) output before any post-processing; our NMS reproduces Ultralytics' output exactly.
+- DETR (facebook/detr-resnet-50) with every decoder layer and its cross-attention (Appendix A).
+- ResNet-50 (ImageNet) for the one-label answer; YOLOv8n-seg for the segmentation masks.
+- Ground truth for the evaluation: boxes proposed by YOLOv8l and checked by eye ([data/annotations.json](data/annotations.json)).
+- Cells, parcel and crack, which no COCO detector knows: boxes we drew ([data/applications.json](data/applications.json)), shown in teal as annotations, never as model output.
 
 Three things are labelled as invented on their slides: a guess box moved 60 px from the dog's (to practise IoU), a
-2 × 2 cost table where greedy matching fails, and a six-row ranked list for the precision–recall walk. The photos are
+2 × 2 cost table where greedy matching fails, and a six-row ranked list for the precision and recall walk. The photos are
 course-owned generated images ([SOURCES.md](SOURCES.md)); the real-world facts in Part 1 cite their sources in the
 speaker notes and in [SOURCES.md](SOURCES.md).
 

@@ -32,7 +32,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## part-1: Part 1 · Why detect objects?
 
-**Build 1:** Why detection matters: six jobs, one kind of answer, three difficulties.
+**Build 1:** Six jobs that need the same kind of answer, and three reasons it is hard to give.
 
 - Ask: Where have you seen a computer draw boxes around things?
 - Expected: Phone cameras (faces), driver-assistance demos, traffic cameras, photo apps that find people or pets.
@@ -191,12 +191,12 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## hard-sizes: Hard, 1: a bus and a distant person in one photo
 
-**Build 1:** One photo, a bus 502 pixels wide.
+**Build 1:** A bus in the foreground of a street photo.
 
 - Ask: How wide is the bus?
 - Expected: 502 pixels.
 
-**Build 2:** And a pedestrian 13 pixels wide, far down the road: 39 times narrower. A classifier sees one main thing; a detector must handle both sizes at once.
+**Build 2:** And a pedestrian far down the same road. A classifier looks for one main thing; a detector must box both, at very different sizes.
 
 - Ask: How much smaller is the pedestrian, and why does it matter?
 - Expected: About 39 times narrower: a feature that sees the whole bus is far too coarse for the pedestrian.
@@ -214,12 +214,12 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: Which animal is missing?
 - Expected: The bird on the branch.
 
-**Build 2:** Zoom in. The bird is 50 × 43 pixels. One cell boxed it almost perfectly, IoU 0.91, but gave “bird” a score of only 0.098, so it was dropped.
+**Build 2:** Zoom in. One cell boxed the bird almost perfectly but was unsure what it was, so the box was dropped.
 
 - Ask: Did the network fail to see the bird at all?
 - Expected: No: it drew a good box (IoU 0.91) but was unsure of the class (0.098).
 
-**Build 3:** That cell’s second guess was “banana” at 0.059. Few pixels, little detail: small objects get low, unsure scores.
+**Build 3:** With so few pixels the network has little detail to go on, so small objects get low, unsure scores.
 
 - Ask: Why would a small object get a low score?
 - Expected: It covers few pixels, so the network has little detail to go on.
@@ -261,7 +261,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## part-2: Part 2 · From one label to a list
 
-**Build 1:** From one label to a list of (class, box) entries.
+**Build 1:** A classifier gives one label for the whole photo; detection needs one entry per object.
 
 - Ask: What does a classifier output for a photo with two animals?
 - Expected: One label (a probability for each class), for the whole photo.
@@ -305,7 +305,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: What four numbers fix the dog’s box?
 - Expected: Its left, top, right and bottom edges: 407, 83, 768, 588.
 
-**Build 3:** Second entry: cat. Two objects, two entries. A photo with five objects gets five.
+**Build 3:** Second entry: cat. Each object gets one entry, so a photo with five objects gets five.
 
 - Ask: How long is the list for this photo?
 - Expected: Two entries if we list only animals; COCO’s classes would add the potted plants.
@@ -405,7 +405,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: What two properties of the answer clash with a fixed output?
 - Expected: Its length varies and it has no order.
 
-**Point here:** CS231n (Stanford, 2016–17) frames detection the same way: one object needs 4 numbers, two need 8, four need 16, so detection needs a variable-sized output.
+**Point here:** CS231n (Stanford, 2016 and 2017) frames detection the same way: one object needs 4 numbers, two need 8, four need 16, so detection needs a variable-sized output.
 
 **Transition:** The route through the rest of the lecture.
 
@@ -436,12 +436,12 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## pixels: Positions in a photo: pixels from the top-left corner
 
-**Build 1:** Every position is a pair of pixel counts from the top-left corner: x to the right, y downwards. This photo is 960 × 640.
+**Build 1:** Positions are counted in pixels from the top-left corner. Unlike on a school graph, y grows downwards.
 
 - Ask: Where is the origin, and which way does y grow?
 - Expected: Top-left; y grows downwards, unlike a school graph.
 
-**Build 2:** The dog’s top-left corner is at (407, 83); its bottom-right corner at (768, 588).
+**Build 2:** Two corners of the dog’s box. The bottom-right one has the larger y, because it is lower in the photo.
 
 - Ask: Which corner has the larger y?
 - Expected: The bottom-right corner: it is lower in the photo.
@@ -577,7 +577,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: How wide is this person?
 - Expected: 18 pixels.
 
-**Build 2:** The same 72-pixel slip misses the person entirely. Fine for the dog, fatal here: compare overlap, not distance.
+**Build 2:** The same 72-pixel slip misses the person entirely. A small error for the dog is a miss here, so compare overlap instead of distance.
 
 - Ask: Why is centre distance a poor score?
 - Expected: It ignores the box’s size: the same distance is small for a large box and fatal for a small one.
@@ -708,7 +708,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## part-4: Part 4 · One box is easy; several are not
 
-**Build 1:** One box is regression; several boxes expose the assignment problem.
+**Build 1:** One box is plain regression. Several boxes raise a new question: which output answers for which object?
 
 - Ask: What could go wrong with two objects and one box output?
 - Expected: The network cannot know which object to describe; it may average them.
@@ -790,7 +790,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: What does a squared-error loss learn when the target flips between two boxes?
 - Expected: The average of the two boxes, the value that minimises the expected squared error.
 
-**Build 3:** The average box has IoU 0.23 with the dog and 0.11 with the cat. A box between two objects describes neither.
+**Build 3:** A box between two objects describes neither of them.
 
 - Ask: Does the average box find either animal?
 - Expected: No: IoU 0.23 and 0.11, both far below 0.5.
@@ -813,7 +813,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: What do unused slots predict?
 - Expected: A “no object” class.
 
-**Build 3:** Problem 1: what if a photo has more objects than K? Then choose K large: DETR (Appendix A) uses K = 100.
+**Build 3:** So choose K larger than any photo needs: DETR (Appendix A) uses K = 100.
 
 - Ask: How do we avoid running out of slots?
 - Expected: Make K bigger than any photo needs, e.g. 100.
@@ -850,12 +850,12 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## two-fixes: Two ways to decide which output answers for which object
 
-**Build 1:** Fix A: give every output a fixed place in the image; whatever is there is its job. Order cannot matter.
+**Build 1:** Fix A gives every output a fixed place in the image, and whatever is there is its job, so order cannot matter.
 
 - Ask: How does fix A remove the order problem?
 - Expected: An output answers for the object at its place; there is nothing to order.
 
-**Build 2:** Fix B: keep free slots, and before each loss match slots to objects at the lowest total cost. Order cannot matter either.
+**Build 2:** Fix B keeps free slots and, before each loss, matches them to objects at the lowest total cost, so order cannot matter either.
 
 - Ask: How does fix B?
 - Expected: The pairing is chosen by cost, not by position in the list.
@@ -864,7 +864,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## recap-4: Part 4 in one slide
 
-**Build 1:** Next: build fix A: a grid of cells, each writing a box and class scores.
+**Build 1:** Next: fix A, a grid of cells, each writing a box and class scores.
 
 - Ask: Why did the same correct prediction cost 100 times more?
 - Expected: Because the loss paired outputs with targets by list position, and the list happened to be in the other order.
@@ -873,7 +873,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## part-5: Part 5 · A candidate at every place
 
-**Build 1:** A grid of cells, each writing a record: targets, loss, decoding.
+**Build 1:** Every cell of a grid writes a record. We work out its target and its loss, then read its box back out.
 
 - Ask: If every place in the image has its own output, which outputs should describe the dog?
 - Expected: The ones at, or near, the dog’s location.
@@ -910,7 +910,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: How many positions are there?
 - Expected: 30 × 20 = 600.
 
-**Build 3:** At each position try 3 sizes and 3 shapes: 5,400 crops per photo, each a full run of the classifier. It works, and it is slow.
+**Build 3:** At each position try 3 sizes and 3 shapes. It works, but every crop is a full run of the classifier, so it is slow.
 
 - Ask: How many classifier runs per photo?
 - Expected: 600 × 3 × 3 = 5,400.
@@ -923,7 +923,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## shared-work: Neighbouring windows see almost the same pixels
 
-**Build 1:** Two neighbouring windows, 224 pixels wide and 32 pixels apart, share 86% of their pixels. Classifying them separately computes most features twice.
+**Build 1:** Classify neighbouring windows separately and most of their features are computed twice.
 
 - Ask: How much do neighbouring windows overlap?
 - Expected: 86%: 192 of every 224 columns.
@@ -962,7 +962,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: Which block of pixels does cell (10, 18) cover?
 - Expected: x from 576 to 608, y from 320 to 352.
 
-**Build 2:** A cell is an address, not a crop: each CNN layer mixes in neighbours, so one cell can describe a box much larger than itself.
+**Build 2:** Each CNN layer mixes in neighbouring positions, so one cell can describe a box much larger than itself.
 
 - Ask: Can a cell describe an object larger than its block?
 - Expected: Yes: its vector is computed from a large region of the photo (its receptive field).
@@ -985,7 +985,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: Why does every class get its own score?
 - Expected: A cell answers 80 yes/no questions: is there a person? a dog? … All can be “no”.
 
-**Build 3:** Part 4’s localiser had an “object?” number. YOLOv8 drops it: 80 independent yes/no scores, all low, already mean “no object”.
+**Build 3:** Part 4’s localiser had an “object?” number. YOLOv8 does without one.
 
 - Ask: How does a cell say “there is nothing here”?
 - Expected: By giving every class a low score.
@@ -1069,12 +1069,12 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## centre-cell: The simplest rule: the cell that holds the centre
 
-**Build 1:** One rule: the cell that contains the box’s centre answers for the object. The dog’s centre (587.5, 335.5) is in cell (10, 18), our cell.
+**Build 1:** One rule: the cell that contains the box’s centre answers for the object. For the dog, that is our cell.
 
 - Ask: Which cell holds the dog’s centre?
 - Expected: (10, 18).
 
-**Build 2:** The cat’s centre is in cell (14, 6). Every object now has exactly one cell, decided by place alone: no slot order to argue about.
+**Build 2:** Every object now has exactly one cell, decided by where it is, so there is no slot order to argue about.
 
 - Ask: Why does this rule solve Part 4’s order problem?
 - Expected: Each object’s cell is fixed by where the object is, not by its position in the annotation list.
@@ -1087,7 +1087,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## which-cells: More cells per object: every cell inside the box?
 
-**Build 1:** One positive cell per object is a weak training signal. But the 165 cells inside the box include cells near its edges that see mostly floor: a noisy target.
+**Build 1:** One positive cell per object is a weak training signal. Using every cell in the box adds edge cells that see mostly floor, a noisy target.
 
 - Ask: How many cells are inside the dog’s box, and why not train them all?
 - Expected: 165; the cells near its edges see mostly floor, so their target is noisy.
@@ -1101,9 +1101,9 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 **Build 1:** The cells within 1.5 cells of the centre: a 3 × 3 block around cell (10, 18).
 
 - Ask: Which cells does centre sampling pick for the dog?
-- Expected: The nine cells in rows 9–11, columns 17–19.
+- Expected: The nine cells in rows 9 to 11, columns 17 to 19.
 
-**Build 2:** Do the same for the cat. 18 cells get an object target; 582 get “no object of any class”.
+**Build 2:** Do the same for the cat. Every other cell learns “no object of any class”.
 
 - Ask: What do all the other cells learn?
 - Expected: To give every class a low score: background.
@@ -1116,7 +1116,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## fires: The trained YOLOv8n: about ten cells fire per object
 
-**Build 1:** Each cell’s dog score from the real network: dark where it is high. A small cluster near the dog’s centre, nothing elsewhere.
+**Build 1:** The real network’s dog score at every cell: a small cluster near the dog’s centre, and nothing elsewhere.
 
 - Ask: Where are the dog scores high?
 - Expected: In a block of cells around the dog’s centre.
@@ -1134,12 +1134,12 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## target-positive: The target at a positive cell, (10, 18)
 
-**Build 1:** A positive cell’s class targets: 1 for dog, 0 for the other 79 classes. Each is the answer to its own yes/no question.
+**Build 1:** A positive cell learns to say yes to “dog” and no to every other class.
 
 - Ask: What are the class targets of a positive dog cell?
 - Expected: 1 for dog, 0 for the other 79.
 
-**Build 2:** Its box target: the four distances we just measured, (185, 253, 176, 252).
+**Build 2:** Its box target is the four distances we just measured. A box much larger than a cell is fine.
 
 - Ask: What is its box target?
 - Expected: (185, 253, 176, 252) pixels.
@@ -1159,12 +1159,12 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## prediction-record: What the network wrote at cell (10, 18)
 
-**Build 1:** The real network’s scores at this cell: dog 0.871 against a target of 1; every other class near its target of 0.
+**Build 1:** The real network’s scores at this cell: dog a little below its target of 1, every other class near its target of 0.
 
 - Ask: How far is each class score from its target?
 - Expected: Dog: 1 − 0.871 = 0.129 too low; the others are near their target 0.
 
-**Build 2:** Its four distances: (184.8, 260.4, 177.6, 252.1) against the target (185, 253, 176, 252). Close; the loss measures how close.
+**Build 2:** The loss turns all these differences, class and box, into one number to reduce.
 
 - Ask: Which distance is furthest off?
 - Expected: The top, t: 7.4 px too large.
@@ -1237,7 +1237,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## loss-background: A background cell: only a class loss, and it is small
 
-**Build 1:** A background cell has only class targets, all 0. Here every score is tiny, so the loss is 0.0038. No box loss: there is no box to learn.
+**Build 1:** A background cell has only class targets, all 0, and no box loss. Every score here is tiny, so its loss is just 0.0038.
 
 - Ask: Why is there no box loss at a background cell?
 - Expected: There is no object, so no box to compare with.
@@ -1251,12 +1251,12 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## loss-total: The loss for the whole photo
 
-**Build 1:** Class loss from every cell; box loss only from positive cells; divide by the number of positives so photos with many objects do not dominate. λ balances the two parts.
+**Build 1:** Class loss from every cell, box loss only from the positives; λ balances the two parts.
 
 - Ask: Which cells contribute class terms? Box terms?
 - Expected: All cells; positives only.
 
-**Build 2:** For our photo: 600 class terms, 18 box terms.
+**Build 2:** Dividing by the number of positives keeps photos with many objects from dominating.
 
 - Ask: What is N_pos here?
 - Expected: 18.
@@ -1298,7 +1298,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: Where is this box?
 - Expected: (407.2, 75.6, 769.6, 588.1): on the dog.
 
-**Build 3:** Its score is its largest class score, 0.871, and its label that class. One cell, one scored box.
+**Build 3:** So each cell gives one box, with a class and a score.
 
 - Ask: Which score does the box get?
 - Expected: The largest of its 80 class scores, 0.871 (dog).
@@ -1343,7 +1343,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## recap-5: Part 5 in one slide
 
-**Build 1:** Next: about ten boxes per object; keep one.
+**Build 1:** Next: each object has about ten boxes; keep one.
 
 - Ask: Why are there about ten boxes per object at test time?
 - Expected: Training made several cells near each object positives; after training, all of them fire.
@@ -1392,7 +1392,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: Why only same-class boxes?
 - Expected: A person on a bicycle overlaps the bicycle; both are real objects.
 
-**Build 4:** Then repeat: the best of what is left is kept, and so on. “Non-maximum suppression”: suppress what is not the local maximum.
+**Build 4:** Then repeat on what is left. Non-maximum suppression removes every box that is not a local maximum.
 
 - Ask: When does the loop stop?
 - Expected: When no boxes are left.
@@ -1418,7 +1418,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: Which boxes are deleted?
 - Expected: All nine: every IoU is above 0.7.
 
-**Build 4:** All above the 0.7 threshold: delete all nine. Nothing left for the dog; one dog box remains.
+**Build 4:** Every IoU is above the 0.7 threshold, so all nine go and one dog box remains.
 
 - Ask: How many dog boxes remain?
 - Expected: One.
@@ -1481,7 +1481,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: What goes wrong at 0?
 - Expected: Real people are deleted for touching a neighbour: 9 boxes.
 
-**Point here:** Typical thresholds are 0.45–0.7. Crowded scenes motivated Soft-NMS (lower the score instead of deleting) and NMS-free detectors such as DETR.
+**Point here:** Typical thresholds are 0.45 to 0.7. Crowded scenes motivated Soft-NMS (lower the score instead of deleting) and NMS-free detectors such as DETR.
 
 **Transition:** One more rule: classes.
 
@@ -1489,17 +1489,17 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## class-aware: Boxes of different classes do not suppress each other
 
-**Build 1:** A cyclist: a person box and a bicycle box. They overlap, IoU 0.339, and both are right.
+**Build 1:** A cyclist: a person box and a bicycle box. They overlap, and both are right.
 
 - Ask: How much do the two boxes overlap?
 - Expected: 0.339
 
-**Build 2:** If NMS ignored classes, with threshold 0.3, the bicycle would be suppressed by the person.
+**Build 2:** If NMS ignored classes, the bicycle would overlap the higher-scoring person by more than 0.3 and be deleted.
 
 - Ask: What would class-agnostic NMS at 0.3 do?
 - Expected: Delete the bicycle.
 
-**Build 3:** Run NMS separately for each class and both are kept. Steps 3 of the recipe said “of the same class” for this reason.
+**Build 3:** Run NMS separately for each class and both are kept. That is why step 3 of the recipe says “of the same class”.
 
 - Ask: What does class-aware NMS do?
 - Expected: Keep both: they are compared only within their own class.
@@ -1571,7 +1571,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## part-7: Part 7 · Small and large objects: three grids
 
-**Build 1:** Three grids, three cell sizes, one record format.
+**Build 1:** YOLOv8 uses three grids with different cell sizes, and every cell writes the same record.
 
 - Ask: What could go wrong for a 13-pixel-wide person on a 32-pixel grid?
 - Expected: It is under half a cell; two such people could share one cell, and one cell must describe both.
@@ -1580,7 +1580,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## sizes: Part 1’s street again, with the 32-pixel grid
 
-**Build 1:** Part 1’s street: a bus 502 px wide, a cyclist 48 px, a pedestrian 13 px far down the road.
+**Build 1:** Part 1’s street again: a bus, a cyclist and a far pedestrian.
 
 - Ask: How many times wider is the bus than the far pedestrian?
 - Expected: About 39 times.
@@ -1637,7 +1637,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## part-8: Part 8 · Measuring a detector
 
-**Build 1:** Right or wrong for each detection, then precision, recall and AP.
+**Build 1:** We judge a detector against annotations, one detection at a time, then summarise.
 
 - Ask: A detector returned 12 boxes for 4 people. Is that good?
 - Expected: It depends: are the 4 people among them, and how confident were the 8 extra boxes?
@@ -1672,17 +1672,17 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## street-eval: Real check: people in the street photo
 
-**Build 1:** Four annotated people (teal). YOLOv8n’s person detections after NMS, down to score 0.01: 12.
+**Build 1:** We keep every person detection down to a score of 0.01, so that the wrong ones show up too.
 
 - Ask: How many annotated people?
 - Expected: Four.
 
-**Build 2:** The four most confident each claim a different person with IoU above 0.9: four true positives.
+**Build 2:** The four most confident boxes each land on a different person.
 
 - Ask: Which detections are true positives?
 - Expected: The top four, each with IoU above 0.9.
 
-**Build 3:** The other 8, scores 0.04 and below, sit on the car’s windscreen, where nobody is: false positives. No person is missed.
+**Build 3:** The rest sit on the car’s windscreen, where nobody is.
 
 - Ask: What are the low-scoring boxes?
 - Expected: False positives on the car: the network half-sees a driver.
@@ -1809,7 +1809,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 **Build 2:** Raising the IoU threshold turns loose boxes into false positives and their objects into misses: AP can only fall.
 
 - Ask: Why average over IoU thresholds?
-- Expected: To reward boxes that are tight, not just roughly right.
+- Expected: To reward tight boxes over boxes that are only roughly right.
 
 **Build 3:** On our eight clean photos: 1.00 at IoU 0.5, 0.94 over the strict thresholds. On COCO, 0.373: real scenes are far harder.
 
@@ -1840,7 +1840,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: State the lecture’s question in one sentence.
 - Expected: How a fixed-size output can describe a variable, unordered set.
 
-**Build 2:** The dense answer. The list’s length is decided after the network, by the score filter and NMS.
+**Build 2:** In the dense answer, the score filter and NMS decide the list’s length, after the network.
 
 - Ask: Where is the number of detections decided?
 - Expected: After the network: the score filter and NMS.
@@ -1851,7 +1851,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## iou-uses: Three uses of IoU, easy to confuse
 
-**Build 1:** Training: pair cells with annotated objects. YOLOv8 ranks cells by how well their boxes fit, by IoU.
+**Build 1:** Training: pair cells with annotated objects. YOLOv8 ranks the cells by how well their boxes fit, measured with IoU.
 
 - Ask: What does IoU pair up in training?
 - Expected: Cells, through their predicted boxes, with annotated objects.
@@ -1861,7 +1861,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: In NMS?
 - Expected: Predictions with predictions.
 
-**Build 3:** Measuring: a detection is right if its IoU with an annotation is at least 0.5. Three pairings, one measure.
+**Build 3:** Measuring: a detection is right if its IoU with an annotation is at least 0.5. All three pairings use the same measure.
 
 - Ask: In evaluation?
 - Expected: Predictions with annotated objects.
@@ -2164,7 +2164,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: What does an unmatched query learn, and why the weight 0.1?
 - Expected: “No object”; 0.1 keeps the ~98 empty queries from dominating.
 
-**Build 3:** q90 named a real plant, but plants are not in this target list: it pays 0.58 for being right. Annotation policy matters.
+**Build 3:** q90 named a real plant, but plants are not in this target list, so it pays 0.58 for being right.
 
 - Ask: Why is q90 penalised?
 - Expected: It found an object the annotation leaves out.
@@ -2198,7 +2198,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: What shape is the cost matrix for 100 queries and N objects?
 - Expected: (100, N).
 
-**Build 2:** At test time there is nothing to match: run the model, keep the queries whose best class beats a threshold. No NMS.
+**Build 2:** At test time there is nothing to match: run the model, keep the queries whose best class beats a threshold. There is no NMS step.
 
 - Ask: What replaces NMS at test time?
 - Expected: A threshold on each query’s class probability.
@@ -2209,7 +2209,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## two-answers: Two answers to one question (optional)
 
-**Build 1:** Side by side. The structural difference is how outputs are assigned to objects in training: by place, several per object; or by matching, one per object.
+**Build 1:** The main difference is how outputs are assigned to objects in training: by place, several per object, or by matching, one per object.
 
 - Ask: Where does each method decide which output answers for which object?
 - Expected: YOLO: by cell position in training; DETR: by Hungarian matching in training.
