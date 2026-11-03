@@ -29,7 +29,9 @@ The appendices are outside the main route: open the deck with `?all`, or read th
 ## How it teaches
 
 One move per click, one running example, real numbers after every equation, a route map opening each part and a
-one-slide recap closing it. Two teachers shaped the rebuild:
+one-slide recap closing it. Slides stay light: the slide never repeats its story line, a slide that makes two moves
+is split in two, and `scripts/density.mjs` keeps every reveal under 100 words and every story line under 30. Two
+teachers shaped the rebuild:
 
 - **Andrew Ng** (Deep Learning Specialization, Course 4, Week 3): localisation as a target vector with "?" for the
   entries that do not count; a classifier for crops, slid over the image; the convolutional form of sliding windows;
@@ -69,6 +71,7 @@ appendices to the presentation; `#slide-id/2` opens a reveal directly.
 ~/base/bin/python scripts/build_notebook.py --run
 python3 scripts/serve.py                         # http://127.0.0.1:8780/, no caching
 node scripts/verify.mjs                          # every reveal rendered and checked -> qa/, manifest.json, speaker-notes.md
+node scripts/density.mjs                         # words per reveal; fails on an overfull slide -> qa/density.json
 ~/base/bin/python scripts/contact_sheets.py --all
 node scripts/export.mjs                          # both PDFs
 ```

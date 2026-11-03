@@ -68,9 +68,9 @@
       "minutes": 0
     }
   ],
-  "coreSlides": 103,
+  "coreSlides": 107,
   "optionalSlides": 23,
-  "totalStates": 288,
+  "totalStates": 293,
   "slides": [
     {
       "id": "title",
@@ -513,6 +513,14 @@
       "optional": false
     },
     {
+      "id": "raw-column",
+      "title": "One column is one cell’s record",
+      "section": "dense",
+      "chapter": "5.2 What each cell writes",
+      "builds": 2,
+      "optional": false
+    },
+    {
       "id": "ltrb",
       "title": "How a cell describes a box: its distances to the four sides",
       "section": "dense",
@@ -530,10 +538,18 @@
     },
     {
       "id": "which-cells",
-      "title": "More cells per object: a block around the centre",
+      "title": "More cells per object: every cell inside the box?",
       "section": "dense",
       "chapter": "5.3 Which cells answer for an object",
-      "builds": 3,
+      "builds": 1,
+      "optional": false
+    },
+    {
+      "id": "centre-block",
+      "title": "A middle way: a block of cells around the centre",
+      "section": "dense",
+      "chapter": "5.3 Which cells answer for an object",
+      "builds": 2,
       "optional": false
     },
     {
@@ -773,7 +789,7 @@
       "title": "Three grids: cells of 8, 16 and 32 pixels",
       "section": "scales",
       "chapter": "7.1 Three grids",
-      "builds": 3,
+      "builds": 2,
       "optional": false
     },
     {
@@ -874,7 +890,15 @@
     },
     {
       "id": "summary",
-      "title": "One question, one answer, three uses of IoU",
+      "title": "One question, one answer",
+      "section": "wrap",
+      "chapter": "9.1 Summary",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "iou-uses",
+      "title": "Three uses of IoU, easy to confuse",
       "section": "wrap",
       "chapter": "9.1 Summary",
       "builds": 3,
@@ -882,7 +906,15 @@
     },
     {
       "id": "apps-again",
-      "title": "Back to the six jobs: what you would do now",
+      "title": "Back to the six jobs: the three everyday ones",
+      "section": "wrap",
+      "chapter": "9.1 Summary",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "apps-new",
+      "title": "Back to the six jobs: the three new ones",
       "section": "wrap",
       "chapter": "9.1 Summary",
       "builds": 2,
