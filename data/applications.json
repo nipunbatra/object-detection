@@ -1,0 +1,14 @@
+{
+ "about": "Boxes for the three application photos whose objects have no COCO class, so no detector in this lecture can find them. Cells: a colour threshold against the slide's background and connected components, with the one touching pair split by eye. Parcel: a colour threshold on the cardboard, checked by eye. Crack: drawn by eye on a 5x zoom of the arm. These are annotations, the kind of list a detector for these classes would be trained on, not model outputs.",
+ "classes": ["cell", "parcel", "crack"],
+ "photos": {
+  "cells": [
+   ["cell", [34, 17, 167, 156]], ["cell", [429, 33, 555, 158]], ["cell", [826, 49, 968, 187]],
+   ["cell", [350, 184, 481, 318]], ["cell", [428, 231, 555, 363]], ["cell", [1106, 220, 1250, 362]],
+   ["cell", [711, 240, 844, 375]], ["cell", [104, 254, 239, 390]], ["cell", [778, 460, 906, 617]],
+   ["cell", [79, 463, 215, 599]], ["cell", [387, 477, 530, 627]], ["cell", [1050, 487, 1184, 630]]
+  ],
+  "parcel": [["parcel", [441, 190, 927, 505]]],
+  "defect": [["crack", [578, 142, 668, 214]]]
+ }
+}

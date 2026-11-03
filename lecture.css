@@ -37,10 +37,18 @@
 .qstrip{display:grid;grid-template-columns:repeat(20,1fr);gap:4px}
 .qstrip span{aspect-ratio:1;border-radius:3px;background:#E5E7EB;font-size:11px;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:650;min-width:0;overflow:hidden}
 .mono{overflow-wrap:anywhere}
+.yvec{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;font-size:26px;font-variant-numeric:tabular-nums}
+.yvec>div{border:2px solid var(--line);border-radius:8px;padding:6px 12px 8px;background:#fff;text-align:center;min-width:70px}
+.yvec>div small{display:block;font-size:17px;color:var(--muted);margin-bottom:2px;font-weight:600}
+.yvec .t{border-color:#0F766E88}.yvec .q{border-color:#AAB3BC;color:var(--muted)}
+.yvec .gap{margin-left:14px}
+.steps.route li{margin:8px 0}
+.crops .photo-fig svg{max-height:300px}
+.two-two{display:grid;grid-template-columns:1fr 1fr;gap:14px 26px}
 .reading .w-panel table{min-width:0}
 .w-panel{font-size:21px;line-height:1.45;color:var(--ink)}
 .w-panel .muted{font-size:18px}
 .widget svg{touch-action:none}
 .widget .photo-fig svg{max-height:350px}
 .w-hint{font-size:17px;color:var(--muted)}
-@media(max-width:760px){.reading .qstrip{gap:2px}.reading .qstrip span{font-size:8px}.reading .cover{grid-template-columns:1fr}.reading .cover h1{font-size:34px}.reading .three,.reading .four{grid-template-columns:1fr 1fr}.reading .compare{grid-template-columns:1fr}.reading .record{font-size:19px}.reading .kv{font-size:19px}.reading .steps{font-size:20px}.reading .big-number{font-size:44px}.reading .photo-fig svg{max-height:none}}
+@media(max-width:760px){.reading .qstrip{gap:2px}.reading .qstrip span{font-size:8px}.reading .cover{grid-template-columns:1fr}.reading .cover h1{font-size:34px}.reading .three,.reading .four{grid-template-columns:1fr 1fr}.reading .two-two{grid-template-columns:1fr}.reading .compare{grid-template-columns:1fr}.reading .record{font-size:19px}.reading .kv{font-size:19px}.reading .steps{font-size:20px}.reading .big-number{font-size:44px}.reading .photo-fig svg{max-height:none}.reading .yvec{font-size:19px;gap:5px}.reading .yvec>div{min-width:44px;padding:4px 6px}.reading .yvec .gap{margin-left:6px}}

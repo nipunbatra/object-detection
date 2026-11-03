@@ -4,68 +4,73 @@
   "title": "Object detection",
   "series": "ES 667 Deep Learning",
   "subtitle": "From one label to a set of objects",
-  "minutes": 100,
+  "minutes": 110,
   "notebook": "object-detection.ipynb",
   "sections": [
     {
       "id": "map",
       "title": "Lecture map",
-      "minutes": 2
+      "minutes": 1
+    },
+    {
+      "id": "why",
+      "title": "Part 1 · Why detect objects?",
+      "minutes": 12
     },
     {
       "id": "task",
-      "title": "Part 1 · From one label to a list",
+      "title": "Part 2 · From one label to a list",
       "minutes": 9
     },
     {
       "id": "boxes",
-      "title": "Part 2 · Boxes and IoU",
-      "minutes": 13
+      "title": "Part 3 · Boxes and IoU",
+      "minutes": 14
     },
     {
       "id": "onebox",
-      "title": "Part 3 · One box, then many",
-      "minutes": 8
+      "title": "Part 4 · One box, then many",
+      "minutes": 10
     },
     {
       "id": "dense",
-      "title": "Part 4 · A candidate at every place",
-      "minutes": 20
+      "title": "Part 5 · A candidate at every place",
+      "minutes": 26
     },
     {
       "id": "nms",
-      "title": "Part 5 · One box per object: NMS",
-      "minutes": 11
+      "title": "Part 6 · One box per object: NMS",
+      "minutes": 13
     },
     {
       "id": "scales",
-      "title": "Part 6 · Three grids for three sizes",
-      "minutes": 5
-    },
-    {
-      "id": "detr",
-      "title": "Part 7 · DETR: slots matched to objects",
-      "minutes": 17
+      "title": "Part 7 · Three grids for three sizes",
+      "minutes": 6
     },
     {
       "id": "eval",
       "title": "Part 8 · Measuring a detector",
-      "minutes": 12
+      "minutes": 14
     },
     {
       "id": "wrap",
       "title": "Wrap-up",
-      "minutes": 3
+      "minutes": 5
+    },
+    {
+      "id": "detr",
+      "title": "Appendix A · DETR: slots matched to objects",
+      "minutes": 0
     },
     {
       "id": "optional",
-      "title": "Optional depth",
+      "title": "Appendix B · More depth",
       "minutes": 0
     }
   ],
-  "coreSlides": 85,
-  "optionalSlides": 7,
-  "totalStates": 233,
+  "coreSlides": 103,
+  "optionalSlides": 23,
+  "totalStates": 288,
   "slides": [
     {
       "id": "title",
@@ -76,10 +81,122 @@
       "optional": false
     },
     {
+      "id": "part-1",
+      "title": "Part 1 · Why detect objects?",
+      "section": "why",
+      "chapter": "",
+      "builds": 1,
+      "optional": false
+    },
+    {
+      "id": "app-road",
+      "title": "On the road: who is where?",
+      "section": "why",
+      "chapter": "1.1 Where detectors work",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "app-crowd",
+      "title": "In a crowd: how many people?",
+      "section": "why",
+      "chapter": "1.1 Where detectors work",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "app-wild",
+      "title": "At a camera trap: which animals walked past?",
+      "section": "why",
+      "chapter": "1.1 Where detectors work",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "app-cells",
+      "title": "Under a microscope: count the cells",
+      "section": "why",
+      "chapter": "1.1 Where detectors work",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "app-parcel",
+      "title": "In a warehouse: where is the parcel?",
+      "section": "why",
+      "chapter": "1.1 Where detectors work",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "app-crack",
+      "title": "On a production line: is anything wrong?",
+      "section": "why",
+      "chapter": "1.1 Where detectors work",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "apps-common",
+      "title": "Six jobs, one kind of answer",
+      "section": "why",
+      "chapter": "1.2 One output for all of them",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "list-uses",
+      "title": "What the list is used for",
+      "section": "why",
+      "chapter": "1.2 One output for all of them",
+      "builds": 4,
+      "optional": false
+    },
+    {
+      "id": "hard-sizes",
+      "title": "Hard, 1: a bus and a distant person in one photo",
+      "section": "why",
+      "chapter": "1.3 What makes it hard",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "hard-small",
+      "title": "Hard, 2: small objects are easy to miss",
+      "section": "why",
+      "chapter": "1.3 What makes it hard",
+      "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "hard-overlap",
+      "title": "Hard, 3: objects overlap",
+      "section": "why",
+      "chapter": "1.3 What makes it hard",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "recap-1",
+      "title": "Part 1 in one slide",
+      "section": "why",
+      "chapter": "1.3 What makes it hard",
+      "builds": 1,
+      "optional": false
+    },
+    {
+      "id": "part-2",
+      "title": "Part 2 · From one label to a list",
+      "section": "task",
+      "chapter": "",
+      "builds": 1,
+      "optional": false
+    },
+    {
       "id": "one-label",
       "title": "What is in this photo?",
       "section": "task",
-      "chapter": "1.1 A label or a list?",
+      "chapter": "2.1 A label or a list?",
       "builds": 3,
       "optional": false
     },
@@ -87,7 +204,7 @@
       "id": "want",
       "title": "What we want: a list, one entry per object",
       "section": "task",
-      "chapter": "1.1 A label or a list?",
+      "chapter": "2.1 A label or a list?",
       "builds": 3,
       "optional": false
     },
@@ -95,23 +212,15 @@
       "id": "ladder",
       "title": "Four tasks, four kinds of answer",
       "section": "task",
-      "chapter": "1.1 A label or a list?",
+      "chapter": "2.1 A label or a list?",
       "builds": 4,
-      "optional": false
-    },
-    {
-      "id": "uses",
-      "title": "A street in one glance: seven objects, four classes",
-      "section": "task",
-      "chapter": "1.1 A label or a list?",
-      "builds": 2,
       "optional": false
     },
     {
       "id": "how-many",
       "title": "The number of objects changes from photo to photo",
       "section": "task",
-      "chapter": "1.2 What makes it hard",
+      "chapter": "2.2 Why a list is awkward",
       "builds": 4,
       "optional": false
     },
@@ -119,7 +228,7 @@
       "id": "no-order",
       "title": "A list with no order: a set",
       "section": "task",
-      "chapter": "1.2 What makes it hard",
+      "chapter": "2.2 Why a list is awkward",
       "builds": 2,
       "optional": false
     },
@@ -127,21 +236,21 @@
       "id": "fixed-shape",
       "title": "A network’s output has a fixed shape",
       "section": "task",
-      "chapter": "1.2 What makes it hard",
+      "chapter": "2.2 Why a list is awkward",
       "builds": 3,
       "optional": false
     },
     {
       "id": "route",
-      "title": "Today’s route: two answers to one question",
+      "title": "Today’s route: build a detector step by step",
       "section": "task",
-      "chapter": "1.2 What makes it hard",
-      "builds": 3,
+      "chapter": "2.2 Why a list is awkward",
+      "builds": 2,
       "optional": false
     },
     {
-      "id": "part-2",
-      "title": "Part 2 · Describe a box, compare two boxes",
+      "id": "part-3",
+      "title": "Part 3 · Describe a box, compare two boxes",
       "section": "boxes",
       "chapter": "",
       "builds": 1,
@@ -151,7 +260,7 @@
       "id": "pixels",
       "title": "Positions in a photo: pixels from the top-left corner",
       "section": "boxes",
-      "chapter": "2.1 Four numbers for a box",
+      "chapter": "3.1 Four numbers for a box",
       "builds": 2,
       "optional": false
     },
@@ -159,39 +268,63 @@
       "id": "corners",
       "title": "A box is four numbers: its left, top, right and bottom edges",
       "section": "boxes",
-      "chapter": "2.1 Four numbers for a box",
+      "chapter": "3.1 Four numbers for a box",
       "builds": 5,
       "optional": false
     },
     {
-      "id": "centre-size",
+      "id": "width-height",
+      "title": "The box’s size: width and height",
+      "section": "boxes",
+      "chapter": "3.1 Four numbers for a box",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "centre",
       "title": "The same box as a centre and a size",
       "section": "boxes",
-      "chapter": "2.1 Four numbers for a box",
-      "builds": 4,
+      "chapter": "3.1 Four numbers for a box",
+      "builds": 2,
       "optional": false
     },
     {
       "id": "normalised",
       "title": "Divide by the photo’s size: numbers between 0 and 1",
       "section": "boxes",
-      "chapter": "2.1 Four numbers for a box",
+      "chapter": "3.1 Four numbers for a box",
       "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "label-file",
+      "title": "A labelled photo on disk: one line per object",
+      "section": "boxes",
+      "chapter": "3.1 Four numbers for a box",
+      "builds": 2,
       "optional": false
     },
     {
       "id": "compare",
       "title": "Two boxes for one dog: how well do they agree?",
       "section": "boxes",
-      "chapter": "2.2 Comparing two boxes: IoU",
-      "builds": 3,
+      "chapter": "3.2 Comparing two boxes: IoU",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "compare-small",
+      "title": "The same slip on a small object",
+      "section": "boxes",
+      "chapter": "3.2 Comparing two boxes: IoU",
+      "builds": 2,
       "optional": false
     },
     {
       "id": "iou-def",
       "title": "Intersection over union (IoU)",
       "section": "boxes",
-      "chapter": "2.2 Comparing two boxes: IoU",
+      "chapter": "3.2 Comparing two boxes: IoU",
       "builds": 3,
       "optional": false
     },
@@ -199,7 +332,7 @@
       "id": "iou-overlap",
       "title": "IoU, step 1: the overlap rectangle",
       "section": "boxes",
-      "chapter": "2.2 Comparing two boxes: IoU",
+      "chapter": "3.2 Comparing two boxes: IoU",
       "builds": 4,
       "optional": false
     },
@@ -207,7 +340,7 @@
       "id": "iou-union",
       "title": "IoU, step 2: the union, then the ratio",
       "section": "boxes",
-      "chapter": "2.2 Comparing two boxes: IoU",
+      "chapter": "3.2 Comparing two boxes: IoU",
       "builds": 3,
       "optional": false
     },
@@ -215,7 +348,7 @@
       "id": "iou-feel",
       "title": "What IoU values look like",
       "section": "boxes",
-      "chapter": "2.2 Comparing two boxes: IoU",
+      "chapter": "3.2 Comparing two boxes: IoU",
       "builds": 2,
       "optional": false
     },
@@ -223,7 +356,7 @@
       "id": "iou-play",
       "title": "Try it: drag a box over the dog",
       "section": "boxes",
-      "chapter": "2.2 Comparing two boxes: IoU",
+      "chapter": "3.2 Comparing two boxes: IoU",
       "builds": 1,
       "optional": false
     },
@@ -231,13 +364,21 @@
       "id": "iou-code",
       "title": "IoU in code: every pair at once",
       "section": "boxes",
-      "chapter": "2.2 Comparing two boxes: IoU",
+      "chapter": "3.2 Comparing two boxes: IoU",
       "builds": 2,
       "optional": false
     },
     {
-      "id": "part-3",
-      "title": "Part 3 · One box is easy; several are not",
+      "id": "recap-3",
+      "title": "Part 3 in one slide",
+      "section": "boxes",
+      "chapter": "3.2 Comparing two boxes: IoU",
+      "builds": 1,
+      "optional": false
+    },
+    {
+      "id": "part-4",
+      "title": "Part 4 · One box is easy; several are not",
       "section": "onebox",
       "chapter": "",
       "builds": 1,
@@ -247,7 +388,15 @@
       "id": "one-object",
       "title": "One object: a box head beside the class head",
       "section": "onebox",
-      "chapter": "3.1 One box head",
+      "chapter": "4.1 One object, one box",
+      "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "target-y",
+      "title": "Write the answer as numbers: the target for one photo",
+      "section": "onebox",
+      "chapter": "4.1 One object, one box",
       "builds": 3,
       "optional": false
     },
@@ -255,7 +404,7 @@
       "id": "box-loss",
       "title": "Training the box head: compare four numbers",
       "section": "onebox",
-      "chapter": "3.1 One box head",
+      "chapter": "4.1 One object, one box",
       "builds": 3,
       "optional": false
     },
@@ -263,7 +412,7 @@
       "id": "two-objects",
       "title": "Two animals, one box: which one should it draw?",
       "section": "onebox",
-      "chapter": "3.1 One box head",
+      "chapter": "4.1 One object, one box",
       "builds": 3,
       "optional": false
     },
@@ -271,7 +420,7 @@
       "id": "k-slots",
       "title": "Give the head K slots",
       "section": "onebox",
-      "chapter": "3.2 Several objects, several slots",
+      "chapter": "4.2 Several objects, several slots",
       "builds": 3,
       "optional": false
     },
@@ -279,7 +428,7 @@
       "id": "slot-order",
       "title": "Problem 2: which dog belongs in slot 1?",
       "section": "onebox",
-      "chapter": "3.2 Several objects, several slots",
+      "chapter": "4.2 Several objects, several slots",
       "builds": 4,
       "optional": false
     },
@@ -287,55 +436,103 @@
       "id": "two-fixes",
       "title": "Two ways to decide which output answers for which object",
       "section": "onebox",
-      "chapter": "3.2 Several objects, several slots",
+      "chapter": "4.2 Several objects, several slots",
       "builds": 2,
       "optional": false
     },
     {
-      "id": "part-4",
-      "title": "Part 4 · A candidate at every place",
+      "id": "recap-4",
+      "title": "Part 4 in one slide",
+      "section": "onebox",
+      "chapter": "4.2 Several objects, several slots",
+      "builds": 1,
+      "optional": false
+    },
+    {
+      "id": "part-5",
+      "title": "Part 5 · A candidate at every place",
       "section": "dense",
       "chapter": "",
       "builds": 1,
       "optional": false
     },
     {
-      "id": "sliding",
-      "title": "The brute-force idea: classify every window",
+      "id": "crop-classifier",
+      "title": "Start from a tool we have: a classifier for crops",
       "section": "dense",
-      "chapter": "4.1 A grid of cells",
+      "chapter": "5.1 From sliding windows to one pass",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "sliding",
+      "title": "Slide the classifier over the photo",
+      "section": "dense",
+      "chapter": "5.1 From sliding windows to one pass",
       "builds": 3,
       "optional": false
     },
     {
-      "id": "feature-map",
+      "id": "shared-work",
+      "title": "Neighbouring windows see almost the same pixels",
+      "section": "dense",
+      "chapter": "5.1 From sliding windows to one pass",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "one-pass",
       "title": "One pass of a CNN: a 30 × 20 grid of feature vectors",
       "section": "dense",
-      "chapter": "4.1 A grid of cells",
-      "builds": 3,
+      "chapter": "5.1 From sliding windows to one pass",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "cell-window",
+      "title": "One cell: an address on the photo, with a wide view",
+      "section": "dense",
+      "chapter": "5.1 From sliding windows to one pass",
+      "builds": 2,
       "optional": false
     },
     {
       "id": "cell-record",
       "title": "Every cell writes a record: 4 box numbers, 80 class scores",
       "section": "dense",
-      "chapter": "4.1 A grid of cells",
+      "chapter": "5.2 What each cell writes",
       "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "raw-output",
+      "title": "What actually comes out: one tensor of fixed shape",
+      "section": "dense",
+      "chapter": "5.2 What each cell writes",
+      "builds": 2,
       "optional": false
     },
     {
       "id": "ltrb",
       "title": "How a cell describes a box: its distances to the four sides",
       "section": "dense",
-      "chapter": "4.1 A grid of cells",
+      "chapter": "5.2 What each cell writes",
       "builds": 5,
       "optional": false
     },
     {
-      "id": "which-cells",
-      "title": "Which cells should answer for the dog?",
+      "id": "centre-cell",
+      "title": "The simplest rule: the cell that holds the centre",
       "section": "dense",
-      "chapter": "4.2 Targets",
+      "chapter": "5.3 Which cells answer for an object",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "which-cells",
+      "title": "More cells per object: a block around the centre",
+      "section": "dense",
+      "chapter": "5.3 Which cells answer for an object",
       "builds": 3,
       "optional": false
     },
@@ -343,47 +540,71 @@
       "id": "fires",
       "title": "The trained YOLOv8n: about ten cells fire per object",
       "section": "dense",
-      "chapter": "4.2 Targets",
+      "chapter": "5.3 Which cells answer for an object",
       "builds": 2,
       "optional": false
     },
     {
-      "id": "target-record",
-      "title": "The target written at cell (10, 18)",
+      "id": "target-positive",
+      "title": "The target at a positive cell, (10, 18)",
       "section": "dense",
-      "chapter": "4.2 Targets",
-      "builds": 3,
+      "chapter": "5.3 Which cells answer for an object",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "target-background",
+      "title": "The target at a background cell: all zeros, and “?”",
+      "section": "dense",
+      "chapter": "5.3 Which cells answer for an object",
+      "builds": 1,
       "optional": false
     },
     {
       "id": "prediction-record",
       "title": "What the network wrote at cell (10, 18)",
       "section": "dense",
-      "chapter": "4.2 Targets",
+      "chapter": "5.3 Which cells answer for an object",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "bce",
+      "title": "Scoring one yes/no answer: binary cross-entropy",
+      "section": "dense",
+      "chapter": "5.4 The loss",
       "builds": 2,
       "optional": false
     },
     {
       "id": "loss-class",
-      "title": "Class loss: one yes/no question per class",
+      "title": "Class loss at cell (10, 18): 80 yes/no questions",
       "section": "dense",
-      "chapter": "4.3 The loss",
-      "builds": 4,
+      "chapter": "5.4 The loss",
+      "builds": 3,
       "optional": false
     },
     {
       "id": "loss-box",
       "title": "Box loss: how far off are the four distances?",
       "section": "dense",
-      "chapter": "4.3 The loss",
-      "builds": 3,
+      "chapter": "5.4 The loss",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "loss-iou",
+      "title": "A box loss that does not care about size: 1 − IoU",
+      "section": "dense",
+      "chapter": "5.4 The loss",
+      "builds": 1,
       "optional": false
     },
     {
       "id": "loss-background",
       "title": "A background cell: only a class loss, and it is small",
       "section": "dense",
-      "chapter": "4.3 The loss",
+      "chapter": "5.4 The loss",
       "builds": 2,
       "optional": false
     },
@@ -391,7 +612,7 @@
       "id": "loss-total",
       "title": "The loss for the whole photo",
       "section": "dense",
-      "chapter": "4.3 The loss",
+      "chapter": "5.4 The loss",
       "builds": 3,
       "optional": false
     },
@@ -399,7 +620,7 @@
       "id": "loss-code",
       "title": "The same loss in code",
       "section": "dense",
-      "chapter": "4.3 The loss",
+      "chapter": "5.4 The loss",
       "builds": 2,
       "optional": false
     },
@@ -407,7 +628,7 @@
       "id": "decode",
       "title": "At test time: read the box back out of the cell",
       "section": "dense",
-      "chapter": "4.4 Reading boxes back out",
+      "chapter": "5.5 Reading boxes back out",
       "builds": 3,
       "optional": false
     },
@@ -415,7 +636,7 @@
       "id": "cell-inspector",
       "title": "Every cell writes a record: point at one",
       "section": "dense",
-      "chapter": "4.4 Reading boxes back out",
+      "chapter": "5.5 Reading boxes back out",
       "builds": 1,
       "optional": false
     },
@@ -423,13 +644,21 @@
       "id": "all-candidates",
       "title": "Decode every cell, keep scores ≥ 0.25: 31 boxes",
       "section": "dense",
-      "chapter": "4.4 Reading boxes back out",
+      "chapter": "5.5 Reading boxes back out",
       "builds": 3,
       "optional": false
     },
     {
-      "id": "part-5",
-      "title": "Part 5 · One box per object: non-maximum suppression",
+      "id": "recap-5",
+      "title": "Part 5 in one slide",
+      "section": "dense",
+      "chapter": "5.5 Reading boxes back out",
+      "builds": 1,
+      "optional": false
+    },
+    {
+      "id": "part-6",
+      "title": "Part 6 · One box per object: non-maximum suppression",
       "section": "nms",
       "chapter": "",
       "builds": 1,
@@ -439,7 +668,7 @@
       "id": "dupes",
       "title": "Ten boxes for one dog",
       "section": "nms",
-      "chapter": "5.1 Non-maximum suppression",
+      "chapter": "6.1 Non-maximum suppression",
       "builds": 2,
       "optional": false
     },
@@ -447,7 +676,7 @@
       "id": "nms-recipe",
       "title": "Non-maximum suppression: the greedy recipe",
       "section": "nms",
-      "chapter": "5.1 Non-maximum suppression",
+      "chapter": "6.1 Non-maximum suppression",
       "builds": 4,
       "optional": false
     },
@@ -455,15 +684,23 @@
       "id": "nms-dog",
       "title": "NMS on the dog’s ten boxes",
       "section": "nms",
-      "chapter": "5.1 Non-maximum suppression",
+      "chapter": "6.1 Non-maximum suppression",
       "builds": 4,
+      "optional": false
+    },
+    {
+      "id": "nms-two-dogs",
+      "title": "Two dogs: why the loop keeps the second one",
+      "section": "nms",
+      "chapter": "6.1 Non-maximum suppression",
+      "builds": 3,
       "optional": false
     },
     {
       "id": "nms-all",
       "title": "All 31 boxes → 4 detections",
       "section": "nms",
-      "chapter": "5.1 Non-maximum suppression",
+      "chapter": "6.1 Non-maximum suppression",
       "builds": 2,
       "optional": false
     },
@@ -471,7 +708,7 @@
       "id": "nms-threshold",
       "title": "The IoU threshold is a trade-off",
       "section": "nms",
-      "chapter": "5.2 Thresholds and classes",
+      "chapter": "6.2 Thresholds and classes",
       "builds": 3,
       "optional": false
     },
@@ -479,7 +716,7 @@
       "id": "class-aware",
       "title": "Boxes of different classes do not suppress each other",
       "section": "nms",
-      "chapter": "5.2 Thresholds and classes",
+      "chapter": "6.2 Thresholds and classes",
       "builds": 3,
       "optional": false
     },
@@ -487,7 +724,7 @@
       "id": "nms-play",
       "title": "Try it: thresholds on the street photo",
       "section": "nms",
-      "chapter": "5.2 Thresholds and classes",
+      "chapter": "6.2 Thresholds and classes",
       "builds": 1,
       "optional": false
     },
@@ -495,7 +732,7 @@
       "id": "nms-code",
       "title": "NMS in code",
       "section": "nms",
-      "chapter": "5.2 Thresholds and classes",
+      "chapter": "6.2 Thresholds and classes",
       "builds": 2,
       "optional": false
     },
@@ -503,13 +740,21 @@
       "id": "dense-recap",
       "title": "The dense answer, end to end",
       "section": "nms",
-      "chapter": "5.2 Thresholds and classes",
+      "chapter": "6.2 Thresholds and classes",
       "builds": 2,
       "optional": false
     },
     {
-      "id": "part-6",
-      "title": "Part 6 · Small and large objects: three grids",
+      "id": "detect-code",
+      "title": "The whole detector at test time, in eight lines",
+      "section": "nms",
+      "chapter": "6.2 Thresholds and classes",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "part-7",
+      "title": "Part 7 · Small and large objects: three grids",
       "section": "scales",
       "chapter": "",
       "builds": 1,
@@ -517,9 +762,9 @@
     },
     {
       "id": "sizes",
-      "title": "One photo, very different sizes",
+      "title": "Part 1’s street again, with the 32-pixel grid",
       "section": "scales",
-      "chapter": "6.1 Three grids",
+      "chapter": "7.1 Three grids",
       "builds": 2,
       "optional": false
     },
@@ -527,7 +772,7 @@
       "id": "three-grids",
       "title": "Three grids: cells of 8, 16 and 32 pixels",
       "section": "scales",
-      "chapter": "6.1 Three grids",
+      "chapter": "7.1 Three grids",
       "builds": 3,
       "optional": false
     },
@@ -535,136 +780,16 @@
       "id": "which-grid",
       "title": "Which grid found each object? The real answer",
       "section": "scales",
-      "chapter": "6.1 Three grids",
+      "chapter": "7.1 Three grids",
       "builds": 2,
       "optional": false
     },
     {
-      "id": "part-7",
-      "title": "Part 7 · DETR: a fixed set of slots, matched to objects",
-      "section": "detr",
-      "chapter": "",
+      "id": "recap-7",
+      "title": "Part 7 in one slide",
+      "section": "scales",
+      "chapter": "7.1 Three grids",
       "builds": 1,
-      "optional": false
-    },
-    {
-      "id": "slots-again",
-      "title": "Back to the slots, with three changes",
-      "section": "detr",
-      "chapter": "7.1 Slots that read the image",
-      "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "detr-pipeline",
-      "title": "DETR, from photo to 100 predictions",
-      "section": "detr",
-      "chapter": "7.1 Slots that read the image",
-      "builds": 4,
-      "optional": false
-    },
-    {
-      "id": "queries",
-      "title": "A query is learned once and reused for every photo",
-      "section": "detr",
-      "chapter": "7.1 Slots that read the image",
-      "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "detr-output",
-      "title": "DETR on the courtyard: 100 slots, most of them empty",
-      "section": "detr",
-      "chapter": "7.1 Slots that read the image",
-      "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "detr-attention",
-      "title": "Where two queries looked",
-      "section": "detr",
-      "chapter": "7.1 Slots that read the image",
-      "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "detr-layers",
-      "title": "Duplicates disappear inside the decoder",
-      "section": "detr",
-      "chapter": "7.1 Slots that read the image",
-      "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "match-why",
-      "title": "Training: which prediction should learn which dog?",
-      "section": "detr",
-      "chapter": "7.2 Matching slots to objects",
-      "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "giou",
-      "title": "One more measure: generalised IoU",
-      "section": "detr",
-      "chapter": "7.2 Matching slots to objects",
-      "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "cost-one",
-      "title": "The cost of one pairing: query 61 and the left dog",
-      "section": "detr",
-      "chapter": "7.2 Matching slots to objects",
-      "builds": 4,
-      "optional": false
-    },
-    {
-      "id": "cost-matrix",
-      "title": "Fill the table: the cost of every pairing",
-      "section": "detr",
-      "chapter": "7.2 Matching slots to objects",
-      "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "greedy",
-      "title": "Why not let each object grab its cheapest slot?",
-      "section": "detr",
-      "chapter": "7.2 Matching slots to objects",
-      "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "match-loss",
-      "title": "After matching: the loss",
-      "section": "detr",
-      "chapter": "7.2 Matching slots to objects",
-      "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "why-no-nms",
-      "title": "Why DETR needs no NMS",
-      "section": "detr",
-      "chapter": "7.3 Two answers",
-      "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "detr-code",
-      "title": "DETR in code: matching, then inference",
-      "section": "detr",
-      "chapter": "7.3 Two answers",
-      "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "two-answers",
-      "title": "Two answers to one question",
-      "section": "detr",
-      "chapter": "7.3 Two answers",
-      "builds": 2,
       "optional": false
     },
     {
@@ -692,11 +817,27 @@
       "optional": false
     },
     {
-      "id": "precision-recall",
-      "title": "Precision and recall",
+      "id": "pr-def",
+      "title": "Precision and recall: two questions",
       "section": "eval",
       "chapter": "8.2 Precision, recall, AP",
-      "builds": 3,
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "pr-street",
+      "title": "The street’s people at two score cut-offs",
+      "section": "eval",
+      "chapter": "8.2 Precision, recall, AP",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "bird-threshold",
+      "title": "Back to the bird: a lower cut-off finds it",
+      "section": "eval",
+      "chapter": "8.2 Precision, recall, AP",
+      "builds": 2,
       "optional": false
     },
     {
@@ -733,10 +874,18 @@
     },
     {
       "id": "summary",
-      "title": "One question, two answers, three matchings",
+      "title": "One question, one answer, three uses of IoU",
       "section": "wrap",
       "chapter": "9.1 Summary",
       "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "apps-again",
+      "title": "Back to the six jobs: what you would do now",
+      "section": "wrap",
+      "chapter": "9.1 Summary",
+      "builds": 2,
       "optional": false
     },
     {
@@ -746,6 +895,134 @@
       "chapter": "9.1 Summary",
       "builds": 1,
       "optional": false
+    },
+    {
+      "id": "part-A",
+      "title": "Appendix A · DETR: a fixed set of slots, matched to objects",
+      "section": "detr",
+      "chapter": "",
+      "builds": 1,
+      "optional": true
+    },
+    {
+      "id": "slots-again",
+      "title": "Back to the slots, with three changes",
+      "section": "detr",
+      "chapter": "A.1 Slots that read the image",
+      "builds": 3,
+      "optional": true
+    },
+    {
+      "id": "detr-pipeline",
+      "title": "DETR, from photo to 100 predictions",
+      "section": "detr",
+      "chapter": "A.1 Slots that read the image",
+      "builds": 4,
+      "optional": true
+    },
+    {
+      "id": "queries",
+      "title": "A query is learned once and reused for every photo",
+      "section": "detr",
+      "chapter": "A.1 Slots that read the image",
+      "builds": 2,
+      "optional": true
+    },
+    {
+      "id": "detr-output",
+      "title": "DETR on the courtyard: 100 slots, most of them empty",
+      "section": "detr",
+      "chapter": "A.1 Slots that read the image",
+      "builds": 3,
+      "optional": true
+    },
+    {
+      "id": "detr-attention",
+      "title": "Where two queries looked",
+      "section": "detr",
+      "chapter": "A.1 Slots that read the image",
+      "builds": 2,
+      "optional": true
+    },
+    {
+      "id": "detr-layers",
+      "title": "Duplicates disappear inside the decoder",
+      "section": "detr",
+      "chapter": "A.1 Slots that read the image",
+      "builds": 3,
+      "optional": true
+    },
+    {
+      "id": "match-why",
+      "title": "Training: which prediction should learn which dog?",
+      "section": "detr",
+      "chapter": "A.2 Matching slots to objects",
+      "builds": 2,
+      "optional": true
+    },
+    {
+      "id": "giou",
+      "title": "One more measure: generalised IoU",
+      "section": "detr",
+      "chapter": "A.2 Matching slots to objects",
+      "builds": 3,
+      "optional": true
+    },
+    {
+      "id": "cost-one",
+      "title": "The cost of one pairing: query 61 and the left dog",
+      "section": "detr",
+      "chapter": "A.2 Matching slots to objects",
+      "builds": 4,
+      "optional": true
+    },
+    {
+      "id": "cost-matrix",
+      "title": "Fill the table: the cost of every pairing",
+      "section": "detr",
+      "chapter": "A.2 Matching slots to objects",
+      "builds": 3,
+      "optional": true
+    },
+    {
+      "id": "greedy",
+      "title": "Why not let each object grab its cheapest slot?",
+      "section": "detr",
+      "chapter": "A.2 Matching slots to objects",
+      "builds": 3,
+      "optional": true
+    },
+    {
+      "id": "match-loss",
+      "title": "After matching: the loss",
+      "section": "detr",
+      "chapter": "A.2 Matching slots to objects",
+      "builds": 3,
+      "optional": true
+    },
+    {
+      "id": "why-no-nms",
+      "title": "Why DETR needs no NMS",
+      "section": "detr",
+      "chapter": "A.3 Two answers",
+      "builds": 2,
+      "optional": true
+    },
+    {
+      "id": "detr-code",
+      "title": "DETR in code: matching, then inference",
+      "section": "detr",
+      "chapter": "A.3 Two answers",
+      "builds": 2,
+      "optional": true
+    },
+    {
+      "id": "two-answers",
+      "title": "Two answers to one question",
+      "section": "detr",
+      "chapter": "A.3 Two answers",
+      "builds": 2,
+      "optional": true
     },
     {
       "id": "opt-yolov1",

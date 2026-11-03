@@ -1,21 +1,21 @@
 # Object detection: speaker notes
 
-Planned main route: 100 minutes, including student responses. Optional slides are outside this budget.
+Planned main route: 110 minutes, including student responses. Optional slides are outside this budget.
 
 ## Pacing
 
 | Part | Minutes |
 |---|---:|
-| Lecture map | 2 |
-| Part 1 · From one label to a list | 9 |
-| Part 2 · Boxes and IoU | 13 |
-| Part 3 · One box, then many | 8 |
-| Part 4 · A candidate at every place | 20 |
-| Part 5 · One box per object: NMS | 11 |
-| Part 6 · Three grids for three sizes | 5 |
-| Part 7 · DETR: slots matched to objects | 17 |
-| Part 8 · Measuring a detector | 12 |
-| Wrap-up | 3 |
+| Lecture map | 1 |
+| Part 1 · Why detect objects? | 12 |
+| Part 2 · From one label to a list | 9 |
+| Part 3 · Boxes and IoU | 14 |
+| Part 4 · One box, then many | 10 |
+| Part 5 · A candidate at every place | 26 |
+| Part 6 · One box per object: NMS | 13 |
+| Part 7 · Three grids for three sizes | 6 |
+| Part 8 · Measuring a detector | 14 |
+| Wrap-up | 5 |
 
 ## title: Object detection: from one label to a set of objects
 
@@ -26,9 +26,247 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 
 **Point here:** Point at one entry at a time: class, score, box. Keep this photo in view; every later number comes from it.
 
-**Transition:** Start with what an ordinary classifier says about the same photo.
+**Transition:** Why would anyone want such a list? Six jobs.
 
 **Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## part-1: Part 1 · Why detect objects?
+
+**Build 1:** Why detection matters: six jobs, one kind of answer, three difficulties.
+
+- Ask: Where have you seen a computer draw boxes around things?
+- Expected: Phone cameras (faces), driver-assistance demos, traffic cameras, photo apps that find people or pets.
+
+**Transition:** The first job: a street.
+
+## app-road: On the road: who is where?
+
+**Build 1:** A car’s camera sees this street. Before it brakes or steers, what does it need to know?
+
+- Ask: What does the car need to know?
+- Expected: Who is on the road, and where each one is.
+
+**Build 2:** YOLOv8n’s answer: 4 people, a car, a bicycle and a dog, each with a box and a score. This list is what the car acts on.
+
+- Ask: What does the detector give it?
+- Expected: 7 entries: four people, a car, a bicycle, a dog, each with a box and a score.
+
+**Point here:** IIHS (2022), “Pedestrian crash avoidance systems cut crashes, but not in the dark”. In India, AI traffic cameras flag riders without helmets and triple riding: Kerala installed 726 road cameras, 675 of them AI-capable, in 2023 (The South First).
+
+**Transition:** A crowd.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## app-crowd: In a crowd: how many people?
+
+**Build 1:** How many people are on this path? Count them.
+
+- Ask: How many people are there?
+- Expected: 11.
+
+**Build 2:** YOLOv8n boxes 11 people. The count is the length of the list, and the list also says where each person is.
+
+- Ask: How does the detector’s answer give the count?
+- Expected: It is the number of person entries in the list: 11.
+
+**Point here:** YOLOv8n also boxes 5 bags (backpacks and handbags), not drawn here. Very dense crowds are usually counted by density estimation instead of boxes, because heads hide one another: Maha Kumbh 2025 used AI-enabled CCTV to estimate people per square metre (PIB, 2024).
+
+**Transition:** A camera in the wild.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## app-wild: At a camera trap: which animals walked past?
+
+**Build 1:** A camera trap takes a photo whenever something moves. Which animals are in this one?
+
+- Ask: Which animals are in the photo?
+- Expected: A cat, a dog, and a small yellow bird on the branch.
+
+**Build 2:** YOLOv8n: a cat (0.94) and a dog (0.93). Look again at the photo: did it find every animal? We come back to this in a few slides.
+
+- Ask: Did the detector find them all?
+- Expected: No: the bird is missing (section 1.3).
+
+**Point here:** YOLOv8n also boxed two potted plants (0.86, 0.84), not drawn: this job ignores them. Celis et al., Ecological Informatics 81 (2024) 102578: 46 cameras in Finnmark and Yamal; manual checking cut to 9.2% and 3.9% of the photos.
+
+**Transition:** A microscope.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## app-cells: Under a microscope: count the cells
+
+**Build 1:** Stained cells under a microscope. What would a lab want to know?
+
+- Ask: What would a lab want from this photo?
+- Expected: How many cells, where each is, and what type each one is.
+
+**Build 2:** 12 cells, each boxed. These teal boxes are ours: COCO has no class “cell”, so no detector in this lecture knows one. A cell detector is trained on lists exactly like this.
+
+- Ask: Who drew these boxes, and why does it matter?
+- Expected: We did, from the colours, checked by eye. Such hand-made lists are the training data a cell detector would learn from.
+
+**Point here:** Teal boxes are annotations (made by people); purple boxes are a model’s output. The lecture keeps these colours throughout.
+
+**Transition:** A warehouse.
+
+**Source:** Boxes drawn by us (data/applications.json): COCO has no such class, so no detector here can find it. The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## app-parcel: In a warehouse: where is the parcel?
+
+**Build 1:** A robot arm waits at the end of the belt. What must it know to pick the parcel up?
+
+- Ask: What does the arm need to know?
+- Expected: Where the parcel is, and roughly how big.
+
+**Build 2:** One entry: a parcel, 486 × 315 pixels. The arm aims at the box’s centre, the dot; a counter just counts entries.
+
+- Ask: Where should it aim?
+- Expected: At the centre of the box, (684, 347.5).
+
+**Transition:** A factory.
+
+**Source:** Boxes drawn by us (data/applications.json): COCO has no such class, so no detector here can find it. The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## app-crack: On a production line: is anything wrong?
+
+**Build 1:** A freshly machined part. Look closely: is anything wrong?
+
+- Ask: Is anything wrong with the part?
+- Expected: A thin crack runs along the top of the arm.
+
+**Build 2:** A hairline crack on the arm, inside a box 90 × 72 pixels. The box tells the inspector exactly where to look.
+
+- Ask: What does the box add to “defective”?
+- Expected: Where the defect is: a person can check it, and the factory can see which machine step causes it.
+
+**Transition:** Six jobs side by side.
+
+**Source:** Boxes drawn by us (data/applications.json): COCO has no such class, so no detector here can find it. The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## apps-common: Six jobs, one kind of answer
+
+**Build 1:** Three jobs from everyday photos: 7 objects, 11 people, 2 animals. Purple: a detector’s answer.
+
+- Ask: What do the first three answers have in common?
+- Expected: Each is a list of objects, each with a class and a box (and a score).
+
+**Build 2:** Three more: 12 cells, 1 parcel, 1 crack (teal: our annotation). Every answer has the same shape: a list, one entry per object, each a class and a box.
+
+- Ask: What changes from one job to the next, and what stays the same?
+- Expected: The classes, the training photos and the length of the list change; the shape of the answer does not.
+
+**Point here:** One kind of model can serve all six jobs: only the class names and the training data change.
+
+**Transition:** What is the list used for?
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json. Cells, parcel and crack: our annotation.
+
+## list-uses: What the list is used for
+
+**Build 1:** Count: the number of entries of a class. Eleven people; twelve cells.
+
+- Ask: How would you count people from the list?
+- Expected: Count the person entries.
+
+**Build 2:** Locate: the box says where to act. The arm grips at the parcel’s centre; a car brakes for the person in its lane.
+
+- Ask: What does a robot do with a box?
+- Expected: It aims at it: the box gives the position and the size.
+
+**Build 3:** Track: in a video, run the detector on every frame and link each box to the box that overlaps it most in the next frame.
+
+- Ask: How could you follow one cyclist through a video?
+- Expected: Detect in every frame and link boxes that overlap most from one frame to the next.
+
+**Build 4:** Crop: cut out each box and pass it to a second model: read a number plate, identify a face, name a cell’s type.
+
+- Ask: Why crop before recognising?
+- Expected: The second model then sees one object, large, instead of a whole scene.
+
+**Point here:** Detection is usually the first stage of a pipeline: counting, tracking, grasping or recognising all start from its boxes.
+
+**Transition:** Why is this harder than classification?
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json. Cells and parcel: our annotation.
+
+## hard-sizes: Hard, 1: a bus and a distant person in one photo
+
+**Build 1:** One photo, a bus 502 pixels wide.
+
+- Ask: How wide is the bus?
+- Expected: 502 pixels.
+
+**Build 2:** And a pedestrian 13 pixels wide, far down the road: 39 times narrower. A classifier sees one main thing; a detector must handle both sizes at once.
+
+- Ask: How much smaller is the pedestrian, and why does it matter?
+- Expected: About 39 times narrower: a feature that sees the whole bus is far too coarse for the pedestrian.
+
+**Point here:** Part 7 shows how a detector handles this: predictions from three grids of different cell sizes.
+
+**Transition:** Small objects are easy to miss.
+
+**Source:** Boxes: our annotation (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## hard-small: Hard, 2: small objects are easy to miss
+
+**Build 1:** Back to the camera trap. YOLOv8n reports a cat, a dog and two plants. Where is the bird?
+
+- Ask: Which animal is missing?
+- Expected: The bird on the branch.
+
+**Build 2:** Zoom in. The bird is 50 × 43 pixels. One cell boxed it almost perfectly, IoU 0.91, but gave “bird” a score of only 0.098, so it was dropped.
+
+- Ask: Did the network fail to see the bird at all?
+- Expected: No: it drew a good box (IoU 0.91) but was unsure of the class (0.098).
+
+**Build 3:** That cell’s second guess was “banana” at 0.059. Few pixels, little detail: small objects get low, unsure scores.
+
+- Ask: Why would a small object get a low score?
+- Expected: It covers few pixels, so the network has little detail to go on.
+
+**Point here:** Part 8 returns to this bird: lowering the score cut-off finds it.
+
+**Transition:** Objects also overlap.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## hard-overlap: Hard, 3: objects overlap
+
+**Build 1:** A cyclist is two objects in one place: a person box and a bicycle box, one largely on top of the other. Both are correct.
+
+- Ask: How many objects is a cyclist?
+- Expected: Two: a person and a bicycle, in nearly the same place.
+
+**Build 2:** Two touching cells: their boxes overlap too. A detector must keep both entries, and yet must not report one object twice.
+
+- Ask: What is the risk when two boxes overlap?
+- Expected: A detector might treat them as one object and drop one; or report one object twice.
+
+**Point here:** Overlap returns in Part 6: removing duplicate boxes without removing real neighbours. In Part 3’s measure, the cyclist’s two boxes have IoU 0.34 and the two cells 0.15.
+
+**Transition:** Part 1 in one slide.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json. Cells: our annotation.
+
+## recap-1: Part 1 in one slide
+
+**Build 1:** Part 1: what detection is for. Part 2: why a network finds a list hard to produce.
+
+- Ask: In one sentence, what does a detector return?
+- Expected: A list with one entry per object: its class, its box and a score.
+
+**Point here:** The long tail: Karpathy (Tesla, ScaledML 2020) showed stop signs held by road workers, on school buses and half hidden by leaves; each kind needed its own labelled examples before the detector handled it.
+
+**Transition:** Part 2.
+
+## part-2: Part 2 · From one label to a list
+
+**Build 1:** From one label to a list of (class, box) entries.
+
+- Ask: What does a classifier output for a photo with two animals?
+- Expected: One label (a probability for each class), for the whole photo.
+
+**Transition:** One photo, one label.
 
 ## one-label: What is in this photo?
 
@@ -100,25 +338,9 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: What would segmentation add to detection?
 - Expected: A pixel mask instead of a box.
 
-**Transition:** Where is this used?
+**Transition:** How long is the list?
 
 **Source:** Masks: YOLOv8n-seg run on the photo (scripts/run_models.py). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
-
-## uses: A street in one glance: seven objects, four classes
-
-**Build 1:** YOLOv8n on a campus street: four people, a car, a bicycle and a dog, each boxed. A car, a bus or a robot needs exactly this list.
-
-- Ask: How many objects did the detector find?
-- Expected: Seven: four people, a car, a bicycle, a dog.
-
-**Build 2:** The same task with other classes: parcels on a conveyor, cells under a microscope, defects on a machined part.
-
-- Ask: What would a detector for these photos need to learn?
-- Expected: The same kind of list, with classes such as parcel, cell or scratch.
-
-**Transition:** What makes this harder than classification?
-
-**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
 
 ## how-many: The number of objects changes from photo to photo
 
@@ -142,7 +364,7 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: What does this mean for the network’s output?
 - Expected: The output must be able to hold one object, or eleven, or none.
 
-**Point here:** Every box here is YOLOv8n’s, after the clean-up step of Part 5. The crowd photo also has bags, not boxed here.
+**Point here:** Every box here is YOLOv8n’s, after the clean-up step of Part 6. The crowd photo also has bags, not boxed here.
 
 **Transition:** And the list has no natural order.
 
@@ -160,7 +382,7 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: What must stay together when we reorder?
 - Expected: Each class with its own box.
 
-**Point here:** Keep this photo: in Part 3 the order causes a real problem for the loss, and in Part 7 DETR solves it.
+**Point here:** Keep this photo: in Part 4 the order causes a real problem for the loss.
 
 **Transition:** Now compare with what a network outputs.
 
@@ -183,28 +405,27 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: What two properties of the answer clash with a fixed output?
 - Expected: Its length varies and it has no order.
 
-**Transition:** Two answers, and the route through them.
+**Point here:** CS231n (Stanford, 2016–17) frames detection the same way: one object needs 4 numbers, two need 8, four need 16, so detection needs a variable-sized output.
 
-## route: Today’s route: two answers to one question
+**Transition:** The route through the rest of the lecture.
 
-**Build 1:** First, the tools: describe a box, compare two boxes. Then see why a network that outputs one box, or a few, is not enough.
+## route: Today’s route: build a detector step by step
+
+**Build 1:** First the tools (Part 3), then a network that outputs boxes, to see exactly where a fixed output breaks (Part 4).
 
 - Ask: What tools will every later part need?
 - Expected: A box format and an overlap measure (IoU).
 
-**Build 2:** Answer A: give every place in the image its own output, train the outputs near each object, then keep one per object. This is YOLO.
+**Build 2:** Then the answer used by YOLO and most fast detectors: a candidate at every place, cleaned up by NMS, at three sizes; and how to measure the result.
 
-- Ask: How does answer A decide which output describes the dog?
-- Expected: By place: the outputs at the dog’s location.
+- Ask: How will the network’s fixed output turn into a list of any length?
+- Expected: Every place writes a candidate; a score filter and NMS keep one box per object, so the list’s length is decided after the network.
 
-**Build 3:** Answer B: a fixed set of 100 slots; before computing the loss, match slots to objects. This is DETR. We end by measuring both.
+**Point here:** DETR, the set-prediction answer, is in Appendix A: open the deck with ?all, or read it in the reading view.
 
-- Ask: How does answer B decide?
-- Expected: By matching each object to its best slot before computing the loss.
+**Transition:** Part 3: boxes and IoU.
 
-**Transition:** Part 2: boxes and IoU.
-
-## part-2: Part 2 · Describe a box, compare two boxes
+## part-3: Part 3 · Describe a box, compare two boxes
 
 **Build 1:** Two tools: four numbers for a box, and IoU to compare two boxes.
 
@@ -262,29 +483,35 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## centre-size: The same box as a centre and a size
+## width-height: The box’s size: width and height
 
-**Build 1:** Width: the right edge minus the left edge.
+**Build 1:** Width: the right edge minus the left edge, 768 − 407 = 361 pixels.
 
 - Ask: What is the width?
 - Expected: 361 pixels.
 
-**Build 2:** Height: bottom minus top. Remember that y grows downwards.
+**Build 2:** Height: the bottom minus the top, 588 − 83 = 505. Bottom minus top, because y grows downwards.
 
 - Ask: What is the height?
 - Expected: 505 pixels.
 
-**Build 3:** The centre is halfway across and halfway down.
+**Common misconception:** w and h are the full width and height, not half of them.
+
+**Transition:** Where is the middle of the box?
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## centre: The same box as a centre and a size
+
+**Build 1:** The centre is halfway across and halfway down: start at the left edge and add half the width; start at the top and add half the height.
 
 - Ask: Where is the centre?
 - Expected: (587.5, 335.5).
 
-**Build 4:** Same box, other format: centre (587.5, 335.5), size 361 × 505. Either format can be computed from the other.
+**Build 2:** Same box, second format: centre (587.5, 335.5), size 361 × 505. Either format can be computed from the other.
 
 - Ask: How would you get x₁ back from the centre format?
 - Expected: x₁ = c_x − w/2 = 587.5 − 180.5 = 407.
-
-**Common misconception:** w and h are the full width and height, not half of them.
 
 **Transition:** Pixels depend on the photo’s size.
 
@@ -302,14 +529,30 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: What does 0.789 say about the dog?
 - Expected: Its box covers 79% of the photo’s height.
 
-**Build 3:** These numbers survive resizing. Networks often predict normalised boxes; DETR, in Part 7, does exactly this.
+**Build 3:** These numbers survive resizing, which is why label files and many networks use them.
 
 - Ask: Why prefer normalised numbers?
 - Expected: They do not depend on the photo’s resolution.
 
-**Point here:** Formats in the wild: torchvision boxes are pixel corners; COCO files store (x, y, w, h) from the top-left; YOLO label files store normalised (c_x, c_y, w, h). Check the format before training.
+**Transition:** What a labelled photo looks like on disk.
+
+## label-file: A labelled photo on disk: one line per object
+
+**Build 1:** A training photo is stored with a small text file: one line per object. This is the YOLO format, for our two annotated animals.
+
+- Ask: How many lines does this photo’s label file have?
+- Expected: Two: one per annotated object.
+
+**Build 2:** Read a line: a class number (COCO counts from 0: 15 is cat, 16 is dog), then the box’s normalised centre and size. Training a detector means learning to write these lines.
+
+- Ask: What is the first number on each line?
+- Expected: The class index: 16 for dog, 15 for cat in COCO’s list of 80.
+
+**Point here:** Formats differ: COCO json stores (x, y, w, h) from the top-left corner in pixels; torchvision uses pixel corners. A swapped format still trains, badly: draw a few labels on their photos before training (Appendix B). Karpathy’s first step for any network is to look hard at the data (A Recipe for Training Neural Networks, 2019). COCO, YOLOv8n’s training set: 80 categories, over 200,000 labelled images, 1.5 million labelled objects.
 
 **Transition:** Now compare two boxes.
+
+**Source:** Our annotation of the photo (data/annotations.json), written in the YOLO label format.
 
 ## compare: Two boxes for one dog: how well do they agree?
 
@@ -323,7 +566,18 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: How far apart are the centres?
 - Expected: √(60² + 40²) ≈ 72 pixels.
 
-**Build 3:** For the dog, 72 px is a small slip. For a person 18 px wide in the street photo, the same slip leaves the boxes apart. Compare overlap, not distance.
+**Transition:** Is 72 px a lot? It depends on the box.
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## compare-small: The same slip on a small object
+
+**Build 1:** A person far down the street: 18 pixels wide.
+
+- Ask: How wide is this person?
+- Expected: 18 pixels.
+
+**Build 2:** The same 72-pixel slip leaves the guess off the person entirely. For the dog it was a small error; here it is a miss. Compare overlap, not distance.
 
 - Ask: Why is centre distance a poor score?
 - Expected: It ignores the box’s size: the same distance is small for a large box and fatal for a small one.
@@ -439,11 +693,20 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: What does clamp(min=0) do?
 - Expected: Sets the width or height of a non-overlap to 0, so its area is 0.
 
-**Notebook:** Notebook part 2 runs this on the two boxes and checks it against torchvision.ops.box_iou.
+**Notebook:** Notebook part 3 runs this on the two boxes and checks it against torchvision.ops.box_iou.
 
-**Transition:** Part 3: a network that outputs a box.
+**Transition:** Part 3 in one slide.
 
-## part-3: Part 3 · One box is easy; several are not
+## recap-3: Part 3 in one slide
+
+**Build 1:** Part 3: boxes and IoU. Part 4: a network that outputs boxes.
+
+- Ask: What is the IoU of two identical boxes, and of two boxes that do not touch?
+- Expected: 1 and 0.
+
+**Transition:** Part 4.
+
+## part-4: Part 4 · One box is easy; several are not
 
 **Build 1:** One box is regression; several boxes expose the assignment problem.
 
@@ -469,7 +732,30 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: What could the box loss be?
 - Expected: Any distance between the four predicted and four true numbers, such as the sum of absolute differences.
 
-**Transition:** The box loss with numbers.
+**Transition:** What exactly should the network learn to write?
+
+## target-y: Write the answer as numbers: the target for one photo
+
+**Build 1:** A localiser for two classes, cat and dog, writes seven numbers: is there an object; its box (normalised centre and size); and which class. For this photo: 1, the cat’s box, cat 1, dog 0.
+
+- Ask: What are the seven target numbers for the cat photo?
+- Expected: 1; then (0.667, 0.527, 0.319, 0.642); then cat 1, dog 0.
+
+**Build 2:** A photo of empty floor. “Object?” is 0. Its box and class have no right answer, so the target there is “?”.
+
+- Ask: What should the box be for a photo with no object?
+- Expected: Nothing: there is no box, so we do not care what the network writes there.
+
+**Build 3:** The loss counts only entries that have a right answer: for the floor, just the first. Keep this “?” in mind: a detector writes it at most places in a photo.
+
+- Ask: Which entries does the loss use for the floor photo?
+- Expected: Only “object?”, with target 0.
+
+**Point here:** This is how Andrew Ng introduces localisation (Deep Learning Specialization, Course 4, Week 3): y = (p_c, b_x, b_y, b_h, b_w, c_1, c_2, c_3), with “?” for every entry after p_c = 0.
+
+**Transition:** Train the box part, with numbers.
+
+**Source:** Our annotation of the single-cat photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
 ## box-loss: Training the box head: compare four numbers
 
@@ -478,7 +764,7 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: What does the loss add up?
 - Expected: Four absolute differences.
 
-**Build 2:** Take the guess from Part 2 as the prediction, in normalised units. The centre is off; the size is right.
+**Build 2:** Take the 60-px guess from Part 3 as the prediction, in normalised units. The centre is off; the size is right.
 
 - Ask: Which numbers differ here?
 - Expected: The centre (c_x and c_y); width and height match.
@@ -527,7 +813,7 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: What do unused slots predict?
 - Expected: A “no object” class.
 
-**Build 3:** Problem 1: what if a photo has more objects than K? Then choose K large. DETR uses K = 100.
+**Build 3:** Problem 1: what if a photo has more objects than K? Then choose K large: DETR (Appendix A) uses K = 100.
 
 - Ask: How do we avoid running out of slots?
 - Expected: Make K bigger than any photo needs, e.g. 100.
@@ -556,7 +842,7 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: What must the loss do instead?
 - Expected: Pair each output with the object it describes, whatever the list order.
 
-**Point here:** The slot boxes are DETR’s real predictions for this photo (queries 61 and 98); the L1 sums are over normalised (c_x, c_y, w, h).
+**Point here:** The slot boxes are real predictions of a slot-based detector, DETR (Appendix A), for this photo (its queries 61 and 98); the L1 sums are over normalised (c_x, c_y, w, h).
 
 **Transition:** Two ways to pair outputs with objects.
 
@@ -574,58 +860,118 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: How does fix B?
 - Expected: The pairing is chosen by cost, not by position in the list.
 
-**Transition:** Part 4: answer A, a candidate at every place.
+**Transition:** Part 4 in one slide.
 
-## part-4: Part 4 · A candidate at every place
+## recap-4: Part 4 in one slide
+
+**Build 1:** Part 4: one box works; many boxes need a rule for which output answers for which object.
+
+- Ask: Why did the same correct prediction cost 100 times more?
+- Expected: Because the loss paired outputs with targets by list position, and the list happened to be in the other order.
+
+**Transition:** Part 5.
+
+## part-5: Part 5 · A candidate at every place
 
 **Build 1:** A grid of cells, each writing a record: targets, loss, decoding.
 
 - Ask: If every place in the image has its own output, which outputs should describe the dog?
 - Expected: The ones at, or near, the dog’s location.
 
-**Transition:** Start from brute force.
+**Transition:** Start from a tool we already have: a classifier.
 
-## sliding: The brute-force idea: classify every window
+## crop-classifier: Start from a tool we have: a classifier for crops
 
-**Build 1:** The obvious idea: slide a window over the photo and ask a classifier about each crop.
+**Build 1:** Three crops cut from the courtyard: a dog, a cat, and floor with nothing on it.
 
-- Ask: How would you find objects with only a classifier?
-- Expected: Classify many crops and keep those that say “object”.
+- Ask: What label does each crop get?
+- Expected: Dog, cat, nothing.
 
-**Build 2:** Positions every 32 pixels give 600 windows; add sizes and shapes and it is thousands of CNN runs per photo. Detectors around 2013 worked like this, and were slow.
+**Build 2:** A classifier trained on thousands of such crops answers for one crop: dog, cat or nothing. It cannot say where anything is in a whole photo. Can we use it to find objects anyway?
 
-- Ask: How many windows is that, roughly?
-- Expected: 600 positions × several sizes: thousands.
+- Ask: What can such a classifier not do on its own?
+- Expected: Say where objects are in a large photo, or find two of them.
 
-**Build 3:** Convolution slides the same weights over every position anyway. One pass gives a vector for every position at once.
+**Point here:** Andrew Ng’s detection lectures start the same way: a car classifier trained on closely cropped car images, then slid over the image.
 
-- Ask: What does a CNN compute at every position?
-- Expected: A feature vector describing the region around that position.
+**Transition:** Slide it over the photo.
 
-**Point here:** R-CNN (2014) classified about 2,000 proposed crops per image; Fast and Faster R-CNN shared one CNN pass. Optional slide: two-stage detectors.
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-**Transition:** The grid of feature vectors.
+## sliding: Slide the classifier over the photo
 
-## feature-map: One pass of a CNN: a 30 × 20 grid of feature vectors
+**Build 1:** Put a window on the photo, crop it, classify it. This window says “dog”.
+
+- Ask: What does the classifier say about this window?
+- Expected: Dog.
+
+**Build 2:** Move the window every 32 pixels: 30 positions across, 20 down, 600 windows.
+
+- Ask: How many positions are there?
+- Expected: 30 × 20 = 600.
+
+**Build 3:** At each position try 3 sizes and 3 shapes: 5,400 crops per photo, each a full run of the classifier. It works, and it is slow.
+
+- Ask: How many classifier runs per photo?
+- Expected: 600 × 3 × 3 = 5,400.
+
+**Point here:** Detectors around 2013 worked like this (OverFeat). R-CNN (2014) classified about 2,000 proposed crops per image and needed about 47 seconds per image at test time (CS231n, 2017): Appendix B, two-stage detectors.
+
+**Transition:** Look at two neighbouring windows.
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## shared-work: Neighbouring windows see almost the same pixels
+
+**Build 1:** Two neighbouring windows, 224 pixels wide and 32 pixels apart, share 86% of their pixels. Classifying them separately computes most features twice.
+
+- Ask: How much do neighbouring windows overlap?
+- Expected: 86%: 192 of every 224 columns.
+
+**Build 2:** A convolution already slides the same small filter over every position. Run the CNN once on the whole photo and read one output per position: every window at once, with the shared work done once.
+
+- Ask: How can the shared work be done only once?
+- Expected: Run the CNN on the whole photo once; each position of its output plays the role of one window.
+
+**Point here:** Ng calls this the convolutional implementation of sliding windows (after OverFeat, Sermanet et al., 2014): turn the classifier’s fully connected layers into convolutions and the whole photo is classified at every position in one pass.
+
+**Transition:** One pass of a CNN.
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## one-pass: One pass of a CNN: a 30 × 20 grid of feature vectors
 
 **Build 1:** The photo goes through a CNN that halves the resolution five times: 960 × 640 becomes 30 × 20, with 256 numbers at each position.
 
 - Ask: What size is the feature map?
 - Expected: 30 × 20 positions, 256 numbers each.
 
-**Build 2:** Lay that grid over the photo: each cell covers a 32 × 32 block. Cell (row 10, column 18) is highlighted.
+**Build 2:** Lay that 30 × 20 grid over the photo. Each square, a cell, stands for one position of the feature map: 600 cells, 600 “windows”.
+
+- Ask: How many cells are there?
+- Expected: 600.
+
+**Point here:** For YOLOv8n this is the stride-32 output of the neck: one step of the map is 32 pixels of photo.
+
+**Transition:** Zoom in on one cell.
+
+## cell-window: One cell: an address on the photo, with a wide view
+
+**Build 1:** Cell (10, 18) is a 32 × 32 block of pixels in the middle of the dog: column 18 starts at x = 576, row 10 at y = 320. Rows and columns count from 0.
 
 - Ask: Which block of pixels does cell (10, 18) cover?
 - Expected: x from 576 to 608, y from 320 to 352.
 
-**Build 3:** The cell is an address, not a crop: its 256 numbers were computed from a region far larger than its block, wide enough to see the whole dog.
+**Build 2:** But a cell is an address, not a crop: every layer of the CNN mixes in neighbours, so its vector sees far beyond its block. That is why one cell can describe a box much larger than itself.
 
 - Ask: Can a cell describe an object larger than its block?
-- Expected: Yes: its vector sees a large region (its receptive field).
+- Expected: Yes: its vector is computed from a large region of the photo (its receptive field).
 
-**Point here:** For YOLOv8n this is the stride-32 output of the neck. Rows and columns are counted from 0.
+**Common misconception:** A cell is not a 32-pixel crop that knows only its own pixels.
 
 **Transition:** What does each cell write?
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
 ## cell-record: Every cell writes a record: 4 box numbers, 80 class scores
 
@@ -639,14 +985,34 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: Why does every class get its own score?
 - Expected: A cell answers 80 yes/no questions: is there a person? a dog? … All can be “no”.
 
-**Build 3:** The same small layer, with the same weights, writes this record at every cell: a 1 × 1 convolution. The output is a fixed 600 × 84 tensor.
+**Build 3:** Part 4’s localiser had an “object?” number. YOLOv8 drops it: 80 independent yes/no scores, all low, already mean “no object”.
 
-- Ask: Does each cell have its own weights?
-- Expected: No: one shared layer, applied at all 600 cells.
+- Ask: How does a cell say “there is nothing here”?
+- Expected: By giving every class a low score.
 
-**Point here:** These are the real numbers YOLOv8n wrote at this cell. The head writes distances in cells; we show them ×32, in pixels.
+**Point here:** These are the real numbers YOLOv8n wrote at this cell. The head writes distances in cells; we show them ×32, in pixels. YOLOv1 to YOLOv5 did have a separate objectness score.
 
-**Transition:** Read the four distances.
+**Transition:** What the network actually returns.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## raw-output: What actually comes out: one tensor of fixed shape
+
+**Build 1:** Run the real network on the courtyard photo and print the shape: 84 rows and 12,600 columns, one column per cell.
+
+- Ask: What shape does YOLOv8n output for this photo?
+- Expected: (1, 84, 12,600).
+
+**Build 2:** Each column is one record: 4 box numbers (the head has already turned l, t, r, b into a centre and a size) and 80 class scores. 600 columns come from our 30 × 20 grid; the rest from two finer grids, in Part 7.
+
+- Ask: Does the shape depend on how many objects are in the photo?
+- Expected: No, only on the photo’s size. A photo of an empty wall gives the same shape.
+
+**Point here:** One small layer, with the same weights, writes the record at every cell: a 1 × 1 convolution over the feature map. The code is from scripts/run_models.py. Print shapes before anything else, as Karpathy does in every Zero to Hero lecture: most bugs show up as a wrong shape.
+
+**Notebook:** Notebook part 5 runs YOLOv8n on the photo, prints this shape and reads the column of cell (10, 18).
+
+**Transition:** Back to the four box numbers.
 
 **Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
 
@@ -683,24 +1049,42 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## which-cells: Which cells should answer for the dog?
+## centre-cell: The simplest rule: the cell that holds the centre
 
-**Build 1:** 165 cells lie inside the dog’s box. Cells near its edge see mostly the background and the box edges are far away; asking all of them to predict the dog is a hard, noisy target.
+**Build 1:** One rule: the cell that contains the box’s centre answers for the object. The dog’s centre (587.5, 335.5) is in cell (10, 18), our cell.
+
+- Ask: Which cell holds the dog’s centre?
+- Expected: (10, 18).
+
+**Build 2:** The cat’s centre is in cell (14, 6). Every object now has exactly one cell, decided by place alone: no slot order to argue about.
+
+- Ask: Why does this rule solve Part 4’s order problem?
+- Expected: Each object’s cell is fixed by where the object is, not by its position in the annotation list.
+
+**Point here:** This is YOLOv1’s rule (Redmon et al., 2016), and the one Andrew Ng teaches: the object is assigned to the grid cell that contains its midpoint.
+
+**Transition:** Is one cell per object enough?
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## which-cells: More cells per object: a block around the centre
+
+**Build 1:** One positive cell per object is a weak training signal. All 165 cells inside the box would include cells near its edges that see mostly floor: a noisy target.
 
 - Ask: How many cells are inside the dog’s box?
 - Expected: 165
 
-**Build 2:** So train only the cells near the centre: within 1.5 cells of it, a 3 × 3 block. The box centre (587.5, 335.5) is in cell (10, 18), the middle of the block.
+**Build 2:** The middle way: the cells near the centre, within 1.5 cells of it, a 3 × 3 block around cell (10, 18).
 
-- Ask: Which cells does the centre rule pick?
+- Ask: Which cells does centre sampling pick?
 - Expected: Rows 9–11, columns 17–19: nine cells.
 
-**Build 3:** Do the same for the cat. 18 cells get an object target; 582 get the target “no object of any class”.
+**Build 3:** Do the same for the cat. 18 cells get an object target; 582 get “no object of any class”.
 
 - Ask: What do all the other cells learn?
 - Expected: To give every class a low score: background.
 
-**Point here:** Rules differ between detectors: YOLOv1 used only the centre cell; YOLOv8 picks the 10 cells whose current predictions fit the object best. All put the positives near the object.
+**Point here:** Rules differ between detectors: YOLOv1 used only the centre cell; FCOS the cells near the centre; YOLOv8 picks the 10 cells whose current predictions fit the object best. All put the positives near the object.
 
 **Transition:** What does the trained network actually do?
 
@@ -724,7 +1108,7 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 
 **Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
 
-## target-record: The target written at cell (10, 18)
+## target-positive: The target at a positive cell, (10, 18)
 
 **Build 1:** A positive cell’s class targets: 1 for dog, 0 for the other 79 classes. Each is the answer to its own yes/no question.
 
@@ -736,12 +1120,18 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: What is its box target?
 - Expected: (185, 253, 176, 252) pixels.
 
-**Build 3:** A background cell, such as (3, 3) on the wall: all 80 class targets are 0, and it has no box target, because there is no box to learn.
+**Transition:** And a cell where nothing is.
+
+## target-background: The target at a background cell: all zeros, and “?”
+
+**Build 1:** A background cell, such as (3, 3) on the wall: all 80 class targets are 0. Its box target is “?”: there is no box to learn, so its box numbers are left out of the loss.
 
 - Ask: What does a background cell learn?
-- Expected: Every class score low; nothing about boxes.
+- Expected: To give every class a low score; nothing about boxes.
 
-**Transition:** Now what the network wrote at the same cell.
+**Point here:** Of the 600 cells on this grid, 582 have this target. Part 4’s “object? = 0” is here “all 80 classes 0”.
+
+**Transition:** Now what the network wrote at the positive cell.
 
 ## prediction-record: What the network wrote at cell (10, 18)
 
@@ -759,24 +1149,35 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 
 **Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
 
-## loss-class: Class loss: one yes/no question per class
+## bce: Scoring one yes/no answer: binary cross-entropy
 
-**Build 1:** Binary cross-entropy for one yes/no question: if the answer is yes, −log p; if no, −log(1 − p). Natural logs.
+**Build 1:** A class score answers one yes/no question. If the answer is yes, the loss is −log p; if no, −log(1 − p), the same curve mirrored.
 
-- Ask: What is BCE when y = 1? When y = 0?
-- Expected: −log p, and −log(1 − p).
+- Ask: What is the loss for a yes answered with p = 1?
+- Expected: 0: −log 1 = 0.
 
-**Build 2:** Dog is a yes: −log 0.871 = 0.139. It would be 0 at p = 1 and grows without bound as p falls to 0.
+**Build 2:** Read the curve for a yes: sure and right (p near 1) costs almost nothing; unsure (0.5) costs 0.69; sure and wrong (0.1) costs 2.30, and it grows without bound. Our dog cell: 0.871 costs 0.139.
+
+- Ask: Why does the curve shoot up near p = 0?
+- Expected: Being confidently wrong is punished hardest: −log p grows without bound as p → 0.
+
+**Point here:** The two cases are one formula: BCE(p, y) = −[y log p + (1 − y) log(1 − p)].
+
+**Transition:** Apply it to all 80 questions at our cell.
+
+## loss-class: Class loss at cell (10, 18): 80 yes/no questions
+
+**Build 1:** Dog is a yes: −log 0.871 = 0.139.
 
 - Ask: What is the dog term?
-- Expected: 0.139.
+- Expected: 0.139
 
-**Build 3:** Every other class is a no: −log(1 − p) for each. All 79 scores are near zero, so together they add only 0.0004.
+**Build 2:** Every other class is a no: −log(1 − p) for each. All 79 scores are near zero, so together they add only 0.0004.
 
 - Ask: Why are the other 79 terms so small?
 - Expected: Their scores are near 0, the right answer for a no.
 
-**Build 4:** The cell’s class loss: 0.139, almost all from the dog question.
+**Build 3:** The cell’s class loss: 0.139, almost all from the dog question.
 
 - Ask: Why 80 separate yes/no questions rather than one softmax?
 - Expected: A background cell must be able to say “none of the 80”: every yes/no answer no. A softmax over 80 classes always picks one.
@@ -787,7 +1188,7 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 
 ## loss-box: Box loss: how far off are the four distances?
 
-**Build 1:** Compare the four predicted distances with the four target distances, and add the absolute differences.
+**Build 1:** Compare the four predicted distances with the four target distances, and add the absolute differences: the L1 loss of Part 4.
 
 - Ask: What does the L1 box loss add?
 - Expected: Four absolute differences between predicted and target distances.
@@ -797,10 +1198,14 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: Which edge contributes most?
 - Expected: The top edge, 7.4 px.
 
-**Build 3:** Another choice: one minus the IoU of the predicted and target boxes, here 0.020. It does not depend on the box’s size, so small objects count as much as large ones.
+**Transition:** Is 9 pixels a lot?
 
-- Ask: Why might one prefer 1 − IoU?
-- Expected: It measures overlap, which is scale-free; 9 px is negligible for the dog but large for a small object.
+## loss-iou: A box loss that does not care about size: 1 − IoU
+
+**Build 1:** Another choice: one minus the IoU of the predicted and target boxes, here 0.020. It does not depend on the box’s size, so small objects count as much as large ones.
+
+- Ask: Why might one prefer 1 − IoU to L1 in pixels?
+- Expected: It measures overlap, which is scale-free: 9.3 px is negligible for the dog but large for a small object.
 
 **Transition:** A background cell.
 
@@ -835,7 +1240,7 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: Why does dividing by N_pos help?
 - Expected: Each photo’s loss is then an average per object, whatever the number of objects.
 
-**Point here:** YOLOv8’s real loss sums all three grids (Part 6) and uses its own weights and box loss; the structure is the same.
+**Point here:** YOLOv8’s real loss sums all three grids (Part 7) and uses its own weights and box loss; the structure is the same.
 
 **Transition:** The same loss in code.
 
@@ -851,7 +1256,7 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: Which line uses only the positive cells?
 - Expected: box_loss: dist[pos].
 
-**Notebook:** Notebook part 4 builds pos and the targets for the courtyard photo and evaluates this loss on YOLOv8n’s real outputs.
+**Notebook:** Notebook part 5 builds pos and the targets for the courtyard photo and evaluates this loss on YOLOv8n’s real outputs.
 
 **Transition:** At test time there are no annotations: read the boxes out.
 
@@ -906,11 +1311,20 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: Why ten boxes for one dog?
 - Expected: About ten cells were trained to fire for each object, and they did.
 
-**Transition:** Part 5: removing duplicates.
+**Transition:** Part 5 in one slide.
 
 **Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
 
-## part-5: Part 5 · One box per object: non-maximum suppression
+## recap-5: Part 5 in one slide
+
+**Build 1:** Part 5: a candidate at every place, trained near each object. Part 6: one box per object.
+
+- Ask: Why are there about ten boxes per object at test time?
+- Expected: Training made several cells near each object positives; after training, all of them fire.
+
+**Transition:** Part 6.
+
+## part-6: Part 6 · One box per object: non-maximum suppression
 
 **Build 1:** NMS keeps the highest-scoring box and removes boxes that overlap it.
 
@@ -957,6 +1371,8 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: When does the loop stop?
 - Expected: When no boxes are left.
 
+**Point here:** Andrew Ng’s version: first drop boxes with p_c ≤ 0.6, then delete boxes with IoU ≥ 0.5 with the kept one, separately for each class. Ultralytics’ defaults are a score cut-off of 0.25 and an IoU threshold of 0.7.
+
 **Transition:** Run it on the dog’s ten boxes.
 
 ## nms-dog: NMS on the dog’s ten boxes
@@ -981,7 +1397,28 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: How many dog boxes remain?
 - Expected: One.
 
-**Transition:** All three classes at once.
+**Transition:** Two objects of the same class.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## nms-two-dogs: Two dogs: why the loop keeps the second one
+
+**Build 1:** Two dogs in one photo: 20 dog boxes survive the score filter, about ten on each dog.
+
+- Ask: How many dog boxes are there before NMS?
+- Expected: 20
+
+**Build 2:** Round 1: keep the best box, 0.921, on the left dog; delete every dog box that overlaps it by more than 0.7. The right dog’s boxes do not overlap it at all, so they stay.
+
+- Ask: Why does round 1 leave the right dog’s boxes alone?
+- Expected: Their IoU with the kept box is 0, below the threshold: they may be another dog.
+
+**Build 3:** Round 2: the best remaining box, 0.915, is on the right dog. Keep it, delete its twins. Keeping only the single best box overall would have lost a dog; the loop keeps one per object.
+
+- Ask: How many boxes remain, and why is the loop needed?
+- Expected: Two: one per dog. Keeping only the best box overall would lose the second dog.
+
+**Transition:** All three classes in the courtyard.
 
 **Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
 
@@ -1068,7 +1505,7 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: How would you make it class-aware by hand?
 - Expected: Run it once per class, or offset each class’s boxes so different classes never overlap (what batched_nms does).
 
-**Notebook:** Notebook part 5 runs this function on the courtyard’s 31 candidates and checks it against torchvision.ops.nms.
+**Notebook:** Notebook part 6 runs this function on the courtyard’s 31 candidates and checks it against torchvision.ops.nms.
 
 **Transition:** The dense answer, end to end.
 
@@ -1084,9 +1521,29 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: Where does the number of detections get decided?
 - Expected: In the score filter and NMS, after the network.
 
+**Transition:** The same pipeline in code.
+
+## detect-code: The whole detector at test time, in eight lines
+
+**Build 1:** Parts 5 and 6 as code: run the network once, read every cell’s box and best class, keep the confident cells, run NMS separately for each class.
+
+- Ask: Which line decides how many objects are returned?
+- Expected: The score filter and batched_nms together.
+
+**Build 2:** On the courtyard photo it returns the 4 detections of the lecture’s first slide. Nothing in it depends on how many objects there are.
+
+- Ask: Which lines have learned weights?
+- Expected: Only net(photo); the rest are fixed rules.
+
+**Point here:** batched_nms is torchvision.ops.batched_nms; cxcywh_to_xyxy is torchvision.ops.box_convert(boxes, "cxcywh", "xyxy"). Ultralytics’ own post-processing does the same steps (checked in scripts/science.py).
+
+**Notebook:** Notebook part 6 runs this function on the courtyard photo.
+
 **Transition:** Why does YOLOv8 have three grids?
 
-## part-6: Part 6 · Small and large objects: three grids
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## part-7: Part 7 · Small and large objects: three grids
 
 **Build 1:** Three grids, three cell sizes, one record format.
 
@@ -1095,14 +1552,14 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 
 **Transition:** Sizes in one photo.
 
-## sizes: One photo, very different sizes
+## sizes: Part 1’s street again, with the 32-pixel grid
 
-**Build 1:** The same street, three objects: a bus 502 px wide, a cyclist 48 px, a pedestrian 13 px far down the road.
+**Build 1:** Part 1’s street: a bus 502 px wide, a cyclist 48 px, a pedestrian 13 px far down the road.
 
 - Ask: How many times wider is the bus than the far pedestrian?
 - Expected: About 39 times.
 
-**Build 2:** Draw the 32-px grid. The bus spans 16 cells; the pedestrian sits inside one. A coarse grid suits big objects; small ones need finer cells.
+**Build 2:** Draw the 32-px grid. The bus spans about 16 cells; the pedestrian sits inside one. A coarse grid suits big objects; small ones need finer cells.
 
 - Ask: What is the problem for small objects on a coarse grid?
 - Expected: A cell may contain several small objects but writes one record; and its features are dominated by a large surrounding region.
@@ -1118,7 +1575,7 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: How many cells does the 8-px grid have for the courtyard?
 - Expected: 120 × 80 = 9,600.
 
-**Build 2:** Add them up: 12,600 for the courtyard, the number we decoded in Part 4. A bigger photo gets more cells: 18,480 for the street.
+**Build 2:** Add them up: 12,600 for the courtyard, the number we decoded in Part 5. A bigger photo gets more cells: 18,480 for the street.
 
 - Ask: Where did 12,600 come from?
 - Expected: 9,600 + 2,400 + 600.
@@ -1142,317 +1599,18 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: Who decided this?
 - Expected: Training: an object’s positive cells are chosen where its box fits best, which for small objects is the fine grid.
 
-**Transition:** Part 7: the other answer, DETR.
+**Transition:** Part 7 in one slide.
 
 **Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
 
-## part-7: Part 7 · DETR: a fixed set of slots, matched to objects
+## recap-7: Part 7 in one slide
 
-**Build 1:** DETR: 100 slots that read the image with attention; matching instead of NMS.
+**Build 1:** Part 7: three grids for three sizes. Part 8: measuring a detector.
 
-- Ask: What were the two problems of K slots in Part 3?
-- Expected: Too few slots for some photos, and no rule for which slot answers for which object.
+- Ask: Which grid would you expect to find Part 1’s small bird?
+- Expected: The finest, 8 px: its best box did come from a stride-8 cell.
 
-**Transition:** Fix them one at a time.
-
-## slots-again: Back to the slots, with three changes
-
-**Build 1:** Problem 1 was capacity: use K = 100 slots. Unused slots predict a 92nd class, “no object”.
-
-- Ask: How many slots does DETR use?
-- Expected: 100.
-
-**Build 2:** A slot needs a way to look at the photo: give it a learned query vector that attends to the image features.
-
-- Ask: How does a slot see the image?
-- Expected: Cross-attention from its query to the image features.
-
-**Build 3:** Problem 2 was order: before computing the loss, find the cheapest one-to-one pairing of slots and objects. Order in the annotation list stops mattering.
-
-- Ask: How is the order problem solved?
-- Expected: By matching slots to objects before the loss.
-
-**Transition:** Follow a photo through DETR.
-
-## detr-pipeline: DETR, from photo to 100 predictions
-
-**Build 1:** A ResNet-50 turns the photo, resized to 1200 × 800, into a 25 × 38 grid; each position becomes a token of 256 numbers. 950 tokens.
-
-- Ask: How many image tokens are there?
-- Expected: 25 × 38 = 950.
-
-**Build 2:** A transformer encoder lets the 950 tokens attend to each other, so each token knows about the rest of the photo.
-
-- Ask: What does the encoder add?
-- Expected: Context: each token attends to all the others.
-
-**Build 3:** The decoder starts from 100 learned query vectors. In each of 6 layers, the queries attend to each other, then to the 950 image tokens (cross-attention).
-
-- Ask: What reads the image in the decoder?
-- Expected: The 100 queries, through cross-attention to the tokens.
-
-**Build 4:** Two small heads read each of the 100 outputs: a class among 91 COCO ids plus “no object”, and a box as normalised (c_x, c_y, w, h).
-
-- Ask: What does each of the 100 outputs give?
-- Expected: A class (or no object) and a normalised box.
-
-**Point here:** The grid is 25 × 38 because 800/32 = 25 and 1200/32 = 37.5, rounded up.
-
-**Transition:** What is a query?
-
-**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
-
-## queries: A query is learned once and reused for every photo
-
-**Build 1:** The 100 queries are stored parameters: 100 × 256 numbers learned in training, identical for every photo.
-
-- Ask: Do the queries change from photo to photo?
-- Expected: No: they are fixed after training.
-
-**Build 2:** Their outputs are computed: the same query writes a dog box for one photo and “no object” for another, depending on what it read.
-
-- Ask: Then how can query 71 output a dog here and nothing elsewhere?
-- Expected: Its output depends on what cross-attention reads from this photo.
-
-**Transition:** DETR on the courtyard.
-
-## detr-output: DETR on the courtyard: 100 slots, most of them empty
-
-**Build 1:** One square per query, numbered 0 to 99. Coloured if the query names an object; grey if it says “no object”.
-
-- Ask: How many queries say “no object”?
-- Expected: 88 with probability above 0.9.
-
-**Build 2:** The busy ones: query 71 says dog (0.999), query 61 cat (0.999), others plants. Their numbers are arbitrary: training decided which slot does what.
-
-- Ask: Which query found the dog?
-- Expected: Query 71.
-
-**Build 3:** Their boxes: one per object. No duplicates to remove, and no NMS.
-
-- Ask: Does DETR need NMS here?
-- Expected: No: each object has one query.
-
-**Transition:** Where did query 71 look?
-
-**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
-
-## detr-attention: Where two queries looked
-
-**Build 1:** Query 71’s cross-attention in the last decoder layer, averaged over its 8 heads: where its weights over the 950 tokens went. Bright = much attention.
-
-- Ask: Where does query 71 attend?
-- Expected: On the dog.
-
-**Build 2:** Query 61, the cat: its attention sits on the cat. Each query attends mostly to the parts of the photo that fix its box: the extremities more than the middle.
-
-- Ask: Why the edges and extremities rather than the middle?
-- Expected: The box needs the extreme points (head, paws, tail); the class is already clear from the encoder’s context.
-
-**Point here:** Carion et al. (2020) report the same: decoder attention highlights object extremities.
-
-**Transition:** How do duplicates disappear without NMS?
-
-**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
-
-## detr-layers: Duplicates disappear inside the decoder
-
-**Build 1:** DETR’s heads can read the queries after any decoder layer. After layer 1, two queries describe the same pot in the two-dogs photo.
-
-- Ask: What do queries 90 and 25 say after layer 1?
-- Expected: Both: potted plant, on the same pot.
-
-**Build 2:** After layer 2, query 25 has dropped out: “no object” at 0.975. The duplicate was removed by the network, not by a post-processing rule.
-
-- Ask: And after layer 2?
-- Expected: Query 25: no object; query 90: potted plant.
-
-**Build 3:** This works because training never rewards two queries for one object. That comes from the matching.
-
-- Ask: What lets a query know another has the pot?
-- Expected: Self-attention among the queries in each decoder layer.
-
-**Point here:** DETR trains a loss on every layer’s predictions (auxiliary losses), which is why every layer’s output can be read with the same heads.
-
-**Transition:** Training: which query should learn which object?
-
-**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
-
-## match-why: Training: which prediction should learn which dog?
-
-**Build 1:** Training photo: two annotated dogs. DETR made 100 predictions. Which prediction is compared with which dog?
-
-- Ask: How many predictions and how many targets?
-- Expected: 100 predictions, 2 targets.
-
-**Build 2:** Score every pairing with a cost: low when the prediction has the right class and a box close to the target’s. Then pick, among all one-to-one pairings, the cheapest.
-
-- Ask: What should make a pairing cheap?
-- Expected: The right class with high probability, and a box close to the target box.
-
-**Transition:** The cost needs one more box measure.
-
-**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
-
-## giou: One more measure: generalised IoU
-
-**Build 1:** IoU cannot tell a near miss from a far miss: both are 0. A loss built on IoU gives no direction to move.
-
-- Ask: What is the IoU of any two non-overlapping boxes?
-- Expected: 0.
-
-**Build 2:** Generalised IoU subtracts the empty fraction of the smallest box C that encloses both. Far apart, C is mostly empty and GIoU approaches −1.
-
-- Ask: What does the second term measure?
-- Expected: How much of the enclosing box is empty.
-
-**Build 3:** Real example: query 98 predicts the right dog; against the left dog its IoU is 0 but its GIoU is −0.529.
-
-- Ask: What is GIoU for identical boxes?
-- Expected: 1: IoU is 1 and C equals the union.
-
-**Point here:** GIoU: Rezatofighi et al., 2019. The two example values on the left are for the drawn boxes.
-
-**Transition:** The cost of one pairing.
-
-## cost-one: The cost of one pairing: query 61 and the left dog
-
-**Build 1:** DETR’s matching cost has three parts: minus the probability of the target’s class, the L1 distance between boxes, and minus the GIoU. Weights 1, 5 and 2.
-
-- Ask: Which part rewards the right class?
-- Expected: −p(class): a higher probability lowers the cost.
-
-**Build 2:** Query 61 gives “dog” probability 0.999: the class part is −0.999.
-
-- Ask: What are the L1 distance and GIoU here?
-- Expected: 0.004 and 0.984.
-
-**Build 3:** Its normalised box differs from the left dog’s by 0.004 in total (L1), and GIoU is 0.984.
-
-- Ask: What is the total?
-- Expected: −2.95
-
-**Build 4:** Total −2.95. Low cost = good pairing; negative is fine, only comparisons matter.
-
-- Ask: Is a negative cost a problem?
-- Expected: No: only which pairing is cheapest matters.
-
-**Point here:** Weights from DETR’s code (set_cost_class 1, set_cost_bbox 5, set_cost_giou 2). Boxes are normalised (c_x, c_y, w, h).
-
-**Transition:** Every pairing.
-
-**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
-
-## cost-matrix: Fill the table: the cost of every pairing
-
-**Build 1:** Row 1: the left dog against four of the queries. q61 is cheapest; q2 is second: its box is on the left dog too.
-
-- Ask: Which query is cheapest for the left dog?
-- Expected: q61, −2.95.
-
-**Build 2:** Row 2: the right dog. q98 is cheapest.
-
-- Ask: For the right dog?
-- Expected: q98, −2.90.
-
-**Build 3:** Choose one query per dog with the lowest total: q61 and q98. Here each dog’s cheapest query is different, so the choice is easy. It is not always.
-
-- Ask: Which queries learn “no object”?
-- Expected: All 98 others, including q2 and q90.
-
-**Transition:** When is the choice not easy?
-
-**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
-
-## greedy: Why not let each object grab its cheapest slot?
-
-**Build 1:** A made-up two-by-two case. Greedy: the left dog grabs q1, its cheapest at 1; the right dog is stuck with q2 at 9. Total 10.
-
-- Ask: What does greedy pick, and what does it cost?
-- Expected: q1 for the left dog, q2 for the right: 10.
-
-**Build 2:** The other pairing costs 2 + 2 = 4. Grabbing the cheapest first was wrong for the total.
-
-- Ask: What is the best total?
-- Expected: 4.
-
-**Build 3:** The best pairing must be found globally. The Hungarian algorithm does it efficiently; scipy has it.
-
-- Ask: How many pairings are there for 2 objects and 100 queries?
-- Expected: 100 × 99 = 9,900; for 20 objects about 10³⁹. Enumeration is out; Hungarian runs in O(n³).
-
-**Point here:** These four costs are invented to show the failure; the DETR costs on the previous slide had no conflict.
-
-**Transition:** After matching: the loss.
-
-## match-loss: After matching: the loss
-
-**Build 1:** A matched query learns its object: cross-entropy for the class, plus L1 and 1 − GIoU for the box. q61 is already almost perfect: tiny loss.
-
-- Ask: What does a matched query learn?
-- Expected: Its object’s class and box.
-
-**Build 2:** An unmatched query learns “no object”, its cross-entropy weighted by 0.1 because most queries are empty. q2 already says no object: almost no loss.
-
-- Ask: What does an unmatched query learn, and why the weight 0.1?
-- Expected: “No object”; 0.1 keeps the ~98 empty queries from dominating.
-
-**Build 3:** q90 named a real plant, but plants are not in this target list: it pays 0.58 for being right. Annotation policy matters.
-
-- Ask: Why is q90 penalised?
-- Expected: It found an object the annotation leaves out.
-
-**Transition:** Why does this remove duplicates?
-
-**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
-
-## why-no-nms: Why DETR needs no NMS
-
-**Build 1:** Matching is one-to-one: in every training step, a duplicate query is told “no object”. The network learns not to duplicate, using self-attention among queries.
-
-- Ask: What happens in training to a second query that predicts an already-matched object?
-- Expected: It is matched to nothing, so its target is “no object”.
-
-**Build 2:** The dense detector trained ten cells per object on purpose (more positives, more signal) and pays for it with NMS.
-
-- Ask: Why does YOLO train several cells per object?
-- Expected: More positives give more training signal and robustness; the price is duplicates.
-
-**Point here:** YOLOv10 (2024) trains both: a one-to-many head for signal and a one-to-one head used at test time, so it too runs without NMS.
-
-**Transition:** DETR in code.
-
-## detr-code: DETR in code: matching, then inference
-
-**Build 1:** The cost matrix is three lines: class, L1 and GIoU for every (query, object) pair. One call solves the matching. The loss then uses the matched pairs.
-
-- Ask: What shape is the cost matrix for 100 queries and N objects?
-- Expected: (100, N).
-
-**Build 2:** At test time there is nothing to match: run the model, keep the queries whose best class beats a threshold. No NMS.
-
-- Ask: What replaces NMS at test time?
-- Expected: A threshold on each query’s class probability.
-
-**Notebook:** Notebook part 7 runs DETR on the two-dogs photo, builds this cost matrix and checks the matching against brute force.
-
-**Transition:** Two answers side by side.
-
-## two-answers: Two answers to one question
-
-**Build 1:** Side by side. The structural difference is how outputs are assigned to objects in training: by place, several per object; or by matching, one per object.
-
-- Ask: Where does each method decide which output answers for which object?
-- Expected: YOLO: by cell position in training; DETR: by Hungarian matching in training.
-
-**Build 2:** Both solve the lecture’s question with a fixed tensor plus a way to say “nothing here”.
-
-- Ask: What plays the role of “no object” in YOLO?
-- Expected: Low class scores, removed by the score filter.
-
-**Point here:** DETR trained for 500 epochs on COCO; Deformable DETR, DINO and RT-DETR made such models faster to train and real-time.
-
-**Transition:** Part 8: how good are they?
+**Transition:** Part 8.
 
 ## part-8: Part 8 · Measuring a detector
 
@@ -1510,24 +1668,53 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 
 **Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
 
-## precision-recall: Precision and recall
+## pr-def: Precision and recall: two questions
 
-**Build 1:** Two numbers: precision divides by what we reported; recall divides by what was there.
+**Build 1:** Precision looks at the left circle, everything we reported: the fraction of it that was right.
 
-- Ask: What do the two denominators count?
-- Expected: Precision: all detections reported. Recall: all annotated objects.
+- Ask: What does precision divide by?
+- Expected: Everything reported: TP + FP.
 
-**Build 2:** With the usual 0.25 score cut-off, the street photo is perfect: four found, nothing extra.
+**Build 2:** Recall looks at the right circle, everything that was really there: the fraction of it we found.
+
+- Ask: What does recall divide by?
+- Expected: Everything really there: TP + FN.
+
+**Common misconception:** Neither alone is enough: report every possible box and recall is 1; report one sure box and precision is 1.
+
+**Transition:** The street photo, at two cut-offs.
+
+## pr-street: The street’s people at two score cut-offs
+
+**Build 1:** With the usual 0.25 score cut-off, the street photo is perfect: four people found, nothing extra. Precision 1, recall 1.
 
 - Ask: What are precision and recall at 0.25?
 - Expected: Both 1.
 
-**Build 3:** Keep everything down to 0.01 and the eight windscreen boxes join: recall stays 1, precision drops to 0.33. The threshold trades one for the other.
+**Build 2:** Keep everything down to 0.01 and the 8 windscreen boxes join: recall stays 1, precision drops to 0.33. The cut-off trades one for the other.
 
 - Ask: What happens at 0.01?
 - Expected: Precision falls to 0.33; recall stays 1.
 
-**Transition:** Measure all thresholds at once: rank the detections.
+**Transition:** Now the other direction: Part 1’s bird.
+
+## bird-threshold: Back to the bird: a lower cut-off finds it
+
+**Build 1:** At the usual 0.25: the cat and the dog are found, the bird (0.098) is missed. Precision 1, recall 2/3.
+
+- Ask: What do precision and recall say at 0.25?
+- Expected: Precision 1, recall 2/3: everything reported was right, but the bird was missed.
+
+**Build 2:** Lower the cut-off to 0.05 and the bird’s box gets through: recall 3/3. On this photo nothing false comes in with it; on the street, going lower brought eight false people.
+
+- Ask: Should we always lower the cut-off?
+- Expected: It depends on what a miss costs against a false alarm: a camera trap counting rare birds wants recall; a car that brakes for every false person wants precision.
+
+**Point here:** Only the seven annotated classes count here; the potted plants are ignored, as in the benchmark.
+
+**Transition:** Every cut-off at once: rank the detections.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
 
 ## pr-walk: Walk down the ranked list, one detection at a time
 
@@ -1601,16 +1788,16 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 - Ask: Why average over IoU thresholds?
 - Expected: To reward boxes that are tight, not just roughly right.
 
-**Build 3:** Both detectors on our eight photos: perfect at IoU 0.5; at strict IoU, YOLOv8n 0.94, DETR 0.88. On COCO’s validation set the published numbers are 37.3 and 42.0.
+**Build 3:** YOLOv8n on our eight photos: 1.00 at IoU 0.5, 0.94 averaged over the strict thresholds. On COCO’s validation set its published AP is 0.373: real scenes are far harder.
 
-- Ask: Which detector is better?
-- Expected: On our 8 easy photos both are perfect at 0.5; on COCO, DETR-R50 scores higher. A handful of photos cannot decide it.
+- Ask: Why is COCO’s number so much lower than ours?
+- Expected: COCO has 80 classes and crowded, cluttered, small objects; our eight photos are clean and easy. A handful of photos is not a benchmark.
 
-**Point here:** Our numbers come from our own evaluator (scripts/science.py) on our annotations; COCO numbers are from the YOLOv8 and DETR papers.
+**Point here:** Our numbers come from our own evaluator (scripts/science.py) on our annotations; the COCO number is from the Ultralytics YOLOv8 documentation. DETR on the same photos: Appendix A.
 
 **Transition:** In code.
 
-**Source:** Our evaluator on data/annotations.json; COCO numbers: Ultralytics YOLOv8 documentation and Carion et al. (2020).
+**Source:** Our evaluator on data/annotations.json; COCO number: Ultralytics YOLOv8 documentation.
 
 ## eval-code: Evaluation in code
 
@@ -1623,22 +1810,40 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 
 **Transition:** Wrap-up.
 
-## summary: One question, two answers, three matchings
+## summary: One question, one answer, three uses of IoU
 
 **Build 1:** The lecture’s question: how can a network with a fixed output return a variable, unordered set?
 
 - Ask: State the lecture’s question in one sentence.
 - Expected: How a fixed-size output can describe a variable, unordered set.
 
-**Build 2:** Two answers: tie outputs to places and clean up with NMS; or keep free slots and match them to objects in training.
+**Build 2:** The dense answer: outputs tied to places, many per object in training, one per object after NMS. The list’s length is decided after the network.
 
-- Ask: How do the two answers differ?
-- Expected: By place (with NMS) versus by matching (no NMS).
+- Ask: Where is the number of detections decided?
+- Expected: After the network: the score filter and NMS.
 
-**Build 3:** And three different matchings that are easy to confuse: assignment in training, NMS between predictions, evaluation against annotations. Each uses IoU.
+**Build 3:** Three places where boxes are paired up, easy to confuse: assignment in training, NMS between predictions, evaluation against annotations. Each uses IoU.
 
-- Ask: Which matching uses the annotations at test time?
-- Expected: Evaluation, when measuring; at deployment none of them does.
+- Ask: Which pairing uses the annotations?
+- Expected: Assignment (training) and evaluation (measuring); NMS uses only predictions.
+
+**Point here:** Appendix A gives the other answer, DETR: a fixed set of 100 slots matched to objects in training, so no NMS.
+
+**Transition:** Back to the six jobs.
+
+## apps-again: Back to the six jobs: what you would do now
+
+**Build 1:** The three everyday jobs: a pretrained COCO detector already knows their classes. What remains is tuning: grids, NMS threshold, score cut-off.
+
+- Ask: Which of the six jobs could use a COCO detector as it is?
+- Expected: Road, crowd and (with care for small animals) the camera trap.
+
+**Build 2:** The three specialist jobs need new classes: label a few hundred photos with boxes, fine-tune the same detector, and measure precision and recall on photos it has not seen.
+
+- Ask: What would you do first for the microscope job?
+- Expected: Annotate cells with boxes, fine-tune a pretrained detector on them, and measure precision and recall.
+
+**Point here:** Fine-tuning starts from COCO weights: the CNN already knows edges, textures and shapes; only the heads must learn the new classes.
 
 **Transition:** Next lecture.
 
@@ -1652,6 +1857,314 @@ Planned main route: 100 minutes, including student responses. Optional slides ar
 **Transition:** End of the main route.
 
 **Source:** Masks: YOLOv8n-seg run on the photo (scripts/run_models.py).
+
+## part-A: Appendix A · DETR: a fixed set of slots, matched to objects (optional)
+
+**Build 1:** The other answer to the lecture’s question: DETR, 100 slots that read the image with attention, matched to objects instead of cleaned up by NMS.
+
+- Ask: What were the two problems of K slots in Part 4?
+- Expected: Too few slots for some photos, and no rule for which slot answers for which object.
+
+**Transition:** Fix them one at a time.
+
+## slots-again: Back to the slots, with three changes (optional)
+
+**Build 1:** Problem 1 was capacity: use K = 100 slots. Unused slots predict a 92nd class, “no object”.
+
+- Ask: How many slots does DETR use?
+- Expected: 100.
+
+**Build 2:** A slot needs a way to look at the photo: give it a learned query vector that attends to the image features.
+
+- Ask: How does a slot see the image?
+- Expected: Cross-attention from its query to the image features.
+
+**Build 3:** Problem 2 was order: before computing the loss, find the cheapest one-to-one pairing of slots and objects. Order in the annotation list stops mattering.
+
+- Ask: How is the order problem solved?
+- Expected: By matching slots to objects before the loss.
+
+**Transition:** Follow a photo through DETR.
+
+## detr-pipeline: DETR, from photo to 100 predictions (optional)
+
+**Build 1:** A ResNet-50 turns the photo, resized to 1200 × 800, into a 25 × 38 grid; each position becomes a token of 256 numbers. 950 tokens.
+
+- Ask: How many image tokens are there?
+- Expected: 25 × 38 = 950.
+
+**Build 2:** A transformer encoder lets the 950 tokens attend to each other, so each token knows about the rest of the photo.
+
+- Ask: What does the encoder add?
+- Expected: Context: each token attends to all the others.
+
+**Build 3:** The decoder starts from 100 learned query vectors. In each of 6 layers, the queries attend to each other, then to the 950 image tokens (cross-attention).
+
+- Ask: What reads the image in the decoder?
+- Expected: The 100 queries, through cross-attention to the tokens.
+
+**Build 4:** Two small heads read each of the 100 outputs: a class among 91 COCO ids plus “no object”, and a box as normalised (c_x, c_y, w, h).
+
+- Ask: What does each of the 100 outputs give?
+- Expected: A class (or no object) and a normalised box.
+
+**Point here:** The grid is 25 × 38 because 800/32 = 25 and 1200/32 = 37.5, rounded up.
+
+**Transition:** What is a query?
+
+**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
+
+## queries: A query is learned once and reused for every photo (optional)
+
+**Build 1:** The 100 queries are stored parameters: 100 × 256 numbers learned in training, identical for every photo.
+
+- Ask: Do the queries change from photo to photo?
+- Expected: No: they are fixed after training.
+
+**Build 2:** Their outputs are computed: the same query writes a dog box for one photo and “no object” for another, depending on what it read.
+
+- Ask: Then how can query 71 output a dog here and nothing elsewhere?
+- Expected: Its output depends on what cross-attention reads from this photo.
+
+**Transition:** DETR on the courtyard.
+
+## detr-output: DETR on the courtyard: 100 slots, most of them empty (optional)
+
+**Build 1:** One square per query, numbered 0 to 99. Coloured if the query names an object; grey if it says “no object”.
+
+- Ask: How many queries say “no object”?
+- Expected: 88 with probability above 0.9.
+
+**Build 2:** The busy ones: query 71 says dog (0.999), query 61 cat (0.999), others plants. Their numbers are arbitrary: training decided which slot does what.
+
+- Ask: Which query found the dog?
+- Expected: Query 71.
+
+**Build 3:** Their boxes: one per object. No duplicates to remove, and no NMS.
+
+- Ask: Does DETR need NMS here?
+- Expected: No: each object has one query.
+
+**Transition:** Where did query 71 look?
+
+**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
+
+## detr-attention: Where two queries looked (optional)
+
+**Build 1:** Query 71’s cross-attention in the last decoder layer, averaged over its 8 heads: where its weights over the 950 tokens went. Bright = much attention.
+
+- Ask: Where does query 71 attend?
+- Expected: On the dog.
+
+**Build 2:** Query 61, the cat: its attention sits on the cat. Each query attends mostly to the parts of the photo that fix its box: the extremities more than the middle.
+
+- Ask: Why the edges and extremities rather than the middle?
+- Expected: The box needs the extreme points (head, paws, tail); the class is already clear from the encoder’s context.
+
+**Point here:** Carion et al. (2020) report the same: decoder attention highlights object extremities.
+
+**Transition:** How do duplicates disappear without NMS?
+
+**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
+
+## detr-layers: Duplicates disappear inside the decoder (optional)
+
+**Build 1:** DETR’s heads can read the queries after any decoder layer. After layer 1, two queries describe the same pot in the two-dogs photo.
+
+- Ask: What do queries 90 and 25 say after layer 1?
+- Expected: Both: potted plant, on the same pot.
+
+**Build 2:** After layer 2, query 25 has dropped out: “no object” at 0.975. The duplicate was removed by the network, not by a post-processing rule.
+
+- Ask: And after layer 2?
+- Expected: Query 25: no object; query 90: potted plant.
+
+**Build 3:** This works because training never rewards two queries for one object. That comes from the matching.
+
+- Ask: What lets a query know another has the pot?
+- Expected: Self-attention among the queries in each decoder layer.
+
+**Point here:** DETR trains a loss on every layer’s predictions (auxiliary losses), which is why every layer’s output can be read with the same heads.
+
+**Transition:** Training: which query should learn which object?
+
+**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
+
+## match-why: Training: which prediction should learn which dog? (optional)
+
+**Build 1:** Training photo: two annotated dogs. DETR made 100 predictions. Which prediction is compared with which dog?
+
+- Ask: How many predictions and how many targets?
+- Expected: 100 predictions, 2 targets.
+
+**Build 2:** Score every pairing with a cost: low when the prediction has the right class and a box close to the target’s. Then pick, among all one-to-one pairings, the cheapest.
+
+- Ask: What should make a pairing cheap?
+- Expected: The right class with high probability, and a box close to the target box.
+
+**Transition:** The cost needs one more box measure.
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## giou: One more measure: generalised IoU (optional)
+
+**Build 1:** IoU cannot tell a near miss from a far miss: both are 0. A loss built on IoU gives no direction to move.
+
+- Ask: What is the IoU of any two non-overlapping boxes?
+- Expected: 0.
+
+**Build 2:** Generalised IoU subtracts the empty fraction of the smallest box C that encloses both. Far apart, C is mostly empty and GIoU approaches −1.
+
+- Ask: What does the second term measure?
+- Expected: How much of the enclosing box is empty.
+
+**Build 3:** Real example: query 98 predicts the right dog; against the left dog its IoU is 0 but its GIoU is −0.529.
+
+- Ask: What is GIoU for identical boxes?
+- Expected: 1: IoU is 1 and C equals the union.
+
+**Point here:** GIoU: Rezatofighi et al., 2019. The two example values on the left are for the drawn boxes.
+
+**Transition:** The cost of one pairing.
+
+## cost-one: The cost of one pairing: query 61 and the left dog (optional)
+
+**Build 1:** DETR’s matching cost has three parts: minus the probability of the target’s class, the L1 distance between boxes, and minus the GIoU. Weights 1, 5 and 2.
+
+- Ask: Which part rewards the right class?
+- Expected: −p(class): a higher probability lowers the cost.
+
+**Build 2:** Query 61 gives “dog” probability 0.999: the class part is −0.999.
+
+- Ask: What are the L1 distance and GIoU here?
+- Expected: 0.004 and 0.984.
+
+**Build 3:** Its normalised box differs from the left dog’s by 0.004 in total (L1), and GIoU is 0.984.
+
+- Ask: What is the total?
+- Expected: −2.95
+
+**Build 4:** Total −2.95. Low cost = good pairing; negative is fine, only comparisons matter.
+
+- Ask: Is a negative cost a problem?
+- Expected: No: only which pairing is cheapest matters.
+
+**Point here:** Weights from DETR’s code (set_cost_class 1, set_cost_bbox 5, set_cost_giou 2). Boxes are normalised (c_x, c_y, w, h).
+
+**Transition:** Every pairing.
+
+**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
+
+## cost-matrix: Fill the table: the cost of every pairing (optional)
+
+**Build 1:** Row 1: the left dog against four of the queries. q61 is cheapest; q2 is second: its box is on the left dog too.
+
+- Ask: Which query is cheapest for the left dog?
+- Expected: q61, −2.95.
+
+**Build 2:** Row 2: the right dog. q98 is cheapest.
+
+- Ask: For the right dog?
+- Expected: q98, −2.90.
+
+**Build 3:** Choose one query per dog with the lowest total: q61 and q98. Here each dog’s cheapest query is different, so the choice is easy. It is not always.
+
+- Ask: Which queries learn “no object”?
+- Expected: All 98 others, including q2 and q90.
+
+**Transition:** When is the choice not easy?
+
+**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
+
+## greedy: Why not let each object grab its cheapest slot? (optional)
+
+**Build 1:** A made-up two-by-two case. Greedy: the left dog grabs q1, its cheapest at 1; the right dog is stuck with q2 at 9. Total 10.
+
+- Ask: What does greedy pick, and what does it cost?
+- Expected: q1 for the left dog, q2 for the right: 10.
+
+**Build 2:** The other pairing costs 2 + 2 = 4. Grabbing the cheapest first was wrong for the total.
+
+- Ask: What is the best total?
+- Expected: 4.
+
+**Build 3:** The best pairing must be found globally. The Hungarian algorithm does it efficiently; scipy has it.
+
+- Ask: How many pairings are there for 2 objects and 100 queries?
+- Expected: 100 × 99 = 9,900; for 20 objects about 10³⁹. Enumeration is out; Hungarian runs in O(n³).
+
+**Point here:** These four costs are invented to show the failure; the DETR costs on the previous slide had no conflict.
+
+**Transition:** After matching: the loss.
+
+## match-loss: After matching: the loss (optional)
+
+**Build 1:** A matched query learns its object: cross-entropy for the class, plus L1 and 1 − GIoU for the box. q61 is already almost perfect: tiny loss.
+
+- Ask: What does a matched query learn?
+- Expected: Its object’s class and box.
+
+**Build 2:** An unmatched query learns “no object”, its cross-entropy weighted by 0.1 because most queries are empty. q2 already says no object: almost no loss.
+
+- Ask: What does an unmatched query learn, and why the weight 0.1?
+- Expected: “No object”; 0.1 keeps the ~98 empty queries from dominating.
+
+**Build 3:** q90 named a real plant, but plants are not in this target list: it pays 0.58 for being right. Annotation policy matters.
+
+- Ask: Why is q90 penalised?
+- Expected: It found an object the annotation leaves out.
+
+**Transition:** Why does this remove duplicates?
+
+**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
+
+## why-no-nms: Why DETR needs no NMS (optional)
+
+**Build 1:** Matching is one-to-one: in every training step, a duplicate query is told “no object”. The network learns not to duplicate, using self-attention among queries.
+
+- Ask: What happens in training to a second query that predicts an already-matched object?
+- Expected: It is matched to nothing, so its target is “no object”.
+
+**Build 2:** The dense detector trained ten cells per object on purpose (more positives, more signal) and pays for it with NMS.
+
+- Ask: Why does YOLO train several cells per object?
+- Expected: More positives give more training signal and robustness; the price is duplicates.
+
+**Point here:** YOLOv10 (2024) trains both: a one-to-many head for signal and a one-to-one head used at test time, so it too runs without NMS.
+
+**Transition:** DETR in code.
+
+## detr-code: DETR in code: matching, then inference (optional)
+
+**Build 1:** The cost matrix is three lines: class, L1 and GIoU for every (query, object) pair. One call solves the matching. The loss then uses the matched pairs.
+
+- Ask: What shape is the cost matrix for 100 queries and N objects?
+- Expected: (100, N).
+
+**Build 2:** At test time there is nothing to match: run the model, keep the queries whose best class beats a threshold. No NMS.
+
+- Ask: What replaces NMS at test time?
+- Expected: A threshold on each query’s class probability.
+
+**Notebook:** Notebook appendix A runs DETR on the two-dogs photo, builds this cost matrix and checks the matching against brute force.
+
+**Transition:** Two answers side by side.
+
+## two-answers: Two answers to one question (optional)
+
+**Build 1:** Side by side. The structural difference is how outputs are assigned to objects in training: by place, several per object; or by matching, one per object.
+
+- Ask: Where does each method decide which output answers for which object?
+- Expected: YOLO: by cell position in training; DETR: by Hungarian matching in training.
+
+**Build 2:** Both solve the lecture’s question with a fixed tensor plus a way to say “nothing here”.
+
+- Ask: What plays the role of “no object” in YOLO?
+- Expected: Low class scores, removed by the score filter.
+
+**Point here:** DETR trained for 500 epochs on COCO; Deformable DETR, DINO and RT-DETR made such models faster to train and real-time.
+
+**Transition:** End of Appendix A. Appendix B: more depth.
 
 ## opt-yolov1: YOLOv1 (2016): one responsible cell per object (optional)
 

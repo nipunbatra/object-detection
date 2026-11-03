@@ -396,6 +396,77 @@ S['annotations'] = A['photos']
 S['seg'] = M['seg']
 S['provenance'] = {'yolo': Y['model'], 'detr': DT['model'], 'torch': M['torch']}
 
+# ---------------------------------------------------------------- Part 1: where detectors work, and what makes it hard
+APPS = json.loads((ROOT / 'data/applications.json').read_text())
+cb = [b for _, b in APPS['photos']['cells']]
+pairs = [(i, j) for i in range(len(cb)) for j in range(i + 1, len(cb))]
+pi, pj = max(pairs, key=lambda ij: iou(cb[ij[0]], cb[ij[1]]))
+S['apps'] = {'about': APPS['about'], 'boxes': APPS['photos'], 'cells_pair': [pi, pj], 'cells_pair_iou': r(iou(cb[pi], cb[pj]))}
+assert len(cb) == 12 and 0.1 < S['apps']['cells_pair_iou'] < 0.3
+people = [k['box'] for k in S['finals']['crowd'] if k['name'] == 'person']
+ci_, cj_ = max([(i, j) for i in range(len(people)) for j in range(i + 1, len(people))], key=lambda ij: iou(people[ij[0]], people[ij[1]]))
+S['apps']['crowd_pair'], S['apps']['crowd_pair_iou'] = [people[ci_], people[cj_]], r(iou(people[ci_], people[cj_]))
+
+# the small bird: YOLOv8n boxes it well but scores it below the 0.25 cut-off
+bird_gt = [b for c_, b in A['photos']['cat-dog-bird'] if c_ == 'bird'][0]
+bc = sorted([k for k in Y['photos']['cat-dog-bird']['candidates'] if k['name'] == 'bird'], key=lambda k: -k['score'])
+S['bird'] = {'gt': bird_gt, 'w': bird_gt[2] - bird_gt[0], 'h': bird_gt[3] - bird_gt[1], 'best': strip(bc[0]),
+             'iou': r(iou(bc[0]['box'], bird_gt)), 'runner_up': bc[0]['top'][1], 'n_cells': len(bc)}
+assert bc[0]['score'] < 0.25 and S['bird']['iou'] > 0.85 and not any(k['name'] == 'bird' for k in S['finals']['cat-dog-bird'])
+
+
+def photo_counts(name, score_thr):
+    """TP, FP and FN on one photo for the seven annotated classes, after NMS at 0.7, at one score cut-off."""
+    kept = nms([k for k in Y['photos'][name]['candidates'] if k['score'] >= score_thr], 0.7)[0]
+    out = {'tp': 0, 'fp': 0, 'fn': 0, 'fp_names': [], 'found': []}
+    for cls in A['classes']:
+        g = [{'photo': name, 'box': b} for c_, b in A['photos'][name] if c_ == cls]
+        d = [{'photo': name, 'score': k['score'], 'box': k['box']} for k in kept if k['name'] == cls]
+        rows_ = match_eval(d, g, 0.5) if d else []
+        hits = sum(x['hit'] for x in rows_)
+        out['tp'] += hits
+        out['fp'] += len(rows_) - hits
+        out['fn'] += len(g) - hits
+        out['fp_names'] += [cls] * (len(rows_) - hits)
+        out['found'] += [cls] * hits
+    out['precision'], out['recall'] = r(out['tp'] / max(1, out['tp'] + out['fp'])), r(out['tp'] / (out['tp'] + out['fn']))
+    return out
+
+
+S['bird_eval'] = {str(t): photo_counts('cat-dog-bird', t) for t in (0.25, 0.05)}
+assert S['bird_eval']['0.25']['fn'] == 1 and 'bird' in S['bird_eval']['0.05']['found']
+
+# one object, written as a target vector (the single-cat photo)
+catb = [b for c_, b in A['photos']['cat'] if c_ == 'cat'][0]
+S['single'] = {'box': catb, 'size': Y['photos']['cat']['size'], 'norm': [r(v) for v in cxcywh(catb, *Y['photos']['cat']['size'])]}
+
+# sliding windows over the courtyard: every 32 px, three sizes, three shapes; two neighbours share most pixels
+win, sh = 224, 32
+Wc, Hc = S['photo']['W'], S['photo']['H']
+S['windows'] = {'cols': Wc // 32, 'rows': Hc // 32, 'positions': (Wc // 32) * (Hc // 32), 'sizes': 3, 'shapes': 3,
+                'size': win, 'shift': sh, 'shared': r((win - sh) / win), 'iou': r((win - sh) / (win + sh))}
+S['windows']['crops'] = S['windows']['positions'] * S['windows']['sizes'] * S['windows']['shapes']
+
+# the cell that contains each animal's centre: the one-cell rule of YOLOv1
+cen = lambda b: ((b[0] + b[2]) / 2, (b[1] + b[3]) / 2)
+S['centre_cells'] = {n: {'centre': [r(v, 1) for v in cen(S[n]['xyxy'])],
+                         'cell': [int(cen(S[n]['xyxy'])[1] // 32), int(cen(S[n]['xyxy'])[0] // 32)]} for n in ('dog', 'cat')}
+assert S['centre_cells']['dog']['cell'] == [10, 18]
+
+# NMS when two objects of one class are close: the two dogs
+td = [k for k in Y['photos']['two-dogs']['candidates'] if k['name'] == 'dog' and k['score'] >= 0.25]
+tk, tr = nms(td, 0.7)
+first = tr[0]
+left1 = [k for k in td if k is not first['keep'] and all(k is not g for g, _ in first['removed'])]
+S['nms_two_dogs'] = {'n': len(td), 'candidates': [strip(k) for k in sorted(td, key=lambda k: -k['score'])],
+                     'rounds': [{'keep': strip(x['keep']), 'removed': [dict(strip(k), iou=r(v)) for k, v in x['removed']]} for x in tr],
+                     'left_after_1': [dict(strip(k), iou=r(iou(k['box'], first['keep']['box']))) for k in left1],
+                     'iou_between': r(iou(tk[0]['box'], tk[1]['box']))}
+assert len(tk) == 2 and max(x['iou'] for x in S['nms_two_dogs']['left_after_1']) < 0.7
+
+# what a label file holds for the courtyard: a COCO class index and a normalised (cx, cy, w, h)
+S['label_file'] = [{'name': n, 'id': Y['names'].index(n), 'norm': S[n]['norm']} for n in ('dog', 'cat')]
+
 (ROOT / 'data/science.json').write_text(json.dumps(S, separators=(',', ':')))
 print('wrote data/science.json', round((ROOT / 'data/science.json').stat().st_size / 1e3), 'kB')
 for k in ('iou_practice', 'iou_real', 'average_box', 'slots', 'cell', 'counts', 'class_aware', 'detr_layers', 'match', 'match_loss', 'practice'):
