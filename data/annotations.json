@@ -1,0 +1,14 @@
+{
+ "about": "Ground-truth boxes (x1, y1, x2, y2 in photo pixels) for the seven classes the lecture evaluates. YOLOv8l proposed them; each was checked by eye against the photo and kept. Potted plants and bags are not annotated: whether a planter or a strap counts is too ambiguous to score.",
+ "classes": ["person", "bicycle", "car", "bus", "bird", "cat", "dog"],
+ "photos": {
+  "cat-dog": [["dog", [407, 83, 768, 588]], ["cat", [112, 296, 321, 607]]],
+  "two-dogs": [["dog", [185, 174, 390, 587]], ["dog", [877, 169, 1118, 595]]],
+  "street": [["person", [104, 361, 185, 606]], ["dog", [831, 531, 996, 653]], ["car", [378, 418, 505, 515]], ["person", [1050, 397, 1108, 541]], ["bicycle", [713, 449, 758, 535]], ["person", [708, 390, 764, 511]], ["person", [579, 422, 597, 470]]],
+  "crowd": [["person", [101, 359, 183, 602]], ["person", [342, 390, 421, 617]], ["person", [1039, 389, 1111, 621]], ["person", [704, 356, 804, 668]], ["person", [419, 390, 491, 612]], ["person", [545, 412, 579, 514]], ["person", [607, 391, 653, 525]], ["person", [514, 414, 546, 514]], ["person", [817, 388, 910, 662]], ["person", [968, 372, 1044, 625]], ["person", [1098, 362, 1187, 630]]],
+  "scale": [["bus", [702, 201, 1204, 582]], ["person", [488, 391, 536, 492]], ["bicycle", [491, 440, 536, 513]], ["person", [316, 422, 329, 458]]],
+  "cat": [["cat", [650, 145, 1058, 597]]],
+  "cat-dog-bird": [["dog", [787, 173, 1106, 631]], ["cat", [155, 373, 382, 673]], ["bird", [521, 106, 571, 149]]],
+  "dog-occluded": [["dog", [321, 112, 751, 515]]]
+ }
+}

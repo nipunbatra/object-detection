@@ -1,0 +1,53 @@
+{
+  "passed": true,
+  "renderedStates": 233,
+  "errors": [],
+  "failures": [],
+  "checks": [
+    {
+      "name": "right arrow advances",
+      "pass": true
+    },
+    {
+      "name": "left arrow returns",
+      "pass": true
+    },
+    {
+      "name": "complete reveals final state",
+      "pass": true
+    },
+    {
+      "name": "reset restores first state",
+      "pass": true
+    },
+    {
+      "name": "speaker notes available",
+      "pass": true
+    },
+    {
+      "name": "F starts presenting",
+      "pass": true
+    },
+    {
+      "name": "F stops presenting",
+      "pass": true
+    },
+    {
+      "name": "fresh deep link",
+      "pass": true
+    },
+    {
+      "name": "old ?present#title link opens the cover",
+      "pass": true
+    },
+    {
+      "name": "mobile reading has no page overflow",
+      "pass": true
+    },
+    {
+      "name": "reading has all scenes",
+      "pass": true
+    }
+  ],
+  "scope": "Every authored state captured at 1280 × 720. Geometry checks do not replace looking at the screenshots."
+}
