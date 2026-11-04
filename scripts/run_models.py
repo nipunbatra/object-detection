@@ -10,6 +10,10 @@ Models (all pretrained on COCO or ImageNet; nothing is trained here):
 - YOLOv8n (Ultralytics, yolov8n.pt): the dense detector. We read its raw output tensor, before any NMS.
 - YOLOv8l (yolov8l.pt): a larger model, used only to propose the hand-checked ground-truth boxes.
 - DETR, facebook/detr-resnet-50 (Hugging Face): the set predictor, with every decoder layer and its cross-attention.
+- VGG16, torchvision IMAGENET1K_V1: Andrew Ng's convolutional sliding windows. Its dense layers, rewritten as
+  convolutions, classify every 224 x 224 window of the photo (32 px apart) in one pass; we compare with the 336 crops.
+
+    ~/base/bin/python scripts/run_models.py windows    # only the VGG16 windows, patched into data/models.json
 """
 import json, os, sys
 from pathlib import Path
@@ -222,13 +226,64 @@ def detr_all():
     return res
 
 
+# ---------------------------------------------------------------- VGG16: sliding windows, crop by crop and in one pass
+def windows_vgg(size=224, step=32):
+    """Ng's trick on a real classifier. VGG16 ends in three dense layers; written as a 7 x 7 convolution and two 1 x 1
+    convolutions they accept any input, so one pass over the 960 x 640 photo classifies every 224 x 224 window that
+    starts on a multiple of 32 px: a 14 x 24 grid of answers. We also run the 336 crops one at a time and time both."""
+    import time
+    from torchvision.models import vgg16, VGG16_Weights
+    w = VGG16_Weights.IMAGENET1K_V1
+    net = vgg16(weights=w).eval()
+    mean, std = torch.tensor([0.485, 0.456, 0.406])[:, None, None], torch.tensor([0.229, 0.224, 0.225])[:, None, None]
+    im = load('cat-dog')
+    x = (torch.from_numpy(np.array(im)).permute(2, 0, 1).float() / 255 - mean) / std
+    H, W = x.shape[1:]
+    rows, cols = (H - size) // step + 1, (W - size) // step + 1
+    fc1, fc2, fc3 = net.classifier[0], net.classifier[3], net.classifier[6]
+    conv1 = torch.nn.Conv2d(512, 4096, 7)
+    conv1.weight.data = fc1.weight.data.view(4096, 512, 7, 7)
+    conv1.bias.data = fc1.bias.data
+    conv2, conv3 = torch.nn.Conv2d(4096, 4096, 1), torch.nn.Conv2d(4096, 1000, 1)
+    conv2.weight.data, conv2.bias.data = fc2.weight.data.view(4096, 4096, 1, 1), fc2.bias.data
+    conv3.weight.data, conv3.bias.data = fc3.weight.data.view(1000, 4096, 1, 1), fc3.bias.data
+    head = torch.nn.Sequential(conv1, torch.nn.ReLU(), conv2, torch.nn.ReLU(), conv3).eval()
+    masses = lambda p: (p[:, 151:269].sum(1), p[:, 281:286].sum(1))   # the 118 dog breeds; the 5 cat classes
+    net(x[None, :, :size, :size])                                     # warm up
+    t0 = time.perf_counter()
+    feat = net.features(x[None])                                      # 1 x 512 x 20 x 30
+    one = head(feat).softmax(1)                                       # 1 x 1000 x 14 x 24
+    t_one = time.perf_counter() - t0
+    assert one.shape[2:] == (rows, cols), one.shape
+    crops = torch.stack([x[:, r * step:r * step + size, c * step:c * step + size] for r in range(rows) for c in range(cols)])
+    t0 = time.perf_counter()
+    pc = torch.cat([net(crops[i:i + 16]).softmax(1) for i in range(0, len(crops), 16)])
+    t_crops = time.perf_counter() - t0
+    d1, c1 = masses(one)
+    d2, c2 = masses(pc)
+    grid = lambda t: [[r3(v) for v in row] for row in t.reshape(rows, cols).tolist()]
+    top1 = lambda p: p.argmax(1).reshape(-1)
+    return {'model': 'VGG16, torchvision IMAGENET1K_V1', 'size': size, 'step': step, 'rows': rows, 'cols': cols,
+            'dog_onepass': grid(d1[0]), 'cat_onepass': grid(c1[0]), 'dog_crops': grid(d2), 'cat_crops': grid(c2),
+            'top1_same': int((top1(one[0].reshape(1000, -1).T) == top1(pc)).sum()),
+            't_onepass': round(t_one, 2), 't_crops': round(t_crops, 2), 'threads': torch.get_num_threads(),
+            'device': 'cpu', 'torch': torch.__version__}
+
+
 if __name__ == '__main__':
     DATA.mkdir(exist_ok=True)
+    if sys.argv[1:] == ['windows']:
+        out = json.loads((DATA / 'models.json').read_text())
+        out['windows_vgg'] = windows_vgg()
+        print('windows', {k: v for k, v in out['windows_vgg'].items() if not isinstance(v, list)})
+        (DATA / 'models.json').write_text(json.dumps(out, separators=(',', ':')))
+        sys.exit()
     out = {'classifier': classify()}
     print('classifier', out['classifier']['top5'][:3])
     out['yolo'] = yolo_all()
     out['seg'] = seg_courtyard()
     out['detr'] = detr_all()
+    out['windows_vgg'] = windows_vgg()
     out['torch'] = torch.__version__
     (DATA / 'models.json').write_text(json.dumps(out, separators=(',', ':')))
     print('wrote', DATA / 'models.json', round((DATA / 'models.json').stat().st_size / 1e6, 2), 'MB')

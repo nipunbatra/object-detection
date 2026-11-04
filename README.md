@@ -12,16 +12,16 @@ by step on one photo of a cat and a dog, with one idea per slide and real model 
 | 2 · From one label to a list | 9 | A real ImageNet classifier gives one label; detection needs a set of (class, box) entries of any length, in no order; the route. |
 | 3 · Boxes and IoU | 16 | Corner and centre formats with the dog's box; a YOLO label file; IoU computed one edge at a time, then the overlap's width, height and area; a live IoU figure with two worked answers; IoU in PyTorch, one line per click beside the boxes it computes on. |
 | 4 · One box, then many | 7 | Andrew Ng's localiser: a box head beside the class head; the target as numbers between 0 and 1, with "?" where there is nothing to learn; his two-case loss; two animals make it hedge (the average box matches neither). |
-| 5 · A candidate at every place | 22 | Andrew Ng's route to YOLO: one window slid over the photo, then a bigger one; his 14 × 14 and 16 × 16 example of one CNN pass doing the sliding; why a window cannot fit the dog; a coarse 3 × 2 grid with Part 4's record in every cell, the centre cell, the box in cell units, the 2 × 3 × 7 target and Part 4's loss cell by cell; two centres in one cell, and anchor boxes; then YOLOv8n's real 30 × 20 grid, reading a box out, every cell's box, a live cell inspector. |
+| 5 · A candidate at every place | 25 | Andrew Ng's route to YOLO: one window slid over the photo, a step at a time, then a bigger one; his toy classifier with its dense layers written as convolutions; his 16 × 16 example, four windows in one pass; the same trick on our photo with VGG16 (336 windows in 0.7 s instead of 28 s); the surest window is the dog's head, so a window cannot fit the dog. YOLO: a coarse 3 × 2 grid, the cell that holds each centre, the cat's and the dog's boxes measured in their cells, the six-record target, one CNN pass, Part 4's loss in every cell; two centres in one cell, so smaller cells. Then YOLOv8n's real 32-pixel cells: the dog's cell, the box it writes, every cell's box, and the 31 that score at least 0.25. |
 | 6 · NMS | 16 | The dog's ten real boxes reduced to one, IoU by IoU; two dogs; the threshold trade-off on a crowd; class-aware NMS on a cyclist; a live NMS figure; NMS in code, one line per click on the courtyard's 31 boxes; the pipeline as real thumbnails; the whole detector in code, one line per click. |
 | 7 · Three grids | 6 | Why 12,600 cells; which grid found the bus and the far pedestrian. |
 | 8 · Measuring | 14 | TP/FP/FN on real detections, precision and recall, Part 1's bird at two score cut-offs, a ranked list walked one row at a time, AP as an area, mAP. |
 | Wrap-up | 5 | One question, one answer, three uses of IoU; back to the six jobs. |
 | Appendix A · DETR | extra | Why a fixed set of K slots is hard (too few for a crowd; no order), then the set-prediction answer: 100 learned queries, cross-attention maps, duplicates dropping out between decoder layers, GIoU, the matching cost one cell at a time, why greedy fails, the Hungarian algorithm, the loss, why no NMS; both detectors compared. |
-| Appendix B · More depth | extra | YOLOv1, YOLOv8's four box distances and 84-number record, the loss worked through with binary cross-entropy at cell (10, 18), anchors, two-stage detectors, focal loss, box formats, letterboxing, after DETR. |
+| Appendix B · More depth | extra | YOLOv1, YOLOv8's four box distances and 84-number record, the loss worked through with binary cross-entropy at cell (10, 18), Ng's anchor boxes (one tall and one wide record per cell), two-stage detectors, focal loss, box formats, letterboxing, after DETR. |
 
-About 108 minutes with discussion: two class sessions, splitting after Part 4 (about 45 minutes) or after section
-5.1. A 60-minute route: Part 1 (two jobs and the bird), Part 2, Part 3 without the live figure, sections 5.2 to 5.5,
+About 111 minutes with discussion: two class sessions, splitting after Part 4 (about 45 minutes) or after section
+5.1. A 60-minute route: Part 1 (two jobs and the bird), Part 2, Part 3 without the live figure, sections 5.2 and 5.3,
 Part 6 through the two dogs, and Part 8's walk down a ranked list.
 
 The appendices are outside the main route: open the deck with `?all`, or read them in the reading view and the PDFs.
@@ -77,7 +77,8 @@ node scripts/export.mjs                          # both PDFs
 ```
 
 `run_models.py` needs PyTorch, torchvision, Ultralytics (`yolov8n.pt`, `yolov8l.pt`, `yolov8n-seg.pt`; paths via
-`YOLO_N`, `YOLO_L`, `YOLO_SEG`) and transformers with `facebook/detr-resnet-50` (set `HF_HUB_CACHE`). The browser
+`YOLO_N`, `YOLO_L`, `YOLO_SEG`) and transformers with `facebook/detr-resnet-50` (set `HF_HUB_CACHE`). `run_models.py windows` reruns only VGG16's
+sliding windows (torchvision weights), crop by crop and in one pass, and patches them into `data/models.json`. The browser
 scripts need Puppeteer (a `node_modules` link to any install) and Chrome. The slides themselves need only a static
 web server; KaTeX is bundled.
 

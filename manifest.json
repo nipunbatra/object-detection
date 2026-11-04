@@ -4,7 +4,7 @@
   "title": "Object detection",
   "series": "ES 667 Deep Learning",
   "subtitle": "From one label to a set of objects",
-  "minutes": 108,
+  "minutes": 111,
   "notebook": "object-detection.ipynb",
   "sections": [
     {
@@ -35,7 +35,7 @@
     {
       "id": "dense",
       "title": "Part 5 · A candidate at every place",
-      "minutes": 22
+      "minutes": 25
     },
     {
       "id": "nms",
@@ -68,9 +68,9 @@
       "minutes": 0
     }
   ],
-  "coreSlides": 96,
+  "coreSlides": 97,
   "optionalSlides": 33,
-  "totalStates": 318,
+  "totalStates": 333,
   "slides": [
     {
       "id": "title",
@@ -453,12 +453,28 @@
       "title": "Slide the classifier over the photo",
       "section": "dense",
       "chapter": "5.1 From sliding windows to one pass",
+      "builds": 5,
+      "optional": false
+    },
+    {
+      "id": "fc-conv",
+      "title": "Ng’s trick, step 1: write the dense layers as convolutions",
+      "section": "dense",
+      "chapter": "5.1 From sliding windows to one pass",
       "builds": 3,
       "optional": false
     },
     {
       "id": "conv-windows",
-      "title": "A small example: the same classifier on a bigger image",
+      "title": "Ng’s trick, step 2: a 16 × 16 image gives four answers at once",
+      "section": "dense",
+      "chapter": "5.1 From sliding windows to one pass",
+      "builds": 4,
+      "optional": false
+    },
+    {
+      "id": "conv-photo",
+      "title": "The same trick on our photo: all 336 windows in one pass",
       "section": "dense",
       "chapter": "5.1 From sliding windows to one pass",
       "builds": 3,
@@ -466,39 +482,47 @@
     },
     {
       "id": "window-boxes",
-      "title": "A window’s box is not the dog’s box",
+      "title": "A window is a fixed square: its box cannot fit the dog",
       "section": "dense",
       "chapter": "5.1 From sliding windows to one pass",
-      "builds": 2,
+      "builds": 3,
       "optional": false
     },
     {
       "id": "grid-3x2",
-      "title": "YOLO: a grid on the photo, and Part 4’s record in every cell",
+      "title": "YOLO: a grid on the photo, and a record for every cell",
       "section": "dense",
       "chapter": "5.2 YOLO: a record in every cell",
-      "builds": 2,
+      "builds": 3,
       "optional": false
     },
     {
       "id": "centre-cell",
-      "title": "Which cell answers for the dog? The one that holds its centre",
+      "title": "Which cell answers for an animal? The one that holds its centre",
       "section": "dense",
       "chapter": "5.2 YOLO: a record in every cell",
-      "builds": 2,
+      "builds": 3,
       "optional": false
     },
     {
       "id": "cell-box",
-      "title": "The dog’s box, measured in cells",
+      "title": "The cat’s box, measured in its cell",
       "section": "dense",
       "chapter": "5.2 YOLO: a record in every cell",
-      "builds": 2,
+      "builds": 4,
+      "optional": false
+    },
+    {
+      "id": "dog-box",
+      "title": "The dog’s box is bigger than its cell",
+      "section": "dense",
+      "chapter": "5.2 YOLO: a record in every cell",
+      "builds": 3,
       "optional": false
     },
     {
       "id": "target-photo",
-      "title": "The target for the whole photo, cell by cell",
+      "title": "The target for the whole photo: six records",
       "section": "dense",
       "chapter": "5.2 YOLO: a record in every cell",
       "builds": 3,
@@ -506,7 +530,7 @@
     },
     {
       "id": "one-pass",
-      "title": "One CNN pass writes the whole block",
+      "title": "One CNN pass writes all six records",
       "section": "dense",
       "chapter": "5.2 YOLO: a record in every cell",
       "builds": 2,
@@ -514,7 +538,7 @@
     },
     {
       "id": "loss-grid",
-      "title": "Training: Part 4’s loss, cell by cell",
+      "title": "Training: Part 4’s loss in every cell",
       "section": "dense",
       "chapter": "5.2 YOLO: a record in every cell",
       "builds": 3,
@@ -522,18 +546,18 @@
     },
     {
       "id": "two-in-a-cell",
-      "title": "One record per cell: what if two centres share a cell?",
+      "title": "Two centres in one cell? Use smaller cells",
       "section": "dense",
       "chapter": "5.2 YOLO: a record in every cell",
-      "builds": 3,
+      "builds": 2,
       "optional": false
     },
     {
       "id": "fine-grid",
-      "title": "In practice: a fine grid of 32-pixel cells",
+      "title": "In practice: small cells of 32 pixels",
       "section": "dense",
       "chapter": "5.3 The real grid, and its boxes",
-      "builds": 2,
+      "builds": 3,
       "optional": false
     },
     {
@@ -553,27 +577,11 @@
       "optional": false
     },
     {
-      "id": "fires",
-      "title": "About ten cells fire for each animal",
+      "id": "candidates",
+      "title": "Every cell writes a box: keep the confident ones",
       "section": "dense",
       "chapter": "5.3 The real grid, and its boxes",
-      "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "every-box",
-      "title": "Every cell draws a box, even on the wall",
-      "section": "dense",
-      "chapter": "5.3 The real grid, and its boxes",
-      "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "all-candidates",
-      "title": "Decode every cell, keep scores ≥ 0.25: 31 boxes",
-      "section": "dense",
-      "chapter": "5.3 The real grid, and its boxes",
-      "builds": 3,
+      "builds": 4,
       "optional": false
     },
     {
@@ -1010,10 +1018,10 @@
     },
     {
       "id": "opt-anchors",
-      "title": "Anchors: predict offsets from template boxes",
+      "title": "Anchor boxes: two records per cell, one tall and one wide",
       "section": "optional",
       "chapter": "",
-      "builds": 1,
+      "builds": 2,
       "optional": true
     },
     {

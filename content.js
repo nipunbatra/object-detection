@@ -24,14 +24,14 @@ const PHOTO_SRC='The photographs are course-owned generated images (see SOURCES.
 
 export const meta={
  id:'object-detection',number:22,title:'Object detection',series:'ES 667 Deep Learning',
- subtitle:'From one label to a set of objects',minutes:108,notebook:'object-detection.ipynb',
+ subtitle:'From one label to a set of objects',minutes:111,notebook:'object-detection.ipynb',
  sections:[
   {id:'map',title:'Lecture map',minutes:1},
   {id:'why',title:'Part 1 · Why detect objects?',minutes:12},
   {id:'task',title:'Part 2 · From one label to a list',minutes:9},
   {id:'boxes',title:'Part 3 · Boxes and IoU',minutes:16},
   {id:'onebox',title:'Part 4 · One box, then many',minutes:7},
-  {id:'dense',title:'Part 5 · A candidate at every place',minutes:22},
+  {id:'dense',title:'Part 5 · A candidate at every place',minutes:25},
   {id:'nms',title:'Part 6 · One box per object: NMS',minutes:16},
   {id:'scales',title:'Part 7 · Three grids for three sizes',minutes:6},
   {id:'eval',title:'Part 8 · Measuring a detector',minutes:14},
@@ -582,129 +582,234 @@ S_('crop-classifier','dense','Start from a tool we have: a classifier for crops'
  expected:['Dog, cat, nothing.','Say where objects are in a large photo, or find two of them.'],
  point:'Andrew Ng’s detection lectures start the same way: a car classifier trained on closely cropped car images, then slid over the image.',
  transition:'Slide it over the photo.',source:PHOTO_SRC});
-// sliding windows, Ng's way: one window size slid across the photo, then a bigger window slid the same way
-const nAcross=(W-WN.size)/WN.shift+1,nDown=(H-WN.size)/WN.shift+1,big2=2*WN.size;
-const winDog=[448,128,448+WN.size,128+WN.size],rowWins=[0,1,2,3,4].map(i=>[i*WN.shift,0,i*WN.shift+WN.size,WN.size]),bigWins=[[0,0,big2,big2],[384,96,384+big2,96+big2]];
-S_('sliding','dense','Slide the classifier over the photo',{builds:3,
- body:cols(courtyard(gonly(1,rect(rowWins[0],{stroke:COL.guess,w:7})+pill(rowWins[0][0],rowWins[0][3],'nothing',{fill:COL.guess,size:34,below:true}))+
-   gonly(2,rowWins.map((b,i)=>rect(b,{stroke:COL.guess,w:i?3:6,op:i?.6:1})).join('')+arrow(250,262,420,262,{stroke:COL.guess,w:5,head:18})+rect(winDog,{stroke:COL.guess,w:7})+pill(winDog[0],winDog[1],'dog',{fill:COL.guess,size:34}))+
-   gonly(3,bigWins.map(b=>rect(b,{stroke:COL.amber,w:7,dash:'16 9'})).join('')+pill(bigWins[1][0],bigWins[1][1],'dog',{fill:COL.amber,size:34})),'One window classified, then slid along the photo, then a bigger window slid the same way'),
-  stack(only(1,p(`One window, ${WN.size} × ${WN.size} pixels.`)),only(2,p(`Every ${WN.shift} pixels: ${nAcross} × ${nDown} = ${nAcross*nDown} crops.`)),only(3,p(`A bigger window, ${big2} × ${big2}: slide it again.`))),'1.3fr 1fr'),
- lines:[`Put a ${WN.size} × ${WN.size} window in the top-left corner, crop it and classify it: nothing there.`,
-  `Slide it ${WN.shift} pixels at a time, across and then down. Most crops say nothing; this one says dog.`,
-  'Objects come in different sizes, so repeat with a bigger window, and a bigger one. Every crop is a full run of the classifier: slow.'],
- ask:['What does the first crop show?','How many crops for one window size?','Why try bigger windows?'],
- expected:['Wall and plants: nothing.',`(${W} − ${WN.size}) ÷ ${WN.shift} + 1 = ${nAcross} across, (${H} − ${WN.size}) ÷ ${WN.shift} + 1 = ${nDown} down: ${nAcross*nDown}.`,'An object can be bigger than the window, like this dog.'],
- point:'Ng’s sliding windows (Course 4, Week 3, Object Detection): a classifier trained on closely cropped cars, slid with a stride, then with bigger windows. OverFeat (2013) worked like this; R-CNN (2014) classified about 2,000 proposed crops per image.',
- transition:'Can one pass do all the windows?',source:PHOTO_SRC});
-// Ng's example: a classifier built from convolutions takes a 14 x 14 crop to one answer, and a 16 x 16 image to 2 x 2 answers
-const ngFig=(()=>{const u=13,x0=24,y0=34,col=[COL.guess,COL.target,COL.amber,COL.data],off=[[0,0],[2,0],[0,2],[2,2]],ox=420;
- const sq=n=>{let g='';for(let i=0;i<=n;i++)g+=line(x0+i*u,y0,x0+i*u,y0+n*u,{stroke:'#C9D0D7',w:1})+line(x0,y0+i*u,x0+n*u,y0+i*u,{stroke:'#C9D0D7',w:1});return g;};
- const out=(n,coloured)=>{const s=64,oy=y0+(16*u-n*s)/2;let g='';for(let r=0;r<n;r++)for(let c=0;c<n;c++){const i=r*2+c;g+=`<rect x="${ox+c*s}" y="${oy+r*s}" width="${s-6}" height="${s-6}" rx="6" fill="${coloured?col[i]:'#fff'}" fill-opacity="${coloured?.8:1}" stroke="${coloured?col[i]:COL.ink}" stroke-width="3"/>`;}return g;};
- const mid=arrow(x0+16*u+30,y0+8*u,ox-24,y0+8*u,{stroke:COL.ink,w:3,head:16})+label((x0+16*u+30+ox-24)/2,y0+8*u-14,'the same layers',{size:20,anchor:'middle',fill:COL.ink});
- return fig(560,290,gonly(1,sq(14)+rect([x0,y0,x0+14*u,y0+14*u],{stroke:COL.guess,w:4})+label(x0,y0+16*u+28,'a 14 × 14 crop',{size:21,fill:COL.ink,weight:650})+out(1,false)+label(ox,y0+16*u+28,'1 answer',{size:21,fill:COL.ink,weight:650}))+
-  gonly('2-3',sq(16)+label(x0,y0+16*u+28,'a 16 × 16 image',{size:21,fill:COL.ink,weight:650})+out(2,false)+label(ox,y0+16*u+28,'2 × 2 answers',{size:21,fill:COL.ink,weight:650}))+
-  gat(3,off.map(([dx,dy],i)=>rect([x0+dx*u+1.5*i,y0+dy*u+1.5*i,x0+(dx+14)*u-1.5*i,y0+(dy+14)*u-1.5*i],{stroke:col[i],w:3})).join('')+out(2,true))+mid,
-  'A classifier for 14 by 14 crops gives one answer; on a 16 by 16 image the same layers give four, one for each 14 by 14 window');})();
-S_('conv-windows','dense','A small example: the same classifier on a bigger image',{builds:3,
- body:cols(ngFig,sm(eq(R`14\xrightarrow{\text{conv }5\times5}10\xrightarrow{\text{pool }2}5\xrightarrow{\text{conv }5\times5}1`),
-  at(2,eq(R`16\xrightarrow{\text{conv }5\times5}12\xrightarrow{\text{pool }2}6\xrightarrow{\text{conv }5\times5}2`)),
-  at(3,eq(R`\text{window step}=\text{pooling step}=2\ \text{px}`))),'1.25fr 1fr'),
- lines:['Neighbouring windows overlap, so most of their work is repeated. Ng’s trick: build the classifier from convolutions only. On a 14 × 14 crop it gives one answer.',
-  'Feed the same layers a 16 × 16 image. Nothing in the network changes, yet the output grows to 2 × 2: four answers.',
-  'Each answer is the classifier on one 14 × 14 window, the windows 2 pixels apart. The pixels they share are processed once.'],
- ask:['What does a 5 × 5 convolution do to a 14 × 14 input?','How many answers does a 16 × 16 image give?','Which window does the top-right answer belong to?'],
- expected:['It gives 10 × 10: 14 − 5 + 1 = 10.','2 × 2 = 4: 16 − 5 + 1 = 12, halved to 6, and 6 − 5 + 1 = 2.','The window 2 pixels to the right of the first: columns 2 to 15, rows 0 to 13.'],
- point:'Andrew Ng’s example (Deep Learning Specialization, Course 4, Week 3: convolutional implementation of sliding windows); the last layers are convolutions, so they accept any input size. The sizes are his, not YOLOv8’s.',
- transition:'Do the windows’ boxes fit the dog?'});
-const BW=S.windows.best_dog;
-S_('window-boxes','dense','A window’s box is not the dog’s box',{builds:2,
- body:cols(courtyard(gtBox(DOG,'dog',{size:28,w:6})+rect(BW.box,{stroke:COL.guess,w:6,dash:'14 8'}),'The dog’s box and the best 224-pixel window, which sits inside it',{view:dogView}),
-  stack(p('The best 224-pixel window lies inside the dog:'),`<div class="eq-sm">${eq(R`\mathrm{IoU}=\frac{224\times224}{${S.dog.w}\times${S.dog.h}}\approx${num(BW.iou,2)}`)}</div>`,at(2,p('Let each place write its own box instead.'))),'1fr 1.1fr'),
- lines:['Even the best 224-pixel window fits the dog badly: the dog is 361 × 505 pixels, so the window sits inside it, and windows only sit every 32 pixels.',
-  'Ng’s next step: stop cutting fixed windows, and let the network write a box of any size at each place. That is YOLO.'],
- ask:['What is the best IoU any 224-pixel window gets with the dog?','How can we get a box that fits?'],
- expected:[`${num(BW.iou,3)}: the window lies inside the dog, so IoU = 224² ÷ (361 × 505).`,'Let each place write a box, as Part 4’s localiser did for the whole photo.'],
- point:'Ng makes this point before YOLO: sliding windows cannot output accurate boxes, because their places and shapes are fixed in advance.',
- transition:'YOLO: a grid, and a record in every cell.',source:PHOTO_SRC});
+// sliding windows, as Ng teaches them: one window, moved a step at a time; every place it can go; then a bigger window
+const CW=S.convwin,SH=WN.shift,WS=WN.size,nAcross=(W-WS)/SH+1,nDown=(H-WS)/SH+1,big2=WN.big,[bigA,bigD]=WN.big_n;
+const winAt=(x,y,s=WS)=>[x,y,x+s,y+s],win0=winAt(0,0),win1=winAt(SH,0),winDog=winAt(448,128),winBig=winAt(352,96,big2);
+/** A crop of the courtyard, the classifier, and its answer, left to right. */
+const cropPipe=(b,answer,col=COL.ink)=>fig(570,210,
+ `<svg x="4" y="14" width="180" height="180" viewBox="${b[0]} ${b[1]} ${b[2]-b[0]} ${b[3]-b[1]}"><image href="figures/cat-dog.jpg" width="${W}" height="${H}" preserveAspectRatio="none"/></svg>`+
+ `<rect x="4" y="14" width="180" height="180" fill="none" stroke="${b[2]-b[0]>WS?COL.amber:COL.guess}" stroke-width="5"/>`+arrow(196,104,252,104,{w:3,head:12})+
+ `<rect x="260" y="66" width="112" height="76" rx="10" fill="#fff" stroke="${COL.ink}" stroke-width="2.5"/>`+label(316,113,'CNN',{size:26,anchor:'middle',fill:COL.ink,weight:700})+
+ arrow(380,104,424,104,{w:3,head:12})+label(434,114,answer,{size:30,fill:col,weight:700}),`A crop goes into the classifier, which answers ${answer}`);
+const winDots=Array.from({length:nDown},(_,r)=>Array.from({length:nAcross},(_,c)=>`<circle cx="${WS/2+c*SH}" cy="${WS/2+r*SH}" r="6" fill="${COL.guess}" stroke="#fff" stroke-width="2"/>`).join('')).join('');
+S_('sliding','dense','Slide the classifier over the photo',{builds:5,
+ body:cols(courtyard(gonly(1,rect(win0,{stroke:COL.guess,w:8}))+
+   gonly(2,rect(win0,{stroke:COL.guess,w:4,dash:'14 9',op:.75})+rect(win1,{stroke:COL.guess,w:8})+arrow(win0[2],win0[3]+26,win1[2],win0[3]+26,{stroke:COL.guess,w:4,head:12})+label(win1[2]+12,win0[3]+36,`${SH} px`,{size:32,fill:COL.guess,weight:700,halo:true}))+
+   gonly(3,rect(winDog,{stroke:COL.guess,w:8})+pill(winDog[0],winDog[1],'dog',{fill:COL.guess,size:34}))+gonly(4,rect(win0,{stroke:COL.guess,w:4,op:.6})+winDots)+
+   gonly(5,rect(winBig,{stroke:COL.amber,w:8})+pill(winBig[0],winBig[1],'dog',{fill:COL.amber,size:34})),
+  'A 224-pixel window at the top-left, one step to the right, on the dog, at every place it can go; then a bigger window'),
+  `<div class="state-slot">${only(1,cropPipe(win0,'nothing'))}${only(2,cropPipe(win1,'nothing'))}${only(3,cropPipe(winDog,'dog',COL.guess))}`+
+  `${only(4,stack(`<div class="big-number">${nAcross} × ${nDown} = ${nAcross*nDown}</div>`,p('crops, one per dot: each is a full run of the classifier')))}`+
+  `${only(5,stack(cropPipe(winBig,'dog',COL.amber),p(`${big2} × ${big2} windows, shrunk to ${WS} × ${WS}: ${bigA} × ${bigD} = ${bigA*bigD} more crops`)))}</div>`,'1.2fr 1fr'),
+ lines:[`Put a ${WS} × ${WS} window in the top-left corner, crop it, and give the crop to the classifier: nothing there.`,
+  `Move the window ${SH} pixels to the right and classify again: nothing. Two neighbouring crops share ${Math.round(WN.shared*100)}% of their pixels.`,
+  'Keep sliding, across and then down, a row at a time. When the window sits on the dog, the classifier says dog.',
+  `One window size gives ${nAcross} × ${nDown} = ${nAcross*nDown} crops, one per dot: ${nAcross*nDown} full runs of the classifier for one photo.`,
+  'Objects come in many sizes, so slide a bigger window too, shrinking each crop to the classifier’s size. Every window size adds another full set of runs.'],
+ ask:['What does the first crop show?','How much do two neighbouring crops overlap?','Which crops say dog?','How many crops for one window size?','Why slide a bigger window as well?'],
+ expected:['Wall and plants: nothing.',`They share ${WS-SH} of their ${WS} columns: ${Math.round(WN.shared*100)}% of their pixels.`,'The ones that sit on the dog.',
+  `(${W} − ${WS}) ÷ ${SH} + 1 = ${nAcross} across, (${H} − ${WS}) ÷ ${SH} + 1 = ${nDown} down: ${nAcross*nDown}.`,'An object can be bigger than the window, like this dog.'],
+ point:'Ng’s sliding windows (Course 4, Week 3, “Object Detection”): a car classifier trained on closely cropped images, slid with a stride, then with a medium and a large window, each crop resized to the classifier’s input. He notes the cost: with a ConvNet every crop is a full forward pass. OverFeat (2013) worked this way.',
+ transition:'Most of that work is repeated. Ng’s trick shares it.',source:PHOTO_SRC});
+// Ng's trick, step 1: his toy classifier as blocks of numbers; its dense layers become convolutions
+/** A block of numbers drawn as a box: a front face w x h at (x, y), and depth d going back and up. */
+const vol=(x,y,w,h,d,{stroke=COL.ink,fill='#fff'}={})=>`<g><path d="M${x},${y} l${d},${-.6*d} h${w} l${-d},${.6*d}Z" fill="#E9ECEF" stroke="${stroke}" stroke-width="2"/>`+
+ `<path d="M${x+w},${y} l${d},${-.6*d} v${h} l${-d},${.6*d}Z" fill="#DCE0E5" stroke="${stroke}" stroke-width="2"/><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="${stroke}" stroke-width="2"/></g>`;
+const fcFig=(()=>{const cy=172,ly=cy+108,lab=(x,t)=>label(x,ly,t,{size:21,anchor:'middle',fill:COL.ink,weight:600}),
+  arr=(x1,x2,t,t2='')=>arrow(x1,cy,x2,cy,{w:3,head:12})+label((x1+x2)/2,cy-(t2?40:16),t,{size:18,anchor:'middle',fill:MUTED})+(t2?label((x1+x2)/2,cy-16,t2,{size:18,anchor:'middle',fill:MUTED}):''),
+  bar=(x,h)=>`<rect x="${x}" y="${cy-h/2}" width="24" height="${h}" rx="4" fill="#fff" stroke="${COL.ink}" stroke-width="2"/>`,
+  one=(x,d)=>vol(x,cy-8,16,16,d,{stroke:COL.guess,fill:COL.guess}),
+  outs=x=>['cat','dog','nothing'].map((t,i)=>label(x,cy-24+i*28,t,{size:19,fill:COL.ink})).join('');
+ return fig(1180,300,vol(10,cy-63,126,126,8)+lab(77,'14 × 14 × 3')+arr(154,244,'conv 5 × 5')+vol(254,cy-45,90,90,24)+lab(311,'10 × 10 × 16')+
+  arr(378,468,'max pool 2')+vol(478,cy-23,45,45,24)+lab(512,'5 × 5 × 16')+
+  gonly(1,arr(557,667,'dense')+bar(677,170)+lab(689,'400'))+gonly('2-3',arr(557,667,'conv 5 × 5','400 filters')+one(677,60)+lab(712,'1 × 1 × 400'))+
+  gonly('1-2',arr(765,855,'dense')+bar(865,170)+lab(877,'400')+arr(955,1035,'softmax')+bar(1045,66)+lab(1057,'3'))+
+  gonly(3,arr(765,855,'conv 1 × 1')+one(865,60)+lab(900,'1 × 1 × 400')+arr(955,1035,'conv 1 × 1')+one(1045,14)+lab(1062,'1 × 1 × 3'))+outs(1094),
+  'Ng’s toy classifier: a 14 by 14 by 3 crop, a 5 by 5 convolution, a max pool, two dense layers of 400 units and 3 answers; then each dense layer rewritten as a convolution');})();
+S_('fc-conv','dense','Ng’s trick, step 1: write the dense layers as convolutions',{builds:3,
+ body:stack(fcFig,`<div class="state-slot">${only(2,`<div class="eq-sm">${eq(R`\text{one filter: }5\times5\times16=400\ \text{weights, as for one dense unit}`)}</div>`)}${only(3,`<div class="eq-sm">${eq(R`\text{every layer is a convolution}`)}</div>`)}</div>`),
+ lines:['Ng’s toy classifier for 14 × 14 crops, drawn as blocks of numbers: a convolution, a max pool, two dense layers of 400 units, then 3 answers.',
+  'Write the first dense layer as 400 filters of 5 × 5 × 16. Each one covers the whole block, so it sees all 400 inputs, like one dense unit.',
+  'The other two dense layers become 1 × 1 convolutions. The weights and the answers do not change, but a network of convolutions accepts a bigger image.'],
+ ask:['How many numbers does the 5 × 5 × 16 block hold?','What does one 5 × 5 × 16 filter compute on that block?','What changes if the input is bigger than 14 × 14?'],
+ expected:['5 × 5 × 16 = 400.','A weighted sum of all 400 numbers plus a bias: exactly one dense unit.','A dense layer would break, since it expects exactly 400 inputs. Convolutions just slide further and give more outputs.'],
+ point:'Ng, “Convolutional Implementation of Sliding Windows” (Course 4, Week 3): 14 × 14 × 3 → 10 × 10 × 16 → 5 × 5 × 16 → FC 400 → FC 400 → softmax, turned into 400 filters of 5 × 5 × 16, then 1 × 1 convolutions. He has 4 outputs (pedestrian, car, motorcycle, background); we use 3 to match our classifier.',
+ transition:'Now give it a bigger image.'});
+// Ng's trick, step 2: a 16 x 16 image through the same layers; each 14 x 14 window's footprint, coloured as Ng colours them
+const NGW=[[0,0,COL.data],[2,0,COL.green],[0,2,COL.amber],[2,2,COL.guess]];
+const swFig=(()=>{const F=[{x:20,y:40,n:16,u:12},{x:330,y:64,n:12,u:12},{x:610,y:64,n:6,u:24},{x:940,y:82,n:2,u:54}],sz=[14,10,5,1];
+ const face=f=>{let g=`<rect x="${f.x}" y="${f.y}" width="${f.n*f.u}" height="${f.n*f.u}" fill="#fff" stroke="${COL.ink}" stroke-width="2"/>`;
+  for(let i=1;i<f.n;i++)g+=line(f.x+i*f.u,f.y,f.x+i*f.u,f.y+f.n*f.u,{stroke:'#D5DAE0',w:1})+line(f.x,f.y+i*f.u,f.x+f.n*f.u,f.y+i*f.u,{stroke:'#D5DAE0',w:1});return g;};
+ const foot=([dx,dy,c],k)=>F.map((f,i)=>{const s=i<2?1:.5,x=f.x+dx*s*f.u,y=f.y+dy*s*f.u,ins=1.5*k;
+  return i===3?`<rect x="${x+4}" y="${y+4}" width="${f.u-8}" height="${f.u-8}" rx="6" fill="${c}" fill-opacity=".85"/>`:
+   `<rect x="${x+ins}" y="${y+ins}" width="${sz[i]*f.u-2*ins}" height="${sz[i]*f.u-2*ins}" fill="${c}" fill-opacity=".08" stroke="${c}" stroke-width="3.5"/>`;}).join('');
+ // the last clicks: all four windows on the input, the 12 x 12 pixels they all share shaded, and the four answers
+ const f0=F[0],f3=F[3],all=`<rect x="${f0.x+2*f0.u}" y="${f0.y+2*f0.u}" width="${12*f0.u}" height="${12*f0.u}" fill="${MUTED}" fill-opacity=".25"/>`+
+  NGW.map(([dx,dy,c],k)=>`<rect x="${f0.x+dx*f0.u+1.5*k}" y="${f0.y+dy*f0.u+1.5*k}" width="${14*f0.u-3*k}" height="${14*f0.u-3*k}" fill="none" stroke="${c}" stroke-width="3.5"/>`+
+   `<rect x="${f3.x+dx/2*f3.u+4}" y="${f3.y+dy/2*f3.u+4}" width="${f3.u-8}" height="${f3.u-8}" rx="6" fill="${c}" fill-opacity=".85"/>`).join('');
+ const arr=(x1,x2,y,t,t2='')=>arrow(x1,y,x2,y,{w:3,head:12})+label((x1+x2)/2,y-(t2?38:14),t,{size:19,anchor:'middle',fill:MUTED})+(t2?label((x1+x2)/2,y-14,t2,{size:19,anchor:'middle',fill:MUTED}):''),
+  lab=(f,s)=>label(f.x+f.n*f.u/2,272,s,{size:21,anchor:'middle',fill:COL.ink,weight:600});
+ return fig(1180,290,F.map(face).join('')+arr(226,318,136,'conv 5 × 5')+arr(488,598,136,'max pool 2')+arr(768,928,136,'conv 5 × 5,','then 1 × 1s')+
+  lab(F[0],'16 × 16 × 3')+lab(F[1],'12 × 12 × 16')+lab(F[2],'6 × 6 × 16')+lab(F[3],'2 × 2 × 3')+
+  gonly(1,foot(NGW[0],0))+gonly(2,`<g opacity=".35">${foot(NGW[0],0)}</g>`+foot(NGW[1],1))+gonly('3-4',all),
+  'A 16 by 16 image through the same layers: each 14 by 14 window, 2 pixels apart, keeps its own footprint in every layer and ends in one of the 2 by 2 outputs');})();
+S_('conv-windows','dense','Ng’s trick, step 2: a 16 × 16 image gives four answers at once',{builds:4,
+ body:stack(swFig,at(4,`<div class="eq-sm">${eq(R`28\xrightarrow{\text{conv }5\times5}24\xrightarrow{\text{pool }2}12\xrightarrow{\text{conv }5\times5}8:\quad 8\times8=64\ \text{windows}`)}</div>`)),
+ lines:['Give the same network a 16 × 16 image. The top-left 14 × 14 window flows through exactly as before and ends in the top-left output.',
+  'The window 2 pixels to the right moves 2 cells in the first layer and 1 after pooling. Its answer is the top-right output.',
+  'Four windows, four answers, from one pass. Where the windows overlap, each convolution is computed once instead of four times.',
+  'Ng’s next example: a 28 × 28 image gives 8 × 8 answers, 64 windows 2 pixels apart. The step is 2 because of the max pool.'],
+ ask:['Where does the top-left window’s answer end up?','Where does the window 2 pixels to the right end up?','How many times is each overlapping pixel processed?','Why are the windows 2 pixels apart?'],
+ expected:['In the top-left of the 2 × 2 output.','In the top-right output: 2 cells to the right after the convolution, 1 after the 2 × 2 pool.','Once, instead of once per window that contains it.','The 2 × 2 max pool halves the size, so one output step is 2 input pixels.'],
+ point:'Ng colours the four windows blue, green, orange and purple and follows them to the four outputs (Sermanet et al., OverFeat, 2014). In his drawing the 400-deep layers are flat squares; so are ours.',
+ transition:'The same trick on our photo.'});
+// the trick on our photo: VGG16 with its dense layers as convolutions gives one answer per 224-px window, 32 px apart
+const cwHeat=(map,col)=>map.flatMap((row,r)=>row.map((v,c)=>v>=.1?`<rect x="${WS/2-SH/2+c*SH}" y="${WS/2-SH/2+r*SH}" width="${SH}" height="${SH}" fill="${col}" fill-opacity="${(.82*v).toFixed(2)}"/>`:'')).join('');
+const cwLattice=(()=>{let g='';const x0=WS/2-SH/2,y0=x0,x1=x0+CW.cols*SH,y1=y0+CW.rows*SH;
+ for(let i=0;i<=CW.cols;i++)g+=line(x0+i*SH,y0,x0+i*SH,y1,{stroke:'#fff',w:1.5});for(let j=0;j<=CW.rows;j++)g+=line(x0,y0+j*SH,x1,y0+j*SH,{stroke:'#fff',w:1.5});return `<g opacity=".8">${g}</g>`;})();
+S_('conv-photo','dense','The same trick on our photo: all 336 windows in one pass',{builds:3,
+ body:cols(courtyard(cwLattice+gonly(1,rect(win0,{stroke:COL.guess,w:7})+`<rect x="${WS/2-SH/2}" y="${WS/2-SH/2}" width="${SH}" height="${SH}" fill="${COL.guess}"/>`)+
+   gat(2,cwHeat(CW.dog,COL.guess)+cwHeat(CW.cat,COL.amber)),'One answer per 224-pixel window, drawn at the window’s centre: purple where VGG16 says dog, orange where it says cat'),
+  stack(`<div class="big-number">${CW.cols} × ${CW.rows}</div>`,p('answers from one pass of VGG16'),
+   at(2,`<div class="chips"><span class="chip" style="color:${COL.guess}">dog score</span><span class="chip" style="color:${COL.amber}">cat score</span></div>`),
+   at(3,`<dl class="kv"><dt>one pass</dt><dd>${num(CW.t_onepass,1)} s</dd><dt>${CW.n} crops</dt><dd>${Math.round(CW.t_crops)} s</dd><dt>same answer</dt><dd>${CW.agree} of ${CW.n}</dd></dl>`)),'1.35fr 1fr'),
+ lines:[`On our photo: VGG16, an ImageNet classifier for ${WS} × ${WS} crops, with its dense layers written as convolutions. One pass gives ${CW.cols} × ${CW.rows} answers.`,
+  'Each answer belongs to one window and is drawn at the window’s centre. Windows over the dog say dog; windows over the cat say cat.',
+  `On this laptop one pass takes ${num(CW.t_onepass,1)} s; the ${CW.n} separate crops take ${Math.round(CW.t_crops)} s. The two agree on ${CW.agree} of the ${CW.n} windows.`],
+ ask:['How many answers does one pass give?','Which windows say dog?','Why do a few windows disagree with their crop?'],
+ expected:[`${CW.cols} × ${CW.rows} = ${CW.n}: the same windows as the ${CW.n} crops.`,'Every window that holds a good part of the dog, even just its head.','VGG16 pads its convolutions with zeros: a crop sees zeros at its edges, while in the whole photo the same window sees its neighbours’ pixels.'],
+ point:`VGG16 (IMAGENET1K_V1) on the CPU, the crops run in batches of 16; its three dense layers become a 7 × 7 convolution and two 1 × 1 convolutions. The dog score adds up ImageNet’s 118 dog breeds and the cat score its 5 cat classes. “Same answer”: both say dog, both say cat, or both say neither, at 0.5. Ng’s toy has no padding, so there the two are exactly equal.`,
+ transition:'Do these windows give good boxes?',source:'VGG16 (torchvision, ImageNet) run on this photo by scripts/run_models.py; timed on a laptop CPU. '+PHOTO_SRC});
+const SW=CW.best_dog,BW=WN.best_dog;
+S_('window-boxes','dense','A window is a fixed square: its box cannot fit the dog',{builds:3,
+ body:cols(courtyard(gtBox(DOG,'dog',{size:28,w:6})+gonly(1,rect(SW.box,{stroke:COL.guess,w:7,dash:'16 9'})+pill(SW.box[0],SW.box[1],`dog ${num(SW.p,2)}`,{fill:COL.guess,size:30,below:true}))+
+   gonly(2,rect(BW.box,{stroke:COL.amber,w:7,dash:'16 9'}))+gonly(3,rect(DOG,{stroke:COL.target,w:12})),'The dog’s box with the window VGG16 is surest about, then the best-fitting 224-pixel window',{view:dogView}),
+  stack(`<div class="eq-sm">${eq(R`\mathrm{IoU}(\text{surest window},\text{dog})\approx${num(SW.iou,2)}`)}</div>`,
+   at(2,`<div class="eq-sm">${eq(R`\mathrm{IoU}(\text{best window},\text{dog})\approx${num(BW.iou,2)}`)}</div>`),
+   at(3,`<div class="eq-sm">${eq(R`\text{any size, any shape, any place}`)}</div>`)),'1fr 1.15fr'),
+ lines:[`The window VGG16 is surest about, dog ${num(SW.p,2)}, holds the dog’s head. As a box for the dog it is poor: IoU ${num(SW.iou,2)}.`,
+  `Even the best-placed ${WS}-pixel window reaches only IoU ${num(BW.iou,2)}. Windows are squares on a ${SH}-pixel lattice; the dog is a tall rectangle.`,
+  'Ng’s next step: let the network write the box itself, of any size and shape, as Part 4’s localiser did. That is YOLO.'],
+ ask:['Which window is VGG16 surest about?','What is the best IoU any 224-pixel window gets with the dog?','How can we get a box that fits?'],
+ expected:[`The one on the dog’s head: it is sure there is a dog, but the window is not the dog’s box (IoU ${num(SW.iou,2)}).`,`${num(BW.iou,2)}: that window lies inside the dog, so IoU = 224² ÷ (361 × 505).`,'Let the network output the box numbers, as Part 4’s localiser did.'],
+ point:`Ng ends the convolutional sliding windows with this weakness, and starts “Bounding Box Predictions” with it: the windows’ positions are fixed by the stride, and the best box may not even be square. Bigger windows fit better (the best 448 window reaches ${num(WN.big_best_iou,2)} here), but every extra size and shape costs a full set of windows.`,
+
+ transition:'YOLO: a grid, and a record in every cell.',source:'VGG16 (torchvision, ImageNet) run on this photo by scripts/run_models.py. '+PHOTO_SRC});
 chap('5.2');
 // Ng's teaching grid: 3 x 2 cells of 320 px on the courtyard; every cell writes Part 4's 7-number record
-const N3=S.ng3,s3=N3.size,CC=S.centre_cells,NG=S.ng,dot=(c,col)=>`<circle cx="${c[0]}" cy="${c[1]}" r="10" fill="${col}" stroke="#fff" stroke-width="4"/>`;
+const N3=S.ng3,s3=N3.size,CC=S.centre_cells,NG=S.ng,dot=(c,col)=>`<circle cx="${c[0]}" cy="${c[1]}" r="11" fill="${col}" stroke="#fff" stroke-width="4"/>`;
 const grid3=(inner,alt,o={})=>courtyard(gridLines(W,H,s3,{stroke:'#fff',w:5,op:.95})+inner,alt,o);
 const rec7=(vals,cls)=>`<div class="yvec sm">${[['object?',vals[0]],[m('b_x'),vals[1]],[m('b_y'),vals[2]],[m('b_w'),vals[3]],[m('b_h'),vals[4]],['cat',vals[5]],['dog',vals[6]]].map(([k,v],i)=>`${i===1||i===5?'<i></i>':''}<div class="${cls}"><small>${k}</small>${v}</div>`).join('')}</div>`;
+/** One record as Ng writes it: a column, a label and a value per row. */
+const ycol=(vals,cls)=>`<div class="ycol">${[['object?',vals[0]],[m('b_x'),vals[1]],[m('b_y'),vals[2]],[m('b_w'),vals[3]],[m('b_h'),vals[4]],['cat',vals[5]],['dog',vals[6]]].map(([k,v])=>`<span>${k}</span><div class="${cls}">${v}</div>`).join('')}</div>`;
 const cellName=(r,c)=>label(c*s3+14,r*s3+44,`(${r}, ${c})`,{size:36,fill:COL.ink,weight:700,halo:true});
-S_('grid-3x2','dense','YOLO: a grid on the photo, and Part 4’s record in every cell',{builds:2,
- body:cols(grid3([0,1].flatMap(r=>[0,1,2].map(c=>cellName(r,c))).join(''),'The courtyard photo with a 3 by 2 grid of 320-pixel cells'),
-  stack(rec7(['','','','','','',''],'q'),at(2,`<div class="eq-sm">${eq(R`\underbrace{3\times2}_{\text{cells}}\times\underbrace{7}_{\text{numbers}}=42`)}</div>`)),'1fr 1fr'),
- lines:['Andrew Ng’s start: put a coarse grid on the photo, here 3 × 2 cells of 320 pixels, and give every cell Part 4’s one-object record.',
-  'The record has 7 numbers: object?, a box, and a score each for cat and dog. Six cells of seven numbers: a 2 × 3 × 7 block.'],
- ask:['How many cells, and how big is each?','How many numbers make the whole answer?'],
- expected:[`3 × 2 = 6 cells, each ${W} ÷ 3 = 320 pixels wide and ${H} ÷ 2 = 320 tall.`,'2 × 3 × 7 = 42.'],
- point:'Ng draws a 3 × 3 grid and uses 19 × 19 in practice. We draw 3 × 2 so that the cells of our 960 × 640 photo are square. Rows and columns count from 0.',
- transition:'Which cell should describe the dog?',source:PHOTO_SRC});
-const divRound=(name,c,cl)=>eq(R`\text{${name}’s centre }(${Math.round(c[0])},\,${Math.round(c[1])})\ \to\ \text{cell }(${cl[0]},${cl[1]})`);
-S_('centre-cell','dense','Which cell answers for the dog? The one that holds its centre',{builds:2,
- body:cols(grid3(gtBox(DOG,'dog',{size:30})+gtBox(CAT,'cat',{size:30})+cell(...N3.dog_cell,s3,{fill:COL.target,op:.28})+dot(CC.dog.centre,COL.target)+gat(2,cell(...N3.cat_cell,s3,{fill:COL.target,op:.28})+dot(CC.cat.centre,COL.target)),'The cell that contains each box’s centre is shaded'),
-  sm(divRound('dog',CC.dog.centre,N3.dog_cell),at(2,divRound('cat',CC.cat.centre,N3.cat_cell))),'1.1fr 1fr'),
- lines:[`The rule: the cell that holds an object’s centre answers for it. The dog’s centre lands in the bottom-middle cell, (${N3.dog_cell.join(', ')}).`,
-  `The cat’s centre lands in cell (${N3.cat_cell.join(', ')}). Each object gets exactly one cell, fixed by where it is.`],
- ask:['Which cell holds the dog’s centre?','Why does this rule solve Part 4’s order problem?'],
- expected:[`(${N3.dog_cell.join(', ')}): row ${N3.dog_cell[0]}, column ${N3.dog_cell[1]}.`,'Each object’s cell is fixed by where the object is, not by its place in the annotation list.'],
- point:'Ng: “assign the object to the grid cell containing its midpoint.” This is YOLOv1’s rule (Redmon et al., 2016).',
- transition:'Write the dog’s box from that cell’s point of view.',source:PHOTO_SRC});
-// the dog's centre inside its 320-px cell, enlarged
-const [bx3,by3]=[CC.dog.centre[0]-N3.dog_cell[1]*s3,CC.dog.centre[1]-N3.dog_cell[0]*s3];
-const cellInset=(()=>{const L=170,x0=16,y0=30,px=x0+N3.dog[0]*L,py=y0+N3.dog[1]*L;
- return fig(330,236,`<rect x="${x0}" y="${y0}" width="${L}" height="${L}" fill="${COL.target}" fill-opacity=".12" stroke="${COL.target}" stroke-width="3"/>`+
-  line(x0,py,px,py,{stroke:COL.ink,w:3,dash:'7 5'})+line(px,y0,px,py,{stroke:COL.ink,w:3,dash:'7 5'})+`<circle cx="${px}" cy="${py}" r="9" fill="${COL.target}" stroke="#fff" stroke-width="3"/>`+
-  label(x0+6,py+28,`b<tspan dy="5" font-size="14">x</tspan><tspan dy="-5"> ≈ ${num(N3.dog[0],2)}</tspan>`,{size:19,fill:COL.ink,weight:650})+label(px-8,y0+L/2,`b<tspan dy="5" font-size="14">y</tspan><tspan dy="-5"> ≈ ${num(N3.dog[1],2)}</tspan>`,{size:19,fill:COL.ink,weight:650,anchor:'end'})+
-  label(x0,y0-10,`(${N3.dog_cell[1]*s3}, ${N3.dog_cell[0]*s3})`,{size:17,fill:MUTED})+label(x0+L,y0+L+22,`(${(N3.dog_cell[1]+1)*s3}, ${(N3.dog_cell[0]+1)*s3})`,{size:17,fill:MUTED,anchor:'end'})+
-  label(x0+L+16,y0+L/2,`cell (${N3.dog_cell.join(', ')}),`,{size:18,fill:COL.ink})+label(x0+L+16,y0+L/2+24,'enlarged',{size:18,fill:COL.ink}),'The dog’s cell enlarged, with the dog’s centre inside it');})();
-const cellsArrow=arrow(DOG[0],DOG[3]+28,DOG[2],DOG[3]+28,{stroke:COL.target,w:5,both:true})+label((DOG[0]+DOG[2])/2,DOG[3]+20,`${num(N3.dog[2],2)} cells`,{size:34,fill:COL.target,weight:700,anchor:'middle',halo:true})+
- arrow(DOG[2]+26,DOG[1],DOG[2]+26,DOG[3],{stroke:COL.target,w:5,both:true})+label(DOG[2]+36,(DOG[1]+DOG[3])/2,`${num(N3.dog[3],2)}`,{size:34,fill:COL.target,weight:700,halo:true})+label(DOG[2]+36,(DOG[1]+DOG[3])/2+38,'cells',{size:34,fill:COL.target,weight:700,halo:true});
-S_('cell-box','dense','The dog’s box, measured in cells',{builds:2,
- body:cols(grid3(gtBox(DOG,'',{w:5})+cell(...N3.dog_cell,s3,{fill:COL.target,op:.25})+dot(CC.dog.centre,COL.target)+gat(2,cellsArrow),'The dog’s box with its cell shaded; its width and height counted in cells'),
-  `<div class="state-slot">${only(1,stack(`<div class="narrow">${cellInset}</div>`,`<div class="eq-sm">${eq(R`b_x=\frac{${Math.round(CC.dog.centre[0])}-${N3.dog_cell[1]*s3}}{${s3}}\approx${num(N3.dog[0],2)}`)}${eq(R`b_y=\frac{${Math.round(CC.dog.centre[1])}-${N3.dog_cell[0]*s3}}{${s3}}\approx${num(N3.dog[1],2)}`)}</div>`))}${only(2,`<div class="eq-sm">${eq(R`b_w=\frac{${S.dog.w}}{${s3}}\approx${num(N3.dog[2],2)}`)}${eq(R`b_h=\frac{${S.dog.h}}{${s3}}\approx${num(N3.dog[3],2)}`)}</div>`)}</div>`,'1fr 1fr'),
- lines:['b_x and b_y say where the dog’s centre sits inside its cell: 0 at the cell’s left or top edge, 1 at its right or bottom edge.',
-  'b_w and b_h give the size, counted in cells. The box is not confined to its cell: the dog is wider than one cell and about 1.6 cells tall.'],
- ask:['Where is the dog’s centre inside its cell?','Why can b_w be larger than 1?'],
- expected:[`About ${num(N3.dog[0],2)} across and ${num(N3.dog[1],2)} down: near the cell’s top right.`,'It counts cells, and the dog is wider than one cell.'],
- point:'Ng’s encoding: b_x and b_y between 0 and 1 inside the cell, b_w and b_h as multiples of the cell, so they can be more than 1.',
- transition:'The target for the whole photo.',source:PHOTO_SRC});
+const allNames=[0,1].flatMap(r=>[0,1,2].map(c=>cellName(r,c))).join('');
+S_('grid-3x2','dense','YOLO: a grid on the photo, and a record for every cell',{builds:3,
+ body:cols(grid3(allNames+gat(2,cell(0,0,s3,{fill:COL.amber,op:.35}))+gat(3,[[0,1],[0,2],[1,0],[1,1],[1,2]].map(([r,c])=>cell(r,c,s3,{fill:COL.amber,op:.35})).join('')),'The courtyard photo with a 3 by 2 grid of 320-pixel cells, one cell shaded, then all of them'),
+  stack(only(1,`<div class="eq-sm">${eq(R`${W}\div3=320,\quad ${H}\div2=320`)}</div>`),only('2-3',`<p class="caption">cell (0, 0) writes:</p>${ycol(['','','','','','',''],'q')}`),
+   at(3,`<div class="eq-sm">${eq(R`\underbrace{6}_{\text{cells}}\times\underbrace{7}_{\text{numbers}}=42`)}</div>`)),'1fr 1fr'),
+ lines:['Ng’s next step, YOLO: cut the photo into a coarse grid. Ours has 3 × 2 cells of 320 pixels; rows and columns count from 0.',
+  'Give every cell Part 4’s record, about that cell alone: object?, a box, a cat score and a dog score.',
+  'Six cells with seven numbers each: 42 numbers describe the whole photo.'],
+ ask:['How big is each cell?','What does a cell write?','How many numbers make the whole answer?'],
+ expected:[`${W} ÷ 3 = 320 wide and ${H} ÷ 2 = 320 tall.`,'Part 4’s 7-number record: object?, b_x, b_y, b_w, b_h, cat, dog.','6 × 7 = 42.'],
+ point:'Ng (“Bounding Box Predictions”): put a 3 × 3 grid on the image and apply the localisation algorithm of the first video to each of the nine cells; 19 × 19 in practice. We draw 3 × 2 so that the cells of our 960 × 640 photo are square.',
+ transition:'Which cell describes the dog?',source:PHOTO_SRC});
+S_('centre-cell','dense','Which cell answers for an animal? The one that holds its centre',{builds:3,
+ body:cols(grid3(allNames+gtBox(CAT,'cat',{size:30})+cell(...N3.cat_cell,s3,{fill:COL.target,op:.3})+dot(CC.cat.centre,COL.target)+
+   gat(2,gtBox(DOG,'')+pill(DOG[0],DOG[1],'dog',{fill:COL.target,size:30,below:true})+cell(...N3.dog_cell,s3,{fill:COL.target,op:.3})+dot(CC.dog.centre,COL.target))+
+   gat(3,`<rect x="${s3+8}" y="8" width="${s3-16}" height="${s3-16}" fill="none" stroke="${COL.loss}" stroke-width="8" stroke-dasharray="20 12"/>`+pill(s3+16,s3-24,'no centre',{fill:COL.loss,size:30})),
+  'The cat’s and the dog’s boxes with their centres; the cell that holds each centre is shaded; cell (0, 1) holds part of the dog but no centre'),
+  stack(`<div class="eq-sm">${eq(R`\text{cat’s centre }(217,\,452)`)}${eq(R`\text{row }\lfloor 452/320\rfloor=1,\ \ \text{column }\lfloor 217/320\rfloor=0`)}</div>`,
+   at(2,`<div class="eq-sm">${eq(R`\text{dog’s centre }(588,\,336)`)}${eq(R`\text{row }\lfloor 336/320\rfloor=1,\ \ \text{column }\lfloor 588/320\rfloor=1`)}</div>`),
+   at(3,`<div class="eq-sm">${eq(R`\text{cell }(0,1):\ \text{object?}=0`)}</div>`)),'1.15fr 1fr'),
+ lines:['Which cell answers for the cat? Ng’s rule: the one that holds the centre of its box. The cat’s centre (217, 452) is in row 1, column 0.',
+  'The dog’s centre (588, 336) is just 16 pixels below the line between the rows, so cell (1, 1) answers for the dog.',
+  'Cell (0, 1) holds the dog’s head but not its centre, so it answers “no object”. Each animal has exactly one cell.'],
+ ask:['Which cell holds the cat’s centre?','Which cell holds the dog’s centre?','What should cell (0, 1) say, although part of the dog is in it?'],
+ expected:['(1, 0): x = 217 is in the first column, y = 452 in the second row.','(1, 1): x = 588 is in the middle column, and y = 336 is just past 320.','Object? = 0: only the cell with the centre answers for the dog.'],
+ point:'Ng: “assign the object to the grid cell containing its midpoint”; a cell that holds parts of both cars but neither midpoint is treated as having no object. This is YOLOv1’s rule (Redmon et al., 2016). It also settles Part 4’s problem: each animal’s record has a place fixed by where the animal is.',
+ transition:'Write the cat’s box from its cell’s point of view.',source:PHOTO_SRC});
+// Ng's worked example: the box measured inside its cell, (0, 0) at the cell's top-left corner and (1, 1) at its bottom-right
+const bLab=(k,v,size)=>`b<tspan dy="${Math.round(size*.25)}" font-size="${Math.round(size*.68)}">${k}</tspan><tspan dy="${-Math.round(size*.25)}"> ≈ ${v}</tspan>`;
+const cellZoom=(cl,bx,c,view,o)=>{const [r0,c0]=cl,x0=c0*s3,y0=r0*s3,f=fsz(view,21,o.shown),[cx,cy]=c,
+  hal={halo:true,weight:700};
+ return courtyard(gridLines(W,H,s3,{stroke:'#fff',w:4,op:.9})+`<rect x="${x0}" y="${y0}" width="${s3}" height="${s3}" fill="#fff" fill-opacity=".14" stroke="#fff" stroke-width="7"/>`+gtBox(bx,'',{w:5})+
+  label(x0+6,y0-12,'(0, 0)',{size:f,fill:COL.ink,...hal})+label(x0+s3-8,y0+s3-12,'(1, 1)',{size:f,fill:COL.ink,anchor:'end',...hal})+
+  gat(o.at[0],line(x0,cy,cx,cy,{stroke:COL.ink,w:4,dash:'10 7'})+line(cx,y0,cx,cy,{stroke:COL.ink,w:4,dash:'10 7'})+label(o.bxAt[0],o.bxAt[1],bLab('x',o.b[0],f),{size:f,fill:COL.ink,...hal,anchor:'middle'})+label(o.byAt[0],o.byAt[1],bLab('y',o.b[1],f),{size:f,fill:COL.ink,...hal,anchor:o.byAnchor||'start'}))+
+  dot(c,COL.target)+
+  gat(o.at[1],arrow(bx[0],o.wY,bx[2],o.wY,{stroke:COL.target,w:5,head:16,both:true})+label((bx[0]+bx[2])/2,o.wY-12,bLab('w',o.b[2],f),{size:f,fill:COL.target,...hal,anchor:'middle'})+
+   arrow(o.hX,bx[1],o.hX,bx[3],{stroke:COL.target,w:5,head:16,both:true})+label(o.hX+(o.hAnchor==='end'?-12:12),o.hLabY,bLab('h',o.b[3],f),{size:f,fill:COL.target,...hal,anchor:o.hAnchor||'start'})),
+  o.alt,{view});};
+const n2=v=>num(v,2),cb=N3.cat.map(n2),db=N3.dog.map(n2),catC=CC.cat.centre,dogC=CC.dog.centre,[cw,ch]=[S.cat.cxcywh[2],S.cat.cxcywh[3]];
+const catView=[0,280,360,360];
+S_('cell-box','dense','The cat’s box, measured in its cell',{builds:4,
+ body:cols(cellZoom(N3.cat_cell,CAT,catC,catView,{shown:420,at:[2,3],b:cb,bxAt:[catC[0]/2,catC[1]+30],byAt:[catC[0]-12,(s3+catC[1])/2+8],byAnchor:'end',wY:575,hX:300,hAnchor:'end',hLabY:520,
+   alt:'The cat’s cell enlarged: its corners (0, 0) and (1, 1), the cat’s centre, then the box’s width and height'}),
+  stack(`<div class="eq-sm">${eq(R`\text{cell }(1,0):\ x\ \text{from }0\text{ to }320,\ y\ \text{from }320\text{ to }640`)}</div>`,
+   at(2,`<div class="eq-sm">${eq(R`b_x=\frac{${Math.round(catC[0])}-0}{320}\approx${cb[0]},\quad b_y=\frac{${Math.round(catC[1])}-320}{320}\approx${cb[1]}`)}</div>`),
+   at(3,`<div class="eq-sm">${eq(R`b_w=\frac{${cw}}{320}\approx${cb[2]},\quad b_h=\frac{${ch}}{320}\approx${cb[3]}`)}</div>`),
+   at(4,rec7([1,...cb,1,0],'t'))),'0.82fr 1.18fr'),
+ lines:['Ng measures the box inside its cell. The cat’s cell gets its own coordinates: (0, 0) at its top-left corner and (1, 1) at its bottom-right.',
+  'The cat’s centre is 217 pixels from the cell’s left edge and 132 below its top: b_x ≈ 0.68 and b_y ≈ 0.41 of a cell.',
+  'The size is counted in cells too. The cat is 209 pixels wide, 0.65 of a cell, and 311 pixels tall, 0.97 of a cell.',
+  'So the cat’s cell writes object? 1, the box (0.68, 0.41, 0.65, 0.97), cat 1 and dog 0.'],
+ ask:['Where is (0, 0) for this cell, in pixels?','Where is the cat’s centre inside its cell?','How big is the cat, in cells?','What is the whole record of the cat’s cell?'],
+ expected:['At the cell’s top-left corner, pixel (0, 320).',`About ${cb[0]} across and ${cb[1]} down.`,`${cb[2]} of a cell wide, ${cb[3]} tall.`,`(1, ${cb.join(', ')}, 1, 0).`],
+ point:'Ng’s example: the cell’s top-left is (0, 0) and its bottom-right (1, 1); his car’s centre is at about (0.4, 0.3), its width about 0.9 of a cell and its height about 0.5. (In the video he says b_h for the 0.9; the forum notes the slip.)',
+ transition:'The dog’s box is bigger than its cell.',source:PHOTO_SRC});
+const dogView2=[300,56,520,584];
+S_('dog-box','dense','The dog’s box is bigger than its cell',{builds:3,
+ body:cols(cellZoom(N3.dog_cell,DOG,dogC,dogView2,{shown:440,at:[1,2],b:db,bxAt:[(s3+dogC[0])/2,dogC[1]+34],byAt:[dogC[0]+14,dogC[1]-2],wY:560,hX:790,hAnchor:'end',hLabY:240,
+   alt:'The dog’s cell enlarged: the dog’s centre near the cell’s top edge, and its box much bigger than the cell'}),
+  stack(`<div class="eq-sm">${eq(R`b_x=\frac{${Math.round(dogC[0])}-320}{320}\approx${db[0]},\quad b_y=\frac{${Math.round(dogC[1])}-320}{320}\approx${db[1]}`)}</div>`,
+   at(2,`<div class="eq-sm">${eq(R`b_w=\frac{${S.dog.w}}{320}\approx${db[2]},\quad b_h=\frac{${S.dog.h}}{320}\approx${db[3]}`)}</div>`),
+   at(3,rec7([1,...db,0,1],'t'))),'0.82fr 1.18fr'),
+ lines:['The dog’s centre is 268 pixels from its cell’s left edge and only 16 below its top: b_x ≈ 0.84 and b_y ≈ 0.05.',
+  'The dog is wider and taller than its cell: b_w ≈ 1.13 and b_h ≈ 1.58 cells. A box may spill out of its cell, but its centre may not.',
+  'So the dog’s cell writes object? 1, the box (0.84, 0.05, 1.13, 1.58), cat 0 and dog 1.'],
+ ask:['Why is b_y so small?','Can b_w be bigger than 1? Can b_x?','What is the whole record of the dog’s cell?'],
+ expected:['The dog’s centre is just below the cell’s top edge.','b_w, yes: the dog is wider than a cell. b_x, no: the centre always lies inside its own cell.',`(1, ${db.join(', ')}, 0, 1).`],
+ point:'Ng: b_x and b_y lie between 0 and 1, while b_h and b_w can be greater than 1 when the object spans several cells. The YOLO paper keeps them in range with a sigmoid for the centre and an exponential for the size.',
+ transition:'All six cells together.',source:PHOTO_SRC});
 const tgtRow=(name,vals,cls,b)=>`<span class="sl">${name}</span>`+vals.map(v=>`<div class="${cls}"><span data-at="${b}">${v}</span></div>`).join('');
 const isCell=(rc,cl)=>rc[0]===cl[0]&&rc[1]===cl[1];
-S_('target-photo','dense','The target for the whole photo, cell by cell',{builds:3,
- body:cols(grid3([0,1].flatMap(r=>[0,1,2].map(c=>cellName(r,c))).join('')+cell(...N3.dog_cell,s3,{fill:COL.target,op:.25})+gat(2,cell(...N3.cat_cell,s3,{fill:COL.target,op:.25})),'The six cells; the two that hold a centre are shaded'),
+S_('target-photo','dense','The target for the whole photo: six records',{builds:3,
+ body:cols(grid3(allNames+cell(...N3.dog_cell,s3,{fill:COL.target,op:.3})+cell(...N3.cat_cell,s3,{fill:COL.target,op:.3})+gtBox(DOG,'',{w:4})+gtBox(CAT,'',{w:4})+dot(dogC,COL.target)+dot(catC,COL.target),'The six cells; the two that hold a centre are shaded'),
   `<div class="slotgrid tgt"><span></span>${['object?',m('b_x'),m('b_y'),m('b_w'),m('b_h'),'cat','dog'].map(k=>`<b>${k}</b>`).join('')}`+
-   [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]].map(rc=>isCell(rc,N3.dog_cell)?tgtRow(`cell (${rc.join(', ')})`,[1,...N3.dog.map(v=>num(v,2)),0,1],'t',1):isCell(rc,N3.cat_cell)?tgtRow(`cell (${rc.join(', ')})`,[1,...N3.cat.map(v=>num(v,2)),1,0],'t',2):tgtRow(`cell (${rc.join(', ')})`,[0,'?','?','?','?','?','?'],'q',3)).join('')+'</div>','0.8fr 1.2fr'),
- lines:[`The whole target, cell by cell. Cell (${N3.dog_cell.join(', ')}) holds the dog’s centre: object? 1, the box in cell units, dog 1.`,
-  `Cell (${N3.cat_cell.join(', ')}) holds the cat’s centre: object? 1, its box, cat 1.`,
-  'The other four cells hold no centre: object? is 0 and the rest is “?”, as for Part 4’s empty floor. These 42 numbers are the target.'],
- ask:['What is the target in the dog’s cell?','And in the cat’s?','What about the four other cells?'],
- expected:[`(1, ${N3.dog.map(v=>num(v,2)).join(', ')}, 0, 1).`,`(1, ${N3.cat.map(v=>num(v,2)).join(', ')}, 1, 0).`,'object? = 0; the box and the classes are “?”, left out of the loss.'],
+   [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]].map(rc=>isCell(rc,N3.dog_cell)?tgtRow(`cell (${rc.join(', ')})`,[1,...db,0,1],'t',1):isCell(rc,N3.cat_cell)?tgtRow(`cell (${rc.join(', ')})`,[1,...cb,1,0],'t',1):tgtRow(`cell (${rc.join(', ')})`,[0,'?','?','?','?','?','?'],'q',2)).join('')+'</div>'+
+   at(3,`<div class="eq-sm">${eq(R`6\times7=42\ \text{numbers: the target}`)}</div>`),'0.8fr 1.2fr'),
+ lines:['The whole target, one record per cell. The cat’s cell and the dog’s cell hold the records we just wrote.',
+  'The other four cells hold no centre, not even (0, 1) with the dog’s head: object? 0, and “?” everywhere else.',
+  'Six records of seven numbers: these 42 numbers are what the network should write for this photo.'],
+ ask:['Which two rows are filled in first?','What do the other four cells hold?','How many numbers is the target?'],
+ expected:['Cells (1, 0) and (1, 1): the cat’s and the dog’s.','Object? = 0; the box and the classes are “?”, left out of the loss.','6 × 7 = 42.'],
  point:'Ng writes this target as a 3 × 3 × 8 block for his 3 × 3 grid and three classes; ours is 2 × 3 × 7.',
  transition:'One network writes the whole block.',source:'Our annotation of the courtyard photo (data/annotations.json). '+PHOTO_SRC});
-// one CNN pass: the photo in, the 2 x 3 x 7 block out; each output cell describes its own part of the photo
-const blockFig=(()=>{const TW=300,sc=TW/W,TH=H*sc,y0=30,bx=640,by=60,u=74,d=26,g=[];
- const front=(r,c,f,op)=>`<rect x="${bx+c*u}" y="${by+r*u}" width="${u}" height="${u}" fill="${f}" fill-opacity="${op}" stroke="${COL.ink}" stroke-width="2"/>`;
- let blk='';for(let r=0;r<2;r++)for(let c=0;c<3;c++)blk+=front(r,c,'#fff',1);
- blk+=`<path d="M${bx},${by} l${d},${-d} h${3*u} v${2*u} l${-d},${d} M${bx+3*u},${by} l${d},${-d}" fill="none" stroke="${COL.ink}" stroke-width="2"/>`+label(bx+3*u/2,by+2*u+34,'2 × 3 cells × 7 numbers',{size:19,anchor:'middle',fill:COL.ink,weight:650})+label(bx+3*u+d+8,by+u-d/2,'7',{size:20,fill:COL.ink,weight:700});
- g.push(`<g transform="translate(0,${y0}) scale(${sc})"><image href="figures/cat-dog.jpg" width="${W}" height="${H}" preserveAspectRatio="none"/>${gridLines(W,H,s3,{stroke:'#fff',w:8,op:.95})}</g>`);
- g.push(arrow(TW+18,y0+TH/2,TW+62,y0+TH/2,{stroke:COL.ink,w:3,head:12})+`<rect x="${TW+70}" y="${y0+TH/2-40}" width="120" height="80" rx="10" fill="#fff" stroke="${COL.ink}" stroke-width="2.5"/>`+label(TW+130,y0+TH/2+8,'CNN',{size:22,anchor:'middle',fill:COL.ink,weight:700})+arrow(TW+196,y0+TH/2,bx-14,y0+TH/2,{stroke:COL.ink,w:3,head:12})+blk);
- g.push(gat(2,`<rect x="${N3.dog_cell[1]*s3*sc}" y="${y0+N3.dog_cell[0]*s3*sc}" width="${s3*sc}" height="${s3*sc}" fill="${COL.target}" fill-opacity=".45" stroke="${COL.target}" stroke-width="3"/>`+front(N3.dog_cell[0],N3.dog_cell[1],COL.target,.55)));
- return `<div class="diagram-scroll"><svg class="plot wsvg" viewBox="0 0 ${bx+3*u+70} ${Math.ceil(y0+TH+40)}" style="overflow:hidden" role="img" aria-label="The photo goes through a CNN once and comes out as a 2 by 3 block of 7-number records">${g.join('')}</svg></div>`;})();
-S_('one-pass','dense','One CNN pass writes the whole block',{builds:2,
- body:stack(blockFig),
- lines:['Train a CNN whose output is exactly this 2 × 3 × 7 block. One pass over the photo writes all six records at once.',
-  'Each output cell is computed from its own part of the photo: the convolutional sliding window of 5.1. You Only Look Once, hence the name YOLO.'],
- ask:['How many times does the CNN look at the photo?','Which part of the photo does output cell (1, 1) describe?'],
- expected:['Once.','Cell (1, 1) of the photo, the one with the dog’s centre.'],
- point:'Ng: input 100 × 100 × 3, a ConvNet, output 3 × 3 × 8; because it is one convolutional pass, YOLO runs fast enough for video.',
+// one CNN pass: the photo in, the 2 x 3 x 7 block out (Ng: 100 x 100 x 3 in, 3 x 3 x 8 out)
+const blockFig=(()=>{const TW=270,sc=TW/W,TH=H*sc,ty=70,cy=ty+TH/2,u=56,bx=870,by=cy-u,d=46,g=[];
+ g.push(`<g transform="translate(0,${ty}) scale(${sc})"><image href="figures/cat-dog.jpg" width="${W}" height="${H}" preserveAspectRatio="none"/>${gridLines(W,H,s3,{stroke:'#fff',w:9,op:.95})}</g>`+label(TW/2,ty+TH+30,'960 × 640 × 3',{size:20,anchor:'middle',fill:COL.ink,weight:600}));
+ g.push(arrow(TW+12,cy,TW+58,cy,{w:3,head:12})+vol(TW+70,cy-40,96,64,20)+arrow(TW+196,cy,TW+236,cy,{w:3,head:12})+vol(TW+246,cy-28,64,43,34)+arrow(TW+352,cy,TW+384,cy,{w:3,head:12})+vol(TW+394,cy-18,40,27,50)+
+  label(TW+250,ty+TH+30,'convolutions and pooling',{size:20,anchor:'middle',fill:MUTED})+arrow(TW+490,cy,bx-14,cy,{w:3,head:12}));
+ let blk=`<path d="M${bx},${by} l${d},${-.6*d} h${3*u} l${-d},${.6*d}Z" fill="#E9ECEF" stroke="${COL.ink}" stroke-width="2"/><path d="M${bx+3*u},${by} l${d},${-.6*d} v${2*u} l${-d},${.6*d}Z" fill="#DCE0E5" stroke="${COL.ink}" stroke-width="2"/>`;
+ for(let r=0;r<2;r++)for(let c=0;c<3;c++)blk+=`<rect x="${bx+c*u}" y="${by+r*u}" width="${u}" height="${u}" fill="#fff" stroke="${COL.ink}" stroke-width="2"/>`;
+ g.push(blk+label(bx+3*u/2,ty+TH+30,'2 × 3 × 7',{size:20,anchor:'middle',fill:COL.ink,weight:600})+label(bx+3*u+d+8,by+u-.3*d+7,'7',{size:20,fill:COL.ink,weight:700}));
+ const hi=([r,c])=>`<rect x="${c*s3*sc}" y="${ty+r*s3*sc}" width="${s3*sc}" height="${s3*sc}" fill="${COL.target}" fill-opacity=".45" stroke="${COL.target}" stroke-width="3"/><rect x="${bx+c*u}" y="${by+r*u}" width="${u}" height="${u}" fill="${COL.target}" fill-opacity=".55" stroke="${COL.ink}" stroke-width="2"/>`;
+ g.push(gat(2,hi(N3.dog_cell)+hi(N3.cat_cell)));
+ return `<div class="diagram-scroll"><svg class="plot wsvg" viewBox="0 0 ${bx+3*u+d+40} ${Math.ceil(ty+TH+46)}" style="overflow:hidden" role="img" aria-label="The photo goes through a CNN once and comes out as a 2 by 3 block of 7-number records">${g.join('')}</svg></div>`;})();
+S_('one-pass','dense','One CNN pass writes all six records',{builds:2,
+ body:stack(blockFig,at(2,`<div class="loss-row"><span class="sl">cell (1, 1)</span>${rec7([1,...db,0,1],'t')}</div>`)),
+ lines:['Train one CNN whose output is a 2 × 3 × 7 block: 7 numbers for each of the 6 cells. The photo goes through it once.',
+  'Output cell (1, 1) should write the dog’s record and (1, 0) the cat’s. As with Ng’s windows, one pass does every cell: You Only Look Once.'],
+ ask:['How many times does the CNN look at the photo?','What should output cell (1, 1) learn to write?'],
+ expected:['Once.',`The dog’s record: (1, ${db.join(', ')}, 0, 1).`],
+ point:'Ng: input 100 × 100 × 3, a ConvNet, output 3 × 3 × 8; because it is one convolutional pass, YOLO runs fast enough for video. The network’s layers are not drawn to scale.',
  transition:'Train it: compare with the target.',source:PHOTO_SRC});
 const emptyCells=[[0,0],[0,1],[0,2],[1,2]];
-S_('loss-grid','dense','Training: Part 4’s loss, cell by cell',{builds:3,
- body:cols(grid3([0,1].flatMap(r=>[0,1,2].map(c=>cellName(r,c))).join('')+cell(...N3.dog_cell,s3,{fill:COL.target,op:.3})+cell(...N3.cat_cell,s3,{fill:COL.target,op:.3})+gat(2,emptyCells.map(([r,c])=>cell(r,c,s3,{fill:MUTED,op:.3})).join('')),'The two cells with a centre, then the four empty cells'),
-  stack(p('Cells (1, 0) and (1, 1): compare all 7 numbers.'),at(2,p('The other four: compare only object?.')),at(3,`<div class="eq-sm">${eq(R`\mathcal{L}=\sum_{\text{6 cells}}\mathcal{L}_\text{cell}`)}</div>`)),'1.1fr 1fr'),
+S_('loss-grid','dense','Training: Part 4’s loss in every cell',{builds:3,
+ body:cols(grid3(allNames+cell(...N3.dog_cell,s3,{fill:COL.target,op:.3})+cell(...N3.cat_cell,s3,{fill:COL.target,op:.3})+gat(2,emptyCells.map(([r,c])=>cell(r,c,s3,{fill:MUTED,op:.3})).join('')),'The two cells with a centre, then the four empty cells'),
+  stack(`<div class="eq-sm">${eq(R`\text{cells }(1,0),(1,1):\ \textstyle\sum_{i=1}^{7}(\hat y_i-y_i)^2`)}</div>`,at(2,`<div class="eq-sm">${eq(R`\text{other four cells: }(\hat y_1-y_1)^2`)}</div>`),
+   at(3,`<div class="eq-sm">${eq(R`\mathcal{L}=\sum_{\text{6 cells}}\mathcal{L}_\text{cell}`)}</div>`)),'1.1fr 1fr'),
  lines:['Training compares the network’s block with the target, one cell at a time. In the two cells with a centre every number counts, as for Part 4’s cat photo.',
   'In the four empty cells only object? counts, as for Part 4’s empty floor.',
   'Add up the six cells’ losses and lower the total by gradient descent. One loss trains the whole network.'],
@@ -713,91 +818,78 @@ S_('loss-grid','dense','Training: Part 4’s loss, cell by cell',{builds:3,
  point:'YOLOv1 weighted the box terms by 5 and the empty cells’ object? terms by 0.5, because empty cells far outnumber the others. Appendix B works the loss through with the real network’s numbers.',
  transition:'One record per cell: is that always enough?',source:PHOTO_SRC});
 // one box per cell: the crowd's centres on a coarse 3 x 2 grid, then on 32-px cells
-const anchorFig=fig(420,190,`<rect x="40" y="20" width="60" height="130" rx="4" fill="${COL.guess}" fill-opacity=".12" stroke="${COL.guess}" stroke-width="4"/>`+label(70,178,'tall',{size:20,anchor:'middle',fill:COL.ink,weight:650})+
- `<rect x="170" y="60" width="200" height="70" rx="4" fill="${COL.guess}" fill-opacity=".12" stroke="${COL.guess}" stroke-width="4"/>`+label(270,178,'wide',{size:20,anchor:'middle',fill:COL.ink,weight:650}),'Two anchor shapes: a tall box and a wide box');
 const CRC=S.crowd_cells,cW=W2/3,cH=H2/2,crowdDots=CRC.centres.map(c=>dot(c,COL.target)).join('');
 const coarseLines=line(cW,0,cW,H2,{stroke:'#fff',w:5})+line(2*cW,0,2*cW,H2,{stroke:'#fff',w:5})+line(0,cH,W2,cH,{stroke:'#fff',w:5});
-S_('two-in-a-cell','dense','One record per cell: what if two centres share a cell?',{builds:3,
- body:cols(photo('crowd',W2,H2,gonly(1,coarseLines+`<rect x="${CRC.coarse_cell[1]*cW}" y="${CRC.coarse_cell[0]*cH}" width="${cW}" height="${cH}" fill="${COL.loss}" fill-opacity=".22" stroke="${COL.loss}" stroke-width="6"/>`)+gonly('2-3',gridLines(W2,H2,32,{op:.6}))+crowdDots,'The crowd photo with each person’s centre marked: on a 3 by 2 grid, then on 32-pixel cells'),
-  stack(only(1,stack(`<div class="big-number">${CRC.coarse_max}</div>`,p('centres in one cell, which writes one box'))),
-   only('2-3',stack(`<div class="big-number">1</div>`,p(`centre per cell, on ${CRC.fine_grid.join(' × ')} cells of 32 px`))),
-   at(3,stack(`<div class="narrow">${anchorFig}</div>`,p('Two boxes per cell: 2 × 7 = 14 numbers.')))),'1.5fr 1fr'),
- lines:[`A cell writes one box. On the crowd photo a 3 × 2 grid puts ${CRC.coarse_max} people’s centres in one cell, which can report only one of them.`,
-  'A finer grid fixes it here: with 32-pixel cells, every person’s centre gets a cell of its own.',
-  'Andrew Ng also shows a second fix: give each cell two boxes, one tall and one wide, called anchor boxes. YOLOv8 does without them.'],
- ask:['How many of those five people can the crowded cell report?','Why does a finer grid help?','What are anchor boxes?'],
- expected:['One.','Smaller cells rarely hold two centres.','Two or more boxes per cell, each with its own shape, so one cell can report two objects.'],
- point:'Ng’s anchor boxes: each object goes to the cell with its centre and to the anchor shape it overlaps most, so his output becomes 3 × 3 × 2 × 8. Appendix B has anchors; Part 7 shows YOLOv8’s three grids.',
- transition:'In practice: a fine grid.',source:'Our annotation of the crowd photo (data/annotations.json). '+PHOTO_SRC});
+S_('two-in-a-cell','dense','Two centres in one cell? Use smaller cells',{builds:2,
+ body:cols(photo('crowd',W2,H2,gonly(1,coarseLines+`<rect x="${CRC.coarse_cell[1]*cW}" y="${CRC.coarse_cell[0]*cH}" width="${cW}" height="${cH}" fill="${COL.loss}" fill-opacity=".22" stroke="${COL.loss}" stroke-width="6"/>`)+gonly(2,gridLines(W2,H2,32,{op:.6}))+crowdDots,'The crowd photo with each person’s centre marked: on a 3 by 2 grid, then on 32-pixel cells'),
+  stack(only(1,stack(`<div class="big-number">${CRC.coarse_max}</div>`,p('centres in one cell, which writes one record'))),
+   only(2,stack(`<div class="big-number">1</div>`,p(`centre per cell, on ${CRC.fine_grid.join(' × ')} cells of 32 px`)))),'1.5fr 1fr'),
+ lines:[`A cell writes one record. On the crowd photo a 3 × 2 grid puts ${CRC.coarse_max} people’s centres in one cell, which can report only one of them.`,
+  'Smaller cells fix it: with 32-pixel cells, every person’s centre has a cell of its own. Ng uses 19 × 19 cells for the same reason.'],
+ ask:['How many of those five people can the crowded cell report?','Why do smaller cells help?'],
+ expected:['One.','Small cells rarely hold two centres.'],
+ point:'Ng: the grid cell idea works as long as no cell holds two objects’ midpoints, and a fine grid (19 × 19) makes that rare. His second fix, anchor boxes (two records per cell, one tall and one wide), is in Appendix B; YOLOv8 does without them.',
+ transition:'The real grid on our photo.',source:'Our annotation of the crowd photo (data/annotations.json). '+PHOTO_SRC});
 chap('5.3');
-S_('fine-grid','dense','In practice: a fine grid of 32-pixel cells',{builds:2,
- body:cols(grid(gtBox(DOG,'',{w:4})+gat(2,cell(...CC.dog.cell,s32,{fill:COL.target,op:.8})+dot(CC.dog.centre,COL.target)),'The courtyard photo with YOLOv8n’s 30 by 20 grid and the dog’s cell'),
-  sm(eq(R`${W}\div32=${G.cols},\quad ${H}\div32=${G.rows}:\quad ${G.cols*G.rows}\ \text{cells}`),at(2,divRound('dog',CC.dog.centre,CC.dog.cell))),'1fr 1.05fr'),
- lines:['Real YOLOs use a much finer grid, so that centres rarely share a cell. YOLOv8n’s cells are 32 pixels: 30 × 20 of them on our photo.',
-  `Same rule, smaller cells: the dog’s centre falls in cell (${CC.dog.cell.join(', ')}). Each record also has a score for each of the 80 COCO classes.`],
- ask:['How many cells does YOLOv8n’s grid have on our photo?','Which cell holds the dog’s centre now?'],
- expected:[`${G.cols} × ${G.rows} = ${G.cols*G.rows}.`,`(${CC.dog.cell.join(', ')}).`],
- point:'YOLOv8n also reads two finer grids, of 16- and 8-pixel cells, for small objects (Part 7).',
- transition:'At test time: read a box out of the dog’s cell.',source:PHOTO_SRC});
-const AXc='#AAB3BC';
-// one cell's record, drawn as a strip: four box numbers, then 80 thin bars, one per class
-const recStrip=fig(690,170,[0,1,2,3].map(i=>`<rect x="${10+i*70}" y="40" width="62" height="62" rx="6" fill="#fff" stroke="${COL.guess}" stroke-width="3"/>`+label(41+i*70,80,`b<tspan dy="6" font-size="15">${'xywh'[i]}</tspan>`,{size:22,anchor:'middle',fill:COL.guess,weight:700})).join('')+
- Array.from({length:80},(_,i)=>`<rect x="${(300+i*4.1).toFixed(1)}" y="40" width="3" height="62" fill="${AXc}"/>`).join('')+
- label(10,26,'4 box numbers',{size:20,fill:COL.guess,weight:650})+label(300,26,'80 class scores, one per COCO class',{size:20,fill:COL.ink,weight:650})+label(300,128,'person',{size:16})+label(300+79*4.1+3,128,'toothbrush',{size:16,anchor:'end'}),'One cell’s record: four box numbers and eighty class scores');
-const PB=CELL.pred_box,pb=[num(NG.pred[0],2),num(NG.pred[1],2),num(NG.pred[2],1),num(NG.pred[3],1)];
+const dogCell=CC.dog.cell,ngd=NG.dog.map((v,i)=>num(v,i<2?2:1)),pb=NG.pred.map((v,i)=>num(v,i<2?2:1));
+S_('fine-grid','dense','In practice: small cells of 32 pixels',{builds:3,
+ body:cols(grid(gtBox(DOG,'',{w:4})+gat(2,cell(...dogCell,s32,{fill:COL.target,op:.85})+dot(dogC,COL.target)),'The courtyard photo with YOLOv8n’s 30 by 20 grid and the dog’s cell'),
+  stack(`<div class="eq-sm">${eq(R`${W}\div32=${G.cols},\quad ${H}\div32=${G.rows}:\quad ${G.cols*G.rows}\ \text{cells}`)}</div>`,
+   at(2,`<div class="eq-sm">${eq(R`588\div32\approx18.4,\quad 336\div32\approx10.5\ \to\ \text{cell }(${dogCell.join(',')})`)}</div>`),
+   at(3,`<div class="eq-sm">${eq(R`(b_x,b_y,b_w,b_h)\approx(${ngd.join(',\\,')})`)}</div>`)),'1fr 1.05fr'),
+ lines:[`Real YOLOs use many small cells. YOLOv8n’s cells are 32 pixels: ${G.cols} × ${G.rows} = ${G.cols*G.rows} of them on our photo.`,
+  `Same rule, smaller cells: the dog’s centre (588, 336) falls in cell (${dogCell.join(', ')}), row ${dogCell[0]} and column ${dogCell[1]}.`,
+  `Its target in that cell’s units: the centre at (${ngd[0]}, ${ngd[1]}), the size ${ngd[2]} × ${ngd[3]} cells. A big object spans many small cells.`],
+ ask:['How many cells does YOLOv8n’s grid have on our photo?','Which cell holds the dog’s centre now?','Why is b_w now about 11?'],
+ expected:[`${G.cols} × ${G.rows} = ${G.cols*G.rows}.`,`(${dogCell.join(', ')}): 588 ÷ 32 ≈ 18.4 and 336 ÷ 32 ≈ 10.5, rounded down.`,'The dog is 361 pixels wide and a cell is 32: about 11 cells.'],
+ point:'YOLOv8n also reads two finer grids, of 16- and 8-pixel cells, for small objects (Part 7). Its record has no object? number: four box numbers and a score for each of 80 COCO classes (Appendix B).',
+ transition:'At test time: what the trained network writes in that cell.',source:PHOTO_SRC});
+const PB=CELL.pred_box;
 S_('decode','dense','At test time: read the box back out of the cell',{builds:3,
- body:cols(grid(cell(10,18,s32,{fill:COL.guess,op:.7})+gat(3,prBox(PB,'',{w:5})+pill(PB[0],PB[1],`dog ${num(CELL.p_dog,2)}`,{fill:COL.guess,size:30})),'The dog’s cell, then the box it wrote',{view:dogView}),
-  sm(eq(R`(b_x,b_y,b_w,b_h)\approx(${pb.join(',\\,')}),\quad \text{dog }${num(CELL.p_dog,2)}`),
-   at(2,eq(R`c_x\approx${18*s32}+${pb[0]}\times32\approx${Math.round(18*s32+pb[0]*32)}`)),at(2,eq(R`c_y\approx${10*s32}+${pb[1]}\times32\approx${Math.round(10*s32+pb[1]*32)}`)),
-   at(2,eq(R`\text{size}\approx(${pb[2]}\times32,\ ${pb[3]}\times32)\approx${Math.round(pb[2]*32)}\times${Math.round(pb[3]*32)}`)),
-   at(3,p('Best class: dog.'))),'1fr 1.15fr'),
- lines:[`At test time there is no annotation, only what the cell wrote: four box numbers and a score for each class. Dog scores ${num(CELL.p_dog,2)}.`,
-  'Undo the cell units: the centre is the cell’s corner plus b_x and b_y cells, and the size is b_w and b_h cells, all times 32.',
-  `The box sits on the dog. Its label is the best class, dog, and its score is ${num(CELL.p_dog,2)}.`],
- ask:['What did the dog’s cell write?','Where is the box’s centre, in pixels?','Which score does the box get?'],
- expected:[`Box numbers about (${pb.join(', ')}) and a dog score of ${num(CELL.p_dog,2)}.`,`About (${Math.round(18*s32+pb[0]*32)}, ${Math.round(10*s32+pb[1]*32)}).`,`Its best class score: ${num(CELL.p_dog,2)}, dog.`],
- point:`These are YOLOv8n’s real outputs at cell (10, 18), turned into cell units. Appendix B compares them with the target.`,
- transition:'Every cell does this. Look at them all.',source:YOLO_SRC});
+ body:cols(grid(cell(...dogCell,s32,{fill:COL.guess,op:.75})+gat(2,prBox(PB,'',{w:5})+pill(PB[0],PB[1],`dog ${num(CELL.p_dog,2)}`,{fill:COL.guess,size:30}))+gat(3,gtBox(DOG,'',{w:4,dash:'12 8'})),'The dog’s cell, the box it wrote, then our annotation',{view:dogView}),
+  stack(`<div class="eq-sm">${eq(R`(b_x,b_y,b_w,b_h)\approx(${pb.join(',\\,')}),\quad \text{dog }${num(CELL.p_dog,2)}`)}</div>`,
+   at(2,`<div class="eq-sm">${eq(R`c_x\approx${dogCell[1]*s32}+${pb[0]}\times32\approx${Math.round(dogCell[1]*s32+NG.pred[0]*32)}`)}${eq(R`c_y\approx${dogCell[0]*s32}+${pb[1]}\times32\approx${Math.round(dogCell[0]*s32+NG.pred[1]*32)}`)}${eq(R`\text{size}\approx(${pb[2]}\times32)\times(${pb[3]}\times32)\approx${Math.round(NG.pred[2]*32)}\times${Math.round(NG.pred[3]*32)}`)}</div>`),
+   at(3,`<div class="eq-sm">${eq(R`\mathrm{IoU}(\text{box},\text{annotation})\approx${num(CELL.iou,2)}`)}</div>`)),'1fr 1.15fr'),
+ lines:[`At test time there is no annotation, only what the dog’s cell writes: four box numbers, and a score for each of 80 classes. Dog scores ${num(CELL.p_dog,2)}.`,
+  'Undo the cell units: the centre is the cell’s corner plus b_x and b_y cells, and the size is b_w by b_h cells, all times 32 pixels.',
+  `The box sits on the dog, IoU ${num(CELL.iou,2)} with our annotation. The target was (${ngd.join(', ')}); training got close.`],
+ ask:['What did the dog’s cell write?','Where is the box’s centre, in pixels?','How close is the box to our annotation?'],
+ expected:[`Box numbers about (${pb.join(', ')}) and a dog score of ${num(CELL.p_dog,2)}.`,`About (${Math.round(dogCell[1]*s32+NG.pred[0]*32)}, ${Math.round(dogCell[0]*s32+NG.pred[1]*32)}).`,`IoU ${num(CELL.iou,2)}: almost the same box.`],
+ point:`YOLOv8n’s real output at cell (10, 18), written in Ng’s cell units. The network writes numbers in every cell, never “?”: we read the box only where a class score is high.`,
+ transition:'Every cell does this. Point at a few.',source:YOLO_SRC});
 S_('cell-inspector','dense','Every cell writes a record: point at one',{builds:1,
  body:widget('cell-inspector','Point at a cell of the 30 by 20 grid to read its class scores and box'),
  lines:['Point at cells: near the dog they say dog and draw nearly the same box; on the wall every class score is tiny.'],
  ask:['What does a cell on the wall write?'],expected:['A box of some kind, but every class score near 0, so its score is tiny and it will be dropped.'],
  point:'Every cell always writes a box. The score decides whether anyone looks at it.',
- transition:'Where do the confident cells sit?',source:YOLO_SRC});
-const fireMap=(map,col)=>heat(map,s32,{color:col,min:.05});
-S_('fires','dense','About ten cells fire for each animal',{builds:2,
- body:cols(grid(gtBox(DOG,'',{w:3})+gtBox(CAT,'',{w:3})+fireMap(G.map_dog,COL.guess)+gat(2,fireMap(G.map_cat,COL.amber)),'Dog scores and cat scores of every cell'),
-  stack(p(`Shade: each cell’s dog score. ${G.fire_dog.length} cells score above 0.25, all near the dog’s centre.`),
-   at(2,p(`Cat: again ${G.fire_cat.length} cells.`))),'1.3fr 1fr'),
- lines:['The trained network’s dog score at every cell: a cluster around the dog’s centre, and nothing elsewhere.',
-  'A second cluster for the cat. Cells next to a centre see almost the same animal, so they are confident too: duplicates, which Part 6 removes.'],
- ask:['Where are the dog scores high?','Why do about ten cells fire, not one?'],
- expected:['In a block of cells around the dog’s centre.','Neighbouring cells see nearly the same animal; YOLOv8 is even trained with about ten cells per object.'],
- point:'YOLOv8 trains its 10 best-fitting cells per object as positives, not only the centre cell, which makes the cluster. Even with Ng’s one-cell rule, neighbours end up confident at test time.',
- transition:'Every cell’s box, all at once.',source:YOLO_SRC});
+ transition:'All the cells at once.',source:YOLO_SRC});
+const AXc='#AAB3BC';
+// one cell's record, drawn as a strip: four box numbers, then 80 thin bars, one per class (Appendix B)
+const recStrip=fig(690,170,[0,1,2,3].map(i=>`<rect x="${10+i*70}" y="40" width="62" height="62" rx="6" fill="#fff" stroke="${COL.guess}" stroke-width="3"/>`+label(41+i*70,80,`b<tspan dy="6" font-size="15">${'xywh'[i]}</tspan>`,{size:22,anchor:'middle',fill:COL.guess,weight:700})).join('')+
+ Array.from({length:80},(_,i)=>`<rect x="${(300+i*4.1).toFixed(1)}" y="40" width="3" height="62" fill="${AXc}"/>`).join('')+
+ label(10,26,'4 box numbers',{size:20,fill:COL.guess,weight:650})+label(300,26,'80 class scores, one per COCO class',{size:20,fill:COL.ink,weight:650})+label(300,128,'person',{size:16})+label(300+79*4.1+3,128,'toothbrush',{size:16,anchor:'end'}),'One cell’s record: four box numbers and eighty class scores');
 const recs=G.records;
-S_('every-box','dense','Every cell draws a box, even on the wall',{builds:2,
- body:cols(courtyard(gonly(1,recs.map(x=>rect([x[2],x[3],x[4],x[5]],{stroke:COL.guess,w:1.5,op:.35})).join(''))+gonly(2,recs.filter(x=>x[7]>=.01).map(x=>rect([x[2],x[3],x[4],x[5]],{stroke:COL.guess,w:3,op:Math.min(1,.15+x[7])})).join('')),'All 600 boxes of the grid, then each faded by its cell’s best class score'),
-  stack(only(1,p(`${G.cols*G.rows} cells, ${G.cols*G.rows} boxes.`)),only(2,p('Faded by score: the boxes near the animals and the plants remain.'))),'1.3fr 1fr'),
- lines:['Decode every cell of the grid and draw its box: 600 boxes. The network never writes “?”, so the cells on the wall and floor draw boxes too.',
-  'Fade each box by its cell’s best class score. Almost all vanish: the score says which boxes to believe.'],
- ask:['Does a cell on the wall write a box?','What tells us which boxes to keep?'],
- expected:['Yes: every cell always writes one.','Its score: the highest of its 80 class scores.'],
- point:'Every cell writes a box whatever it sees; nobody looks at the box of a cell whose scores are all low.',
- transition:'Keep the confident ones.',source:YOLO_SRC});
 const cand=S.nms_courtyard;
 const candBoxes=(list,op=1)=>list.map(k=>rect(k.box,{stroke:k.name==='potted plant'?COL.amber:COL.guess,w:2.5,op})).join('');
-S_('all-candidates','dense','Decode every cell, keep scores ≥ 0.25: 31 boxes',{builds:3,
- body:cols(courtyard(gat(2,candBoxes(cand.candidates)),'Thirty-one candidate boxes: ten on the dog, ten on the cat, eleven on plants'),
-  stack(p(`YOLOv8n has ${big(G.total)} cells: ours and two finer grids (Part 7).`),
-   at(2,p(`Scores ≥ 0.25: ${cand.n_candidates} boxes. ${cand.counts.dog} on the dog, ${cand.counts.cat} on the cat, ${cand.counts['potted plant']} on plants.`)),
-   at(3,p('We want one box per object.'))),'1.25fr 1fr'),
- lines:[`The real YOLOv8n also reads two finer grids, met in Part 7: ${big(G.total)} cells, each writing a box, for any photo this size.`,`Throw away the unconfident ones: ${cand.n_candidates} boxes have a score of at least 0.25.`,'The ten cells that fired for the dog each drew a dog box. To get one box per object, remove the duplicates.'],
- ask:['How many records does the network write?','How many survive the score filter?','Why ten boxes for one dog?'],
- expected:[big(S.grid.total),String(cand.n_candidates),'About ten cells were trained to fire for each object, and they did.'],
+S_('candidates','dense','Every cell writes a box: keep the confident ones',{builds:4,
+ body:cols(courtyard(gonly(1,recs.map(x=>rect([x[2],x[3],x[4],x[5]],{stroke:COL.guess,w:1.5,op:.35})).join(''))+gonly(2,recs.filter(x=>x[7]>=.01).map(x=>rect([x[2],x[3],x[4],x[5]],{stroke:COL.guess,w:3,op:Math.min(1,.15+x[7])})).join(''))+
+   gonly(3,candBoxes(cand.candidates))+gonly(4,heat(G.map_dog,s32,{color:COL.guess,min:.25})+candBoxes(cand.candidates.filter(k=>k.name==='dog'))),
+  'All 600 boxes of the grid; then each faded by its score; then the 31 that score at least 0.25; then the dog’s ten cells and boxes'),
+  stack(only(1,stack(`<div class="big-number">${G.cols*G.rows}</div>`,p('cells, so 600 boxes'))),only(2,p('each faded by its best class score')),
+   only(3,stack(`<div class="big-number">${cand.n_candidates}</div>`,p(`boxes with a score ≥ 0.25: ${cand.counts.dog} dog, ${cand.counts.cat} cat, ${cand.counts['potted plant']} potted plant`))),
+   only(4,stack(`<div class="big-number">${G.fire_dog.length}</div>`,p('neighbouring cells, ten dog boxes')))),'1.3fr 1fr'),
+ lines:['Read out every cell the same way: 600 boxes. The network never writes “?”, so cells on the wall and floor draw boxes too.',
+  'Fade each box by its cell’s best class score. Almost all of them vanish: the score says which boxes to believe.',
+  `Keep the boxes scoring at least 0.25: ${cand.n_candidates} of them, ${cand.counts.dog} on the dog, ${cand.counts.cat} on the cat and ${cand.counts['potted plant']} on two potted plants.`,
+  'The dog’s ten boxes come from ten neighbouring cells, each of which saw nearly the same dog. To get one box per object, remove the duplicates.'],
+ ask:['Does a cell on the wall write a box?','What tells us which boxes to keep?','How many boxes survive the score cut?','Why ten boxes for one dog?'],
+ expected:['Yes: every cell always writes one.','Its score: the highest of its 80 class scores.',`${cand.n_candidates}.`,'Cells next to the dog’s centre see almost the same dog, so they are confident too.'],
+ point:'Ng (“YOLO Algorithm”): every cell writes its prediction; drop the low-probability ones, then run non-max suppression for each class. One of the 11 plant boxes comes from YOLOv8n’s 16-pixel grid (Part 7); the other 30 boxes come from the 32-pixel grid. YOLOv8 trains about ten cells per object as positives, which strengthens the cluster.',
  transition:'Part 5 in one slide.',source:YOLO_SRC});
-recap(5,'dense',['Sliding windows: slow, and their boxes cannot fit. One CNN pass does every window at once.','YOLO: a grid on the photo and Part 4’s record in every cell; the cell holding an object’s centre answers for it.',
- 'Training: Part 4’s loss in every cell. In practice the grid is fine: 30 × 20 cells of 32 px.',`Test time: every cell writes a box; keep scores ≥ 0.25: ${cand.n_candidates} boxes for 4 objects.`],
+recap(5,'dense',['Sliding windows are slow. Ng’s trick runs every window in one pass, but a window’s box cannot fit the dog.',
+ 'YOLO: the cell that holds an object’s centre writes its record, with the box measured in that cell.',
+ 'One CNN pass writes every cell’s record; Part 4’s loss in every cell trains it. Real cells are 32 px.',
+ `Test time: every cell writes a box; ${cand.n_candidates} score at least 0.25, for 4 objects.`],
  'each object has about ten boxes; keep one.',
  {ask:'Why are there about ten boxes per object at test time?',expected:'Cells next to an object’s centre see nearly the same object, so several of them are confident.',transition:'Part 6.'});
 
@@ -1347,9 +1439,18 @@ A_('two-answers','detr','Two answers to one question',{builds:2,
 O('opt-yolov1','YOLOv1 (2016): one responsible cell per object',{builds:1,
  body:stack(eq(R`7\times7\ \text{cells}\times(2\times5+20)=7\times7\times30`),p('Each cell: two boxes, each (x, y, w, h, confidence), and one set of 20 class probabilities (PASCAL VOC). Only the cell containing an object’s centre is responsible for it; x, y are offsets inside that cell, w, h fractions of the image.'),small('Confidence was trained toward the IoU between the box and the truth. A cell could hold at most one object’s class.')),
  ask:['Why did YOLOv1 struggle with flocks of birds?'],expected:['Each cell had one class vector: several small objects with centres in one cell could not all be described.']});
-O('opt-anchors','Anchors: predict offsets from template boxes',{builds:1,
- body:stack(eq(R`b_x=\sigma(t_x)+c_x,\quad b_y=\sigma(t_y)+c_y,\quad b_w=p_w\,e^{t_w},\quad b_h=p_h\,e^{t_h}`),p('Faster R-CNN, SSD and YOLOv2 to v5 place several template boxes (anchors) of chosen sizes and shapes at every cell, and predict small corrections to each. Positives are anchors with high IoU to an object.'),small('Anchor-free detectors (FCOS, YOLOv8) predict distances from the cell centre instead, as in Part 5.')),
- ask:['What must be chosen by hand for an anchor-based detector?'],expected:['The anchor sizes and aspect ratios, and the IoU thresholds for positives.']});
+// Ng's anchor boxes: two records per cell, one for a tall shape and one for a wide one
+const anchorFig=fig(420,200,`<rect x="40" y="20" width="60" height="130" rx="4" fill="${COL.guess}" fill-opacity=".12" stroke="${COL.guess}" stroke-width="4"/>`+label(70,182,'anchor 1: tall',{size:20,anchor:'middle',fill:COL.ink,weight:650})+
+ `<rect x="170" y="55" width="210" height="70" rx="4" fill="${COL.amber}" fill-opacity=".12" stroke="${COL.amber}" stroke-width="4"/>`+label(275,182,'anchor 2: wide',{size:20,anchor:'middle',fill:COL.ink,weight:650}),'Two anchor shapes: a tall box and a wide box');
+O('opt-anchors','Anchor boxes: two records per cell, one tall and one wide',{builds:2,
+ body:cols(stack(`<div class="narrow">${anchorFig}</div>`,`<div class="eq-sm">${eq(R`2\times7=14\ \text{numbers per cell}`)}</div>`),
+  stack(p('An object goes to the cell that holds its centre, and to the anchor whose shape overlaps its box most: a person to the tall one, a car to the wide one.'),
+   at(2,`<div class="eq-sm">${eq(R`b_x=\sigma(t_x)+c_x,\ \ b_y=\sigma(t_y)+c_y,\ \ b_w=p_w\,e^{t_w},\ \ b_h=p_h\,e^{t_h}`)}</div>`)),'0.8fr 1.2fr'),
+ lines:['Ng’s second fix: give each cell two records, one for a tall shape and one for a wide one, so that one cell can report a person and a car.',
+  'YOLOv2 to v5 predict small corrections to each anchor’s place and size; the anchor shapes come from k-means on the training boxes. YOLOv8 needs no anchors.'],
+ ask:['How many numbers does each cell write with two anchors?','What must be chosen before training an anchor-based detector?'],
+ expected:['2 × 7 = 14: one 7-number record per anchor.','The anchor shapes, by hand or by k-means on the training boxes.'],
+ point:'Ng (“Anchor Boxes”): his 3 × 3 grid with two anchors and three classes gives a 3 × 3 × 16 output. Two objects of the same shape in one cell, or three objects, still collide, which a fine grid makes rare. He adds that anchors also let some outputs specialise in tall objects and others in wide ones.'});
 const C0=CELL.centre,T0=CELL.target_ltrb;
 const ltrbFig=(vals,stroke,b,from=1)=>{const [l,t,r,bb]=vals,[cx,cy]=C0;const f=fsz(dogView,21,420);
  const A=(k,x2,y2,txt,tx,ty,anchor)=>`<g data-at="${from+k}">${arrow(cx,cy,x2,y2,{stroke,w:5,head:18})}${label(tx,ty,txt,{size:f,fill:stroke,weight:700,anchor,halo:true})}</g>`;

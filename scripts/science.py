@@ -523,6 +523,29 @@ fine = Counter((int(y // 32), int(x // 32)) for x, y in cen)
 S['crowd_cells'] = {'centres': [[r(x, 1), r(y, 1)] for x, y in cen], 'coarse_cell': [cr, cc], 'coarse_max': cmax,
                     'fine_grid': [Wc2 // 32, Hc2 // 32], 'fine_max': max(fine.values())}
 assert cmax == 5 and S['crowd_cells']['fine_max'] == 1
+# Ng's convolutional sliding windows on a real classifier: VGG16, its dense layers written as convolutions, classifies
+# every 224-px window 32 px apart in one pass (14 x 24 answers). Compare with the 336 crops run one at a time.
+V = M['windows_vgg']
+d1, d2, c1, c2 = (np.array(V[k]) for k in ('dog_onepass', 'dog_crops', 'cat_onepass', 'cat_crops'))
+verdict = lambda d, c: np.where(d >= .5, 1, np.where(c >= .5, 2, 0))       # dog, cat or neither, at 0.5
+wbox = lambda row, col: [int(v) for v in (col * V['step'], row * V['step'], col * V['step'] + V['size'], row * V['step'] + V['size'])]
+bd, bc = np.unravel_index(d1.argmax(), d1.shape), np.unravel_index(c1.argmax(), c1.shape)
+S['convwin'] = {'rows': V['rows'], 'cols': V['cols'], 'n': V['rows'] * V['cols'], 'step': V['step'], 'size': V['size'],
+                'dog': [[r(v, 2) for v in row] for row in d1.tolist()], 'cat': [[r(v, 2) for v in row] for row in c1.tolist()],
+                'agree': int((verdict(d1, c1) == verdict(d2, c2)).sum()), 'corr_dog': r(np.corrcoef(d1.ravel(), d2.ravel())[0, 1], 2),
+                'n_dog': int((d1 >= .5).sum()), 'n_cat': int((c1 >= .5).sum()),
+                't_onepass': V['t_onepass'], 't_crops': V['t_crops'], 'speedup': int(round(V['t_crops'] / V['t_onepass'])),
+                'best_dog': {'cell': [int(v) for v in bd], 'box': wbox(*bd), 'p': r(d1[bd], 2), 'iou': r(iou(wbox(*bd), dog), 2)},
+                'best_cat': {'cell': [int(v) for v in bc], 'box': wbox(*bc), 'p': r(c1[bc], 2), 'iou': r(iou(wbox(*bc), S['cat']['xyxy']), 2)}}
+CW = S['convwin']
+assert (CW['rows'], CW['cols'], CW['n']) == (14, 24, 336)
+assert CW['agree'] == 317 and CW['speedup'] >= 20 and CW['best_dog']['iou'] < S['windows']['best_dog']['iou'] < 0.3
+# the bigger window of the sliding slide: 448 px, also every 32 px
+S['windows']['big'] = 448
+S['windows']['big_n'] = [(Wp - 448) // 32 + 1, (Hp - 448) // 32 + 1]
+assert S['windows']['big_n'] == [17, 7]
+S['windows']['big_best_iou'] = r(max(iou(dog, [x, y, x + 448, y + 448]) for x in range(0, Wp - 447, 32) for y in range(0, Hp - 447, 32)), 2)
+assert 0.7 < S['windows']['big_best_iou'] < 0.75
 
 (ROOT / 'data/science.json').write_text(json.dumps(S, separators=(',', ':')))
 print('wrote data/science.json', round((ROOT / 'data/science.json').stat().st_size / 1e3), 'kB')
