@@ -70,7 +70,7 @@
   ],
   "coreSlides": 105,
   "optionalSlides": 24,
-  "totalStates": 316,
+  "totalStates": 318,
   "slides": [
     {
       "id": "title",
@@ -433,14 +433,6 @@
       "optional": false
     },
     {
-      "id": "slots-real",
-      "title": "A real detector with K = 100: DETR’s slots on our photo",
-      "section": "onebox",
-      "chapter": "4.2 Several objects, several slots",
-      "builds": 2,
-      "optional": false
-    },
-    {
       "id": "slots-crowd",
       "title": "Problem 1: more objects than slots",
       "section": "onebox",
@@ -513,34 +505,26 @@
       "optional": false
     },
     {
-      "id": "one-pass",
-      "title": "The same trick on our photo: a 30 × 20 grid of cells",
+      "id": "window-boxes",
+      "title": "A window’s box is not the dog’s box",
       "section": "dense",
-      "chapter": "5.2 A grid of cells, each writing a record",
+      "chapter": "5.1 From sliding windows to one pass",
       "builds": 2,
       "optional": false
     },
     {
-      "id": "cell-window",
-      "title": "One cell: an address on the photo, with a wide view",
+      "id": "grid-3x2",
+      "title": "YOLO: a grid on the photo, and Part 4’s record in every cell",
       "section": "dense",
-      "chapter": "5.2 A grid of cells, each writing a record",
+      "chapter": "5.2 YOLO: a record in every cell",
       "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "cell-vector",
-      "title": "Every cell writes the same kind of record",
-      "section": "dense",
-      "chapter": "5.2 A grid of cells, each writing a record",
-      "builds": 3,
       "optional": false
     },
     {
       "id": "centre-cell",
       "title": "Which cell answers for the dog? The one that holds its centre",
       "section": "dense",
-      "chapter": "5.3 Which cell answers for an object",
+      "chapter": "5.2 YOLO: a record in every cell",
       "builds": 2,
       "optional": false
     },
@@ -548,7 +532,7 @@
       "id": "cell-box",
       "title": "The dog’s box, measured in cells",
       "section": "dense",
-      "chapter": "5.3 Which cell answers for an object",
+      "chapter": "5.2 YOLO: a record in every cell",
       "builds": 2,
       "optional": false
     },
@@ -556,7 +540,39 @@
       "id": "target-photo",
       "title": "The target for the whole photo, cell by cell",
       "section": "dense",
-      "chapter": "5.3 Which cell answers for an object",
+      "chapter": "5.2 YOLO: a record in every cell",
+      "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "one-pass",
+      "title": "One CNN pass writes the whole block",
+      "section": "dense",
+      "chapter": "5.2 YOLO: a record in every cell",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "two-in-a-cell",
+      "title": "One record per cell: what if two centres share a cell?",
+      "section": "dense",
+      "chapter": "5.2 YOLO: a record in every cell",
+      "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "fine-grid",
+      "title": "In practice: a fine grid of 32-pixel cells",
+      "section": "dense",
+      "chapter": "5.3 In practice, and the loss",
+      "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "record-84",
+      "title": "In practice: 80 classes, and no “object?”",
+      "section": "dense",
+      "chapter": "5.3 In practice, and the loss",
       "builds": 3,
       "optional": false
     },
@@ -564,7 +580,7 @@
       "id": "prediction-record",
       "title": "What the trained network wrote at cell (10, 18)",
       "section": "dense",
-      "chapter": "5.4 The loss",
+      "chapter": "5.3 In practice, and the loss",
       "builds": 2,
       "optional": false
     },
@@ -572,39 +588,23 @@
       "id": "bce",
       "title": "Scoring one yes/no answer: binary cross-entropy",
       "section": "dense",
-      "chapter": "5.4 The loss",
+      "chapter": "5.3 In practice, and the loss",
       "builds": 2,
       "optional": false
     },
     {
-      "id": "loss-class",
-      "title": "Class loss at cell (10, 18): 80 yes/no questions",
+      "id": "loss-cells",
+      "title": "The loss at two cells: the dog’s, and an empty one",
       "section": "dense",
-      "chapter": "5.4 The loss",
+      "chapter": "5.3 In practice, and the loss",
       "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "loss-box",
-      "title": "Box loss: how far off are the four box numbers?",
-      "section": "dense",
-      "chapter": "5.4 The loss",
-      "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "loss-background",
-      "title": "A background cell: only a class loss, and it is small",
-      "section": "dense",
-      "chapter": "5.4 The loss",
-      "builds": 2,
       "optional": false
     },
     {
       "id": "loss-total",
       "title": "The loss for the whole photo",
       "section": "dense",
-      "chapter": "5.4 The loss",
+      "chapter": "5.3 In practice, and the loss",
       "builds": 3,
       "optional": false
     },
@@ -612,7 +612,7 @@
       "id": "decode",
       "title": "At test time: read the box back out of the cell",
       "section": "dense",
-      "chapter": "5.5 Reading boxes back out",
+      "chapter": "5.4 Reading boxes back out",
       "builds": 3,
       "optional": false
     },
@@ -620,7 +620,7 @@
       "id": "cell-inspector",
       "title": "Every cell writes a record: point at one",
       "section": "dense",
-      "chapter": "5.5 Reading boxes back out",
+      "chapter": "5.4 Reading boxes back out",
       "builds": 1,
       "optional": false
     },
@@ -628,7 +628,7 @@
       "id": "fires",
       "title": "About ten cells fire for each animal",
       "section": "dense",
-      "chapter": "5.5 Reading boxes back out",
+      "chapter": "5.4 Reading boxes back out",
       "builds": 2,
       "optional": false
     },
@@ -636,7 +636,7 @@
       "id": "every-box",
       "title": "Every cell draws a box, even on the wall",
       "section": "dense",
-      "chapter": "5.5 Reading boxes back out",
+      "chapter": "5.4 Reading boxes back out",
       "builds": 2,
       "optional": false
     },
@@ -644,7 +644,7 @@
       "id": "all-candidates",
       "title": "Decode every cell, keep scores ≥ 0.25: 31 boxes",
       "section": "dense",
-      "chapter": "5.5 Reading boxes back out",
+      "chapter": "5.4 Reading boxes back out",
       "builds": 3,
       "optional": false
     },
@@ -652,7 +652,7 @@
       "id": "recap-5",
       "title": "Part 5 in one slide",
       "section": "dense",
-      "chapter": "5.5 Reading boxes back out",
+      "chapter": "5.4 Reading boxes back out",
       "builds": 1,
       "optional": false
     },

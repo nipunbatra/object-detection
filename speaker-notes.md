@@ -873,27 +873,9 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 - Ask: How many numbers for K = 5 and C = 80?
 - Expected: 5 × (80 + 1 + 4) = 425.
 
-**Transition:** A real detector built with slots.
-
-**Source:** Our annotation of the courtyard photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
-
-## slots-real: A real detector with K = 100: DETR’s slots on our photo
-
-**Build 1:** DETR is a real detector built this way, with K = 100. Its 100 slots for our photo, each shaded by how sure it is of an object.
-
-- Ask: How many slots does DETR have?
-- Expected: 100, whatever the photo.
-
-**Build 2:** Above 0.9, 5 slots are sure: the dog, the cat and 3 potted plants, a COCO class we did not annotate. 93 of the 100 say no object.
-
-- Ask: What do most of the slots say?
-- Expected: No object: 93 of the 100.
-
-**Point here:** The shade is 1 − p(no object). The numbers are DETR’s query indices. Two more slots are unsure: a potted plant at 0.84 and one at 0.55.
-
 **Transition:** What if a photo has more objects than slots?
 
-**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
+**Source:** Our annotation of the courtyard photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
 ## slots-crowd: Problem 1: more objects than slots
 
@@ -902,44 +884,44 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 - Ask: How many of the 11 people can a 5-slot head report?
 - Expected: At most 5.
 
-**Build 2:** So make K larger than any photo needs. DETR’s K = 100 leaves room: here 16 of its slots are sure of an object, 10 people and 6 bags.
+**Build 2:** So make K larger than any photo needs, say 100. Here 11 slots would hold a person, and the other 89 would say “no object”.
 
 - Ask: How large should K be?
-- Expected: Larger than the number of objects in any photo you expect. DETR uses 100.
+- Expected: Larger than the number of objects in any photo you expect.
 
-**Point here:** Sure means a score of 0.9 or more. At that level DETR finds 10 of the 11 people; the bags are dashed. The DETR paper sets K well above the usual number of objects in an image (Carion et al., 2020).
+**Point here:** K is fixed when the network is built, so it must cover the most crowded photo you expect; the spare slots learn “no object”.
 
 **Transition:** Problem 2 is harder: which object goes in which slot?
 
-**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py. The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+**Source:** Our annotation of the crowd photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
 ## slot-order: Problem 2: which dog belongs in slot 1?
 
-**Build 1:** Two slots, two predictions: slot 1 drew the left dog, slot 2 the right dog. Both boxes are right.
+**Build 1:** Suppose the head is perfect: slot 1 boxes the left dog exactly, slot 2 the right dog. Nothing could be more right.
 
 - Ask: Are the two slots’ boxes correct?
-- Expected: Yes, both dogs are well boxed.
+- Expected: Yes, exactly: they are the annotated boxes.
 
-**Build 2:** But the annotator happened to list the right dog first. Compare slot 1 with entry 1 and slot 2 with entry 2: the L1 loss, in normalised units, is 1.21.
+**Build 2:** But the annotator happened to list the right dog first. Compare slot k with entry k: each slot is a whole dog away from its entry, 0.603 in normalised units.
 
 - Ask: What is the loss if slot k is compared with entry k?
-- Expected: 1.21: slot 1’s left-dog box is compared with the right dog.
+- Expected: 1.206: 0.603 for each slot, mostly the half-photo gap between the two centres.
 
-**Build 3:** Compare them the other way round: 0.012.
+**Build 3:** Compare each slot with the dog it actually boxed: both differences are 0.
 
-- Ask: And with the order swapped?
-- Expected: 0.012
+- Ask: And if each slot is compared with its own dog?
+- Expected: 0.
 
-**Build 4:** Nothing about the prediction changed, only the list order. A loss that pairs outputs with targets by position punishes correct answers.
+**Build 4:** Nothing about the prediction changed, only the order of the list. A loss that pairs outputs with targets by position punishes a perfect answer.
 
 - Ask: What must the loss do instead?
 - Expected: Pair each output with the object it describes, whatever the list order.
 
-**Point here:** The slot boxes are real predictions of a slot-based detector, DETR (Appendix A), for this photo (its queries 61 and 98); the L1 sums are over normalised (c_x, c_y, w, h).
+**Point here:** The L1 sums are over normalised (c_x, c_y, w, h). The list order here is made up for the example: whoever labels a photo lists its objects in some order, and nothing makes it match the slots.
 
 **Transition:** Two ways to pair outputs with objects.
 
-**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
+**Source:** Our annotation of the two-dog photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
 ## two-fixes: Two ways to decide which output answers for which object
 
@@ -1051,62 +1033,39 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 
 **Point here:** Andrew Ng’s example (Deep Learning Specialization, Course 4, Week 3: convolutional implementation of sliding windows); the last layers are convolutions, so they accept any input size. The sizes are his, not YOLOv8’s.
 
-**Transition:** Now our photo and our CNN.
+**Transition:** Do the windows’ boxes fit the dog?
 
-## one-pass: The same trick on our photo: a 30 × 20 grid of cells
+## window-boxes: A window’s box is not the dog’s box
 
-**Build 1:** The same trick on our photo: one pass of a CNN gives one output for every place on a grid, 32 pixels apart. Each place is a cell.
+**Build 1:** Even the best 224-pixel window fits the dog badly: the dog is 361 × 505 pixels, so the window sits inside it, and windows only sit every 32 pixels.
 
-- Ask: How many cells are there?
-- Expected: 960 ÷ 32 = 30 across, 640 ÷ 32 = 20 down: 600.
+- Ask: What is the best IoU any 224-pixel window gets with the dog?
+- Expected: 0.275: the window lies inside the dog, so IoU = 224² ÷ (361 × 505).
 
-**Build 2:** Each cell takes the place of one window of the sliding search, and all 600 come out of the same single pass.
+**Build 2:** Ng’s next step: stop cutting fixed windows, and let the network write a box of any size at each place. That is YOLO.
 
-- Ask: What does one cell replace?
-- Expected: One window position of the sliding search, without a CNN run of its own.
+- Ask: How can we get a box that fits?
+- Expected: Let each place write a box, as Part 4’s localiser did for the whole photo.
 
-**Point here:** For YOLOv8n this is the output of its neck after the photo has been halved five times (2⁵ = 32), 256 numbers per cell.
+**Point here:** Ng makes this point before YOLO: sliding windows cannot output accurate boxes, because their places and shapes are fixed in advance.
 
-**Transition:** Zoom in on one cell.
-
-**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
-
-## cell-window: One cell: an address on the photo, with a wide view
-
-**Build 1:** Zoom in on cell (10, 18): row 10 and column 18, counting from 0. Multiply by 32 to find its square of pixels.
-
-- Ask: Which pixels does cell (10, 18) cover?
-- Expected: x from 576 to 608, y from 320 to 352.
-
-**Build 2:** Each CNN layer mixes in neighbouring positions, so the cell’s numbers describe a region wide enough to take in the whole dog.
-
-- Ask: Can a cell describe an object larger than its square?
-- Expected: Yes: its numbers are computed from a large region of the photo, its receptive field.
-
-**Common misconception:** A cell is not a 32-pixel crop that knows only its own pixels.
-
-**Transition:** What does each cell write?
+**Transition:** YOLO: a grid, and a record in every cell.
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## cell-vector: Every cell writes the same kind of record
+## grid-3x2: YOLO: a grid on the photo, and Part 4’s record in every cell
 
-**Build 1:** Each cell writes one record, like Part 4’s one-object target: four numbers for a box, and a score for each of the 80 COCO classes.
+**Build 1:** Andrew Ng’s start: put a coarse grid on the photo, here 3 × 2 cells of 320 pixels, and give every cell Part 4’s one-object record.
 
-- Ask: What does each cell write?
-- Expected: A box (four numbers) and 80 class scores.
+- Ask: How many cells, and how big is each?
+- Expected: 3 × 2 = 6 cells, each 960 ÷ 3 = 320 pixels wide and 640 ÷ 2 = 320 tall.
 
-**Build 2:** All the cells together give a 30 × 20 × 84 block of numbers. Its size never depends on what the photo shows.
+**Build 2:** The record has 7 numbers: object?, a box, and a score each for cat and dog. Six cells of seven numbers: a 2 × 3 × 7 block.
 
-- Ask: How many numbers does the whole grid write?
-- Expected: 30 × 20 × 84 = 50,400.
+- Ask: How many numbers make the whole answer?
+- Expected: 2 × 3 × 7 = 42.
 
-**Build 3:** Part 4’s record began with “object?”. YOLOv8 drops it: a cell says “nothing here” by giving every class a low score.
-
-- Ask: How does a cell say “nothing here”?
-- Expected: By giving all 80 classes a low score.
-
-**Point here:** Ng’s version for a 3 × 3 grid and three classes is a 3 × 3 × 8 block, with an “object?” number p_c first. YOLOv1 to YOLOv5 kept such an object score; YOLOv8 folds it into the class scores.
+**Point here:** Ng draws a 3 × 3 grid and uses 19 × 19 in practice. We draw 3 × 2 so that the cells of our 960 × 640 photo are square. Rows and columns count from 0.
 
 **Transition:** Which cell should describe the dog?
 
@@ -1114,17 +1073,17 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 
 ## centre-cell: Which cell answers for the dog? The one that holds its centre
 
-**Build 1:** The rule Andrew Ng teaches: the cell that holds an object’s centre answers for it. Divide the dog’s centre by 32 and round down: cell (10, 18).
+**Build 1:** The rule: the cell that holds an object’s centre answers for it. Divide the dog’s centre by 320 and round down: cell (1, 1).
 
 - Ask: Which cell holds the dog’s centre?
-- Expected: (10, 18): row 10, column 18.
+- Expected: (1, 1): row 1, column 1.
 
-**Build 2:** The cat’s centre falls in cell (14, 6). Each object gets exactly one cell, fixed by where it is, so the list order no longer matters.
+**Build 2:** The cat’s centre falls in cell (1, 0). Each object gets exactly one cell, fixed by where it is, so the list order no longer matters.
 
 - Ask: Why does this rule solve Part 4’s order problem?
 - Expected: Each object’s cell is fixed by where the object is, not by its place in the annotation list.
 
-**Point here:** This is YOLOv1’s rule (Redmon et al., 2016), as Ng teaches it. YOLOv8 trains about ten cells near each centre instead of one; the idea is the same: the place decides which outputs answer.
+**Point here:** Ng: “assign the object to the grid cell containing its midpoint.” This is YOLOv1’s rule (Redmon et al., 2016).
 
 **Transition:** Write the dog’s box from that cell’s point of view.
 
@@ -1134,15 +1093,15 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 
 **Build 1:** b_x and b_y say where the dog’s centre sits inside its cell: 0 at the cell’s left or top edge, 1 at its right or bottom edge.
 
-- Ask: Where is the dog’s centre inside cell (10, 18)?
-- Expected: b_x = 11.5 ÷ 32 = 0.359 across, b_y = 15.5 ÷ 32 = 0.484 down: near the middle.
+- Ask: Where is the dog’s centre inside its cell?
+- Expected: b_x = 267.5 ÷ 320 = 0.836 across, b_y = 15.5 ÷ 320 = 0.048 down: near the cell’s top right.
 
-**Build 2:** b_w and b_h give the size, counted in cells. The dog is about 11 cells wide and 16 tall, so both are larger than 1.
+**Build 2:** b_w and b_h give the size, counted in cells. The box is not confined to its cell: the dog is wider than one cell and about 1.6 cells tall.
 
 - Ask: Why can b_w be larger than 1?
-- Expected: It counts cells, and the dog spans about 11 of them.
+- Expected: It counts cells, and the dog is wider than one cell.
 
-**Point here:** Andrew Ng’s YOLO encoding: b_x and b_y between 0 and 1 inside the cell, b_w and b_h as multiples of the cell. YOLOv8 writes the same box as four distances from the cell centre to the sides (Appendix B).
+**Point here:** Ng’s encoding: b_x and b_y between 0 and 1 inside the cell, b_w and b_h as multiples of the cell, so they can be more than 1.
 
 **Transition:** The target for the whole photo.
 
@@ -1150,26 +1109,113 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 
 ## target-photo: The target for the whole photo, cell by cell
 
-**Build 1:** The target for our photo, one cell at a time. Cell (10, 18) holds the dog’s centre: the box in cell units, 1 for dog, 0 for every other class.
+**Build 1:** The whole target, cell by cell. Cell (1, 1) holds the dog’s centre: object? 1, the box in cell units, dog 1.
 
-- Ask: What is the target at cell (10, 18)?
-- Expected: Box (0.359, 0.484, 11.281, 15.781), dog 1, every other class 0.
+- Ask: What is the target in the dog’s cell?
+- Expected: (1, 0.836, 0.048, 1.128, 1.578, 0, 1).
 
-**Build 2:** Cell (14, 6) holds the cat’s centre: its box, 1 for cat, 0 for the rest.
+**Build 2:** Cell (1, 0) holds the cat’s centre: object? 1, its box, cat 1.
 
-- Ask: And at the cat’s cell?
-- Expected: Box (0.766, 0.109, 6.531, 9.719), cat 1, every other class 0.
+- Ask: And in the cat’s?
+- Expected: (1, 0.677, 0.411, 0.653, 0.972, 1, 0).
 
-**Build 3:** The other 598 cells hold no centre: 0 for every class. Their box is “?”, left out of the loss, like Part 4’s empty floor.
+**Build 3:** The other four cells hold no centre: object? is 0 and the rest is “?”, as for Part 4’s empty floor. These 42 numbers are the target.
 
-- Ask: What do the other cells learn?
-- Expected: To give every class a low score; their box is not trained.
+- Ask: What about the four other cells?
+- Expected: object? = 0; the box and the classes are “?”, left out of the loss.
 
-**Point here:** Ng writes this target as a 3 × 3 × 8 block for a 3 × 3 grid and three classes. Ours is 30 × 20 × 84, almost all of it zeros.
+**Point here:** Ng writes this target as a 3 × 3 × 8 block for his 3 × 3 grid and three classes; ours is 2 × 3 × 7.
+
+**Transition:** One network writes the whole block.
+
+**Source:** Our annotation of the courtyard photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## one-pass: One CNN pass writes the whole block
+
+**Build 1:** Train a CNN whose output is exactly this 2 × 3 × 7 block. One pass over the photo writes all six records at once.
+
+- Ask: How many times does the CNN look at the photo?
+- Expected: Once.
+
+**Build 2:** Each output cell is computed from its own part of the photo: the convolutional sliding window of 5.1. You Only Look Once, hence the name YOLO.
+
+- Ask: Which part of the photo does output cell (1, 1) describe?
+- Expected: Cell (1, 1) of the photo, the one with the dog’s centre.
+
+**Point here:** Ng: input 100 × 100 × 3, a ConvNet, output 3 × 3 × 8; because it is one convolutional pass, YOLO runs fast enough for video.
+
+**Transition:** One record per cell: is that always enough?
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## two-in-a-cell: One record per cell: what if two centres share a cell?
+
+**Build 1:** A cell writes one box. On the crowd photo a 3 × 2 grid puts 5 people’s centres in one cell, which can report only one of them.
+
+- Ask: How many of those five people can the crowded cell report?
+- Expected: One.
+
+**Build 2:** A finer grid fixes it here: with 32-pixel cells, every person’s centre gets a cell of its own.
+
+- Ask: Why does a finer grid help?
+- Expected: Smaller cells rarely hold two centres.
+
+**Build 3:** Andrew Ng also shows a second fix: give each cell two boxes, one tall and one wide, called anchor boxes. YOLOv8 does without them.
+
+- Ask: What are anchor boxes?
+- Expected: Two or more boxes per cell, each with its own shape, so one cell can report two objects.
+
+**Point here:** Ng’s anchor boxes: each object goes to the cell with its centre and to the anchor shape it overlaps most, so his output becomes 3 × 3 × 2 × 8. Appendix B has anchors; Part 7 shows YOLOv8’s three grids.
+
+**Transition:** In practice: a fine grid.
+
+**Source:** Our annotation of the crowd photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## fine-grid: In practice: a fine grid of 32-pixel cells
+
+**Build 1:** Real YOLOs use a much finer grid, so that centres rarely share a cell. YOLOv8n’s cells are 32 pixels: 30 × 20 of them on our photo.
+
+- Ask: How many cells does YOLOv8n’s grid have on our photo?
+- Expected: 30 × 20 = 600.
+
+**Build 2:** The same rule picks the dog’s cell: its centre falls in cell (10, 18).
+
+- Ask: Which cell holds the dog’s centre now?
+- Expected: (10, 18).
+
+**Build 3:** Measured in these small cells, the dog’s box is about 11 cells wide and 16 tall.
+
+- Ask: Why is b_w now about 11?
+- Expected: The cells are 32 pixels, and the dog is 361 pixels wide: 361 ÷ 32 = 11.281.
+
+**Point here:** YOLOv8n also reads two finer grids, of 16- and 8-pixel cells, for small objects (Part 7).
+
+**Transition:** And the record changes a little.
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## record-84: In practice: 80 classes, and no “object?”
+
+**Build 1:** YOLOv8n knows the 80 COCO classes, so its record has the 4 box numbers and 80 class scores: 84 numbers per cell.
+
+- Ask: How many numbers does each cell write?
+- Expected: 84: 4 for the box and 80 class scores.
+
+**Build 2:** It drops “object?”: a cell says “nothing here” by giving every class a low score.
+
+- Ask: How does a cell say “nothing here”?
+- Expected: By giving all 80 classes a low score.
+
+**Build 3:** The whole output, for any photo this size: 30 × 20 × 84 numbers, written in one pass.
+
+- Ask: How many numbers does the whole grid write?
+- Expected: 30 × 20 × 84 = 50,400.
+
+**Point here:** YOLOv1 to YOLOv5 kept an object score like Ng’s p_c; YOLOv8 folds it into the class scores.
 
 **Transition:** Now what the trained network wrote at the dog’s cell.
 
-**Source:** Our annotation of the courtyard photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
 ## prediction-record: What the trained network wrote at cell (10, 18)
 
@@ -1205,54 +1251,24 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 
 **Transition:** Apply it to all 80 questions at our cell.
 
-## loss-class: Class loss at cell (10, 18): 80 yes/no questions
+## loss-cells: The loss at two cells: the dog’s, and an empty one
 
-**Build 1:** Dog is a yes: −log 0.871 = 0.139.
+**Build 1:** At the dog’s cell, the class part: dog is a yes, so −log 0.871. The other 79 are near-certain noes and add almost nothing.
 
-- Ask: What is the dog term?
-- Expected: 0.139
+- Ask: Where does most of the dog cell’s class loss come from?
+- Expected: From the dog question: −log 0.871 = 0.139.
 
-**Build 2:** Every other class is a no: −log(1 − p) for each. All 79 scores are near zero, so together they add only 0.0004.
+**Build 2:** The box part: the L1 distance between the predicted and the target box numbers, in cells, as in Part 4.
 
-- Ask: Why are the other 79 terms so small?
-- Expected: Their scores are near 0, the right answer for a no.
+- Ask: How is the box part computed?
+- Expected: Four absolute differences: 0.029 + 0.113 + 0.042 + 0.234 = 0.418.
 
-**Build 3:** The cell’s class loss: 0.139, almost all from the dog question.
+**Build 3:** At an empty cell there is no box to compare, only the class part, and it is tiny: every class there is already near 0.
 
-- Ask: Why 80 separate yes/no questions rather than one softmax?
-- Expected: A background cell must be able to say “none of the 80”: every yes/no answer no. A softmax over 80 classes always picks one.
+- Ask: Why is there no box term at an empty cell?
+- Expected: There is no object there, so no box to compare with.
 
-**Point here:** In code use binary_cross_entropy_with_logits on the raw outputs: it is numerically stable where p is near 0 or 1.
-
-**Transition:** The box part of the loss.
-
-## loss-box: Box loss: how far off are the four box numbers?
-
-**Build 1:** Compare the four predicted box numbers with the target’s and add the absolute differences: the L1 loss of Part 4.
-
-- Ask: What does the box loss add up?
-- Expected: Four absolute differences, prediction minus target.
-
-**Build 2:** In cells: 0.418, most of it from b_h and b_y. The predicted box is a little taller, and its centre a little higher, than ours.
-
-- Ask: Which number contributes most?
-- Expected: b_h: 0.234 cells.
-
-**Point here:** Ng’s YOLO uses squared errors throughout. YOLOv8 uses an IoU-based box loss, which treats small and large objects alike.
-
-**Transition:** A cell with nothing in it.
-
-## loss-background: A background cell: only a class loss, and it is small
-
-**Build 1:** A background cell has only class targets, all 0, and no box loss. Every score here is tiny, so its loss is just 0.0038.
-
-- Ask: Why is there no box loss at a background cell?
-- Expected: There is no object, so no box to compare with.
-
-**Build 2:** The imbalance matters: hundreds of easy empty-cell terms against a handful of object cells. Without care they dominate the sum, and the network learns to say “nothing” everywhere.
-
-- Ask: What problem do the many background cells cause?
-- Expected: Their many small terms can outweigh the few positive terms.
+**Point here:** Ng’s localiser used squared errors throughout; detectors today use binary cross-entropy for the classes and an L1 or IoU-based box loss.
 
 **Transition:** Put the pieces together.
 
@@ -1331,7 +1347,7 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 
 ## every-box: Every cell draws a box, even on the wall
 
-**Build 1:** Decode every cell of the grid and draw its box: 600 boxes, one per cell, including the cells on the wall and the floor.
+**Build 1:** Decode every cell of the grid and draw its box: 600 boxes. The network never writes “?”, so the cells on the wall and floor draw boxes too.
 
 - Ask: Does a cell on the wall write a box?
 - Expected: Yes: every cell always writes one.

@@ -7,6 +7,7 @@ Run scripts/run_models.py first. Each block below is one worked example of the l
 asserts what the slides say about it (for example that our NMS keeps exactly what Ultralytics keeps).
 """
 import itertools, json, math
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -119,6 +120,11 @@ S['slots'] = {'left': [r(v, 5) for v in gl], 'right': [r(v, 5) for v in gr], 'sl
               'same_order': r(l1(slot[0], gl) + l1(slot[1], gr)), 'swapped': r(l1(slot[0], gr) + l1(slot[1], gl)),
               'slot1_vs_right': [r(abs(x - y)) for x, y in zip(slot[0], gr)]}
 assert S['slots']['swapped'] > 20 * S['slots']['same_order']
+# the same problem with a perfect answer: slots equal to the two annotated boxes, scored against a list that names
+# the right dog first. Paired by position each slot costs the L1 distance between the two dogs; paired by object, 0.
+S['slots']['perfect_one'] = r(l1(gl, gr))
+S['slots']['perfect'] = r(2 * S['slots']['perfect_one'])
+assert S['slots']['perfect'] > 1
 
 # ---------------------------------------------------------------- Part 4: the 30 x 20 grid of the stride-32 map
 P = Y['photos']['cat-dog']
@@ -484,15 +490,6 @@ assert len(tk) == 2 and max(x['iou'] for x in S['nms_two_dogs']['left_after_1'])
 # what a label file holds for the courtyard: a COCO class index and a normalised (cx, cy, w, h)
 S['label_file'] = [{'name': n, 'id': Y['names'].index(n), 'norm': S[n]['norm']} for n in ('dog', 'cat')]
 
-# DETR's 100 slots: on the courtyard, how many say "no object" and how many are sure of one;
-# on the crowd photo, how many slots it fills (score 0.9 or more) for the 11 annotated people
-S['detr']['n_sure'] = sum(q['p'] >= 0.9 for q in S['detr']['objects'])
-assert len(S['detr']['p_none']) == 100 and S['detr']['n_none_50'] == 93 and S['detr']['n_sure'] == 5
-dc = S['detr_finals']['crowd']
-S['detr_crowd'] = {'used': len(dc), 'people': sum(k['name'] == 'person' for k in dc),
-                   'bags': sum(k['name'] in ('backpack', 'handbag') for k in dc), 'annotated': len(S['annotations']['crowd'])}
-assert S['detr_crowd'] == {'used': 16, 'people': 10, 'bags': 6, 'annotated': 11}
-
 # Part 5 in Andrew Ng's YOLO form: a box as its centre's place inside its cell (0 to 1) and its size in cells
 def in_cell(c, row, col, s=32):
     return [r((c[0] - col * s) / s), r((c[1] - row * s) / s), r(c[2] / s), r(c[3] / s)]
@@ -502,6 +499,30 @@ S['ng']['l1_terms'] = [r(abs(a - b)) for a, b in zip(S['ng']['pred'], S['ng']['d
 S['ng']['l1'] = r(sum(S['ng']['l1_terms']))
 assert S['ng']['dog'] == [0.359, 0.484, 11.281, 15.781] and S['ng']['cat'] == [0.766, 0.109, 6.531, 9.719]
 assert S['ng']['pred'] == [0.388, 0.371, 11.323, 16.015] and S['ng']['l1'] == 0.418
+# Ng's teaching grid first: 3 x 2 cells of 320 px on the courtyard, Part 4's record in every cell
+cell_of = lambda x, y, s: [int(y // s), int(x // s)]
+dxy = [S['dog'][k] for k in ('cx', 'cy', 'w', 'h')]
+S['ng3'] = {'size': 320, 'dog_cell': cell_of(dxy[0], dxy[1], 320), 'cat_cell': cell_of(*S['cat']['cxcywh'][:2], 320)}
+S['ng3']['dog'] = in_cell(dxy, *S['ng3']['dog_cell'], s=320)
+S['ng3']['cat'] = in_cell(S['cat']['cxcywh'], *S['ng3']['cat_cell'], s=320)
+assert S['ng3']['dog_cell'] == [1, 1] and S['ng3']['cat_cell'] == [1, 0]
+assert S['ng3']['dog'] == [0.836, 0.048, 1.128, 1.578] and S['ng3']['cat'] == [0.677, 0.411, 0.653, 0.972]
+# a sliding window cannot fit the dog: the best 224-px window, every 32 px, lies inside it
+Wp, Hp = S['photo']['W'], S['photo']['H']
+wins = [[x, y, x + 224, y + 224] for x in range(0, Wp - 223, 32) for y in range(0, Hp - 223, 32)]
+best = max(iou(dog, w) for w in wins)
+bw = min((w for w in wins if abs(iou(dog, w) - best) < 1e-9), key=lambda w: abs(w[0] + 112 - dxy[0]) + abs(w[1] + 112 - dxy[1]))
+S['windows']['best_dog'] = {'box': bw, 'iou': r(best)}
+assert abs(best - 224 * 224 / area(dog)) < 1e-9 and S['windows']['best_dog']['iou'] == 0.275
+# one box per cell: a coarse 3 x 2 grid on the crowd photo puts several centres in one cell; 32-px cells give each its own
+Wc2, Hc2 = Y['photos']['crowd']['size']
+cen = [((b[0] + b[2]) / 2, (b[1] + b[3]) / 2) for _, b in A['photos']['crowd']]
+coarse = Counter((int(y // (Hc2 / 2)), int(x // (Wc2 / 3))) for x, y in cen)
+fine = Counter((int(y // 32), int(x // 32)) for x, y in cen)
+(cr, cc), cmax = coarse.most_common(1)[0]
+S['crowd_cells'] = {'centres': [[r(x, 1), r(y, 1)] for x, y in cen], 'coarse_cell': [cr, cc], 'coarse_max': cmax,
+                    'fine_grid': [Wc2 // 32, Hc2 // 32], 'fine_max': max(fine.values())}
+assert cmax == 5 and S['crowd_cells']['fine_max'] == 1
 
 (ROOT / 'data/science.json').write_text(json.dumps(S, separators=(',', ':')))
 print('wrote data/science.json', round((ROOT / 'data/science.json').stat().st_size / 1e3), 'kB')
