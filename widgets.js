@@ -135,7 +135,73 @@ function nmsPlay(el,ctx,S){
  show();
 }
 
+/** Drag a box over the courtyard: the cell that holds its centre lights up and writes the box's target record. */
+function targetPlay(el,ctx,S){
+ const {W,H}=S.photo,objs={dog:S.dog.xyxy,cat:S.cat.xyxy},grids=[[320,'3 × 2'],[160,'6 × 4'],[32,'30 × 20']];
+ let s=320,name='dog',b=[...objs.dog],drag=null;
+ const rec=b=>{const cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2,r=Math.floor(cy/s),c=Math.floor(cx/s);
+  return {cx,cy,r,c,v:[1,cx/s-c,cy/s-r,(b[2]-b[0])/s,(b[3]-b[1])/s,name==='cat'?1:0,name==='dog'?1:0]};};
+ const draw=b=>{const {cx,cy,r,c}=rec(b),x0=c*s,y0=r*s,coarse=s>=160;
+  return gridLines(W,H,s,{stroke:'#fff',w:coarse?4:1.5,op:.85})+`<rect x="${x0}" y="${y0}" width="${s}" height="${s}" fill="${COL.target}" fill-opacity=".32" stroke="#fff" stroke-width="${coarse?6:3}"/>`+
+   line(x0,cy,cx,cy,{stroke:COL.ink,w:3,dash:'8 6'})+line(cx,y0,cx,cy,{stroke:COL.ink,w:3,dash:'8 6'})+
+   rect(b,{stroke:COL.target,w:5,extra:'data-drag="move" style="cursor:move" fill="#0F766E" fill-opacity=".06"'})+
+   `<circle cx="${cx}" cy="${cy}" r="10" fill="${COL.target}" stroke="#fff" stroke-width="3" pointer-events="none"/>`+
+   `<circle cx="${b[2]}" cy="${b[3]}" r="14" fill="${COL.target}" stroke="#fff" stroke-width="3" data-drag="size" style="cursor:nwse-resize"/>`;};
+ const keys=['object?','b<sub>x</sub>','b<sub>y</sub>','b<sub>w</sub>','b<sub>h</sub>','cat','dog'];
+ const readout=b=>{const {r,c,v}=rec(b),n=(W/s)*(H/s);
+  return `<p><b>cell (${r}, ${c})</b> holds the centre and writes:</p><div class="ycol sm">${v.map((x,i)=>`<span>${keys[i]}</span><div class="t">${i&&i<5?num(x,2):x}</div>`).join('')}</div>`+
+   `<p class="w-hint" style="margin-top:8px">The other ${big(n-1)} cells: object? 0, the rest “?”.</p>`;};
+ const controls=`<div class="w-controls">${grids.map(([z,t])=>`<button type="button" class="w-grid" data-s="${z}" aria-pressed="${z===s}">${t}</button>`).join('')}</div>`+
+  `<div class="w-controls" style="margin-top:6px"><button type="button" class="w-obj" data-o="dog">the dog</button><button type="button" class="w-obj" data-o="cat">the cat</button></div>`;
+ if(ctx.printing){el.innerHTML=`<div class="columns" style="grid-template-columns:1.5fr 1fr">${photo('cat-dog',W,H,draw(b),'The dog’s box on the 3 by 2 grid, its cell shaded')}<div class="w-panel">${readout(b)}</div></div>`;return;}
+ el.innerHTML=`<div class="columns" style="grid-template-columns:1.5fr 1fr"><div class="w-fig">${photo('cat-dog',W,H,'<g class="live"></g>','Drag the box; the cell that holds its centre lights up')}</div><div class="w-panel"><div class="w-out"></div>${controls}</div></div>`;
+ const svgEl=el.querySelector('svg'),g=el.querySelector('.live'),out=el.querySelector('.w-out');
+ const show=()=>{g.innerHTML=draw(b);out.innerHTML=readout(b);for(const t of el.querySelectorAll('.w-grid'))t.setAttribute('aria-pressed',String(+t.dataset.s===s));};
+ svgEl.addEventListener('pointerdown',e=>{const t=e.target.closest('[data-drag]');if(!t)return;e.preventDefault();svgEl.setPointerCapture(e.pointerId);drag={kind:t.dataset.drag,p:svgPoint(svgEl,e),b:[...b]};});
+ svgEl.addEventListener('pointermove',e=>{if(!drag)return;const p=svgPoint(svgEl,e),dx=p.x-drag.p.x,dy=p.y-drag.p.y,o=drag.b;
+  if(drag.kind==='move'){const w=o[2]-o[0],h=o[3]-o[1],x=Math.max(0,Math.min(W-w,o[0]+dx)),y=Math.max(0,Math.min(H-h,o[1]+dy));b=[x,y,x+w,y+h];}
+  else b=[o[0],o[1],Math.max(o[0]+24,Math.min(W,o[2]+dx)),Math.max(o[1]+24,Math.min(H,o[3]+dy))];
+  show();});
+ const end=()=>{drag=null;};svgEl.addEventListener('pointerup',end);svgEl.addEventListener('pointercancel',end);
+ for(const t of el.querySelectorAll('.w-grid'))t.addEventListener('click',()=>{s=+t.dataset.s;show();});
+ for(const t of el.querySelectorAll('.w-obj'))t.addEventListener('click',()=>{name=t.dataset.o;b=[...objs[name]];show();});
+ show();
+}
+
+/** AP on real detections: YOLOv8n's person boxes on the eight photos, ranked by score, against the annotated people.
+ Move the IoU an overlap needs and how far down the list to keep; the curve, its envelope and AP follow. */
+function apPlay(el,ctx,S){
+ const D=S.ap_play,G=D.gt,dets=D.dets,nG=G.length,thrs=D.thresholds;
+ const run=t=>{const claimed=new Set();let tp=0,fp=0;
+  const rows=dets.map(d=>{let best=0,bi=-1;G.forEach((g,i)=>{if(g.photo!==d.photo||claimed.has(i))return;const v=iouParts(g.box,d.box).iou;if(v>best){best=v;bi=i;}});
+   const hit=bi>=0&&best>=t-1e-9;if(hit){claimed.add(bi);tp++;}else fp++;return {hit,iou:best,score:d.score,photo:d.photo,tp,fp,p:tp/(tp+fp),r:tp/nG};});
+  const env=rows.map(x=>x.p);for(let i=env.length-2;i>=0;i--)env[i]=Math.max(env[i],env[i+1]);
+  let s=0;for(let i=0;i<=100;i++){const k=rows.findIndex(x=>x.r>=i/100);s+=k<0?0:env[k];}
+  return {rows,env,ap:s/101};};
+ const res=thrs.map(run),mean=res.reduce((a,x)=>a+x.ap,0)/res.length;
+ const P=panel({W:520,H:320,L:62,B:52,T:34,R:16,xMin:0,xMax:1,yMin:0,yMax:1.05,ticksX:[0,.5,1],ticksY:[0,.5,1],xLabel:'recall',yLabel:'precision',fs:19});
+ const plot=(R,k)=>{let d=`M${P.x(0)},${P.y(R.env[0])}`;R.rows.forEach((x,i)=>{d+=` L${P.x(x.r)},${P.y(R.env[i])}`;if(i+1<R.rows.length)d+=` L${P.x(x.r)},${P.y(R.env[i+1])}`;});
+  const last=R.rows[R.rows.length-1],cur=R.rows[k-1];
+  return P.axes+`<path d="${d} L${P.x(last.r)},${P.y(0)} L${P.x(0)},${P.y(0)}Z" fill="${COL.guess}" fill-opacity=".14"/>`+
+   `<polyline points="${R.rows.map(x=>`${P.x(x.r).toFixed(1)},${P.y(x.p).toFixed(1)}`).join(' ')}" fill="none" stroke="${MUTED}" stroke-width="1.5" stroke-dasharray="5 4"/>`+
+   `<path d="${d}" fill="none" stroke="${COL.guess}" stroke-width="3.5"/><circle cx="${P.x(cur.r)}" cy="${P.y(cur.p)}" r="10" fill="${cur.hit?COL.green:COL.loss}" stroke="#fff" stroke-width="3"/>`;};
+ const chips=(R,k)=>R.rows.map((x,i)=>`<rect x="${4+i*16}" y="8" width="13" height="26" rx="3" fill="${x.hit?COL.green:COL.loss}" opacity="${i<k?1:.28}"><title>#${i+1}, score ${num(x.score)}: ${x.hit?'TP':'FP'} (best IoU ${num(x.iou)})</title></rect>`).join('')+
+  `<path d="M${4+(k-1)*16+6.5},40 l-7,12 h14Z" fill="${COL.ink}"/>`+label(4,74,'rank 1',{size:16})+label(4+(R.rows.length-1)*16+13,74,`rank ${R.rows.length}`,{size:16,anchor:'end'});
+ const bars=t=>{const bw=30,gap=6,h=120,x0=10,y0=12;let g='';res.forEach((x,i)=>{const bh=x.ap*h,on=Math.abs(thrs[i]-t)<1e-9;
+   g+=`<rect x="${x0+i*(bw+gap)}" y="${y0+h-bh}" width="${bw}" height="${bh}" fill="${on?COL.guess:'#C9D0D7'}"/>`+label(x0+i*(bw+gap)+bw/2,y0+h+20,num(thrs[i]).replace(/^0/,''),{size:14,anchor:'middle',fill:on?COL.ink:MUTED});});
+  const my=y0+h-mean*h;return g+line(x0-4,my,x0+10*(bw+gap),my,{stroke:COL.ink,w:2,dash:'6 4'})+label(x0+10*(bw+gap)+2,my+5,`mean ${num(mean,3)}`,{size:15,fill:COL.ink});};
+ const readout=(R,k,t)=>{const c=R.rows[k-1];return `<dl class="kv"><dt>top ${k}</dt><dd>TP ${c.tp}, FP ${c.fp}</dd><dt>precision</dt><dd>${num(c.p)}</dd><dt>recall</dt><dd>${num(c.r)}</dd><dt>AP at IoU ${num(t)}</dt><dd><b class="q">${num(R.ap)}</b></dd></dl>`;};
+ const view=(t,k)=>{const R=res[thrs.findIndex(x=>Math.abs(x-t)<1e-9)];return {plot:plot(R,k),chips:chips(R,k),bars:bars(t),out:readout(R,k,t)};};
+ const svgs=(v)=>`${fig(520,320,v.plot,'Precision against recall, the envelope and the area under it')}${fig(620,80,v.chips,'The ranked detections, green for true positives and red for false positives')}`;
+ if(ctx.printing){const v=view(.85,17);el.innerHTML=`<div class="columns" style="grid-template-columns:1.1fr 1fr"><div class="w-fig">${svgs(v)}</div><div class="w-panel">${v.out}${fig(490,160,v.bars,'AP at each IoU threshold')}</div></div>`;return;}
+ el.innerHTML=`<div class="columns" style="grid-template-columns:1.1fr 1fr"><div class="w-fig"></div><div class="w-panel"><div class="w-controls" style="flex-direction:column;align-items:flex-start;gap:6px"><label>IoU needed ≥ <input class="w-t" type="range" min="0.5" max="0.95" step="0.05" value="0.5"><span class="w-readout w-t-out"></span></label><label>keep the top <input class="w-k" type="range" min="1" max="${dets.length}" step="1" value="17"><span class="w-readout w-k-out"></span></label></div><div class="w-out"></div><div class="w-bars"></div></div></div>`;
+ const fig_=el.querySelector('.w-fig'),out=el.querySelector('.w-out'),bar=el.querySelector('.w-bars'),ti=el.querySelector('.w-t'),ki=el.querySelector('.w-k');
+ const show=()=>{const t=+ti.value,k=+ki.value,v=view(t,k);fig_.innerHTML=svgs(v);out.innerHTML=v.out;bar.innerHTML=fig(490,160,v.bars,'AP at each IoU threshold');el.querySelector('.w-t-out').textContent=num(t);el.querySelector('.w-k-out').textContent=k;};
+ for(const i of [ti,ki]){i.addEventListener('input',show);i.addEventListener('change',()=>i.blur());}
+ show();
+}
+
 export function mount(stage,ctx,S){
- const fns={'iou-play':iouPlay,'cell-inspector':cellInspector,'nms-play':nmsPlay};
+ const fns={'iou-play':iouPlay,'cell-inspector':cellInspector,'nms-play':nmsPlay,'target-play':targetPlay,'ap-play':apPlay};
  for(const el of stage.querySelectorAll('.widget[data-widget]')){const f=fns[el.dataset.widget];if(!f)throw new Error('Unknown widget '+el.dataset.widget);f(el,ctx,S);}
 }

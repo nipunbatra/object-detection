@@ -1,6 +1,6 @@
 # Object detection: speaker notes
 
-Planned main route: 111 minutes, including student responses. Optional slides are outside this budget.
+Planned main route: 120 minutes, including student responses. Optional slides are outside this budget.
 
 ## Pacing
 
@@ -14,8 +14,8 @@ Planned main route: 111 minutes, including student responses. Optional slides ar
 | Part 5 · A candidate at every place | 25 |
 | Part 6 · One box per object: NMS | 16 |
 | Part 7 · Three grids for three sizes | 6 |
-| Part 8 · Measuring a detector | 14 |
-| Wrap-up | 5 |
+| Part 8 · Measuring a detector | 20 |
+| Wrap-up | 8 |
 
 ## title: Object detection: from one label to a set of objects
 
@@ -916,113 +916,48 @@ Planned main route: 111 minutes, including student responses. Optional slides ar
 
 **Point here:** Ng’s sliding windows (Course 4, Week 3, “Object Detection”): a car classifier trained on closely cropped images, slid with a stride, then with a medium and a large window, each crop resized to the classifier’s input. He notes the cost: with a ConvNet every crop is a full forward pass. OverFeat (2013) worked this way.
 
-**Transition:** Most of that work is repeated. Ng’s trick shares it.
+**Transition:** What is wrong with this?
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## fc-conv: Ng’s trick, step 1: write the dense layers as convolutions
+## sliding-cons: What is wrong with sliding windows?
 
-**Build 1:** Ng’s toy classifier for 14 × 14 crops, drawn as blocks of numbers: a convolution, a max pool, two dense layers of 400 units, then 3 answers.
+**Build 1:** First, speed: one window size already means 336 separate runs of the classifier. VGG16 needs 28 s for them on a laptop, for one photo.
 
-- Ask: How many numbers does the 5 × 5 × 16 block hold?
-- Expected: 5 × 5 × 16 = 400.
+- Ask: How many classifier runs does one window size need?
+- Expected: 336: one per crop.
 
-**Build 2:** Write the first dense layer as 400 filters of 5 × 5 × 16. Each one covers the whole block, so it sees all 400 inputs, like one dense unit.
+**Build 2:** Second, repeated work: two neighbouring crops share 86% of their pixels, yet each crop is processed from scratch.
 
-- Ask: What does one 5 × 5 × 16 filter compute on that block?
-- Expected: A weighted sum of all 400 numbers plus a bias: exactly one dense unit.
+- Ask: Why is most of that work repeated?
+- Expected: Neighbouring crops overlap: 192 of their 224 columns are the same pixels.
 
-**Build 3:** The other two dense layers become 1 × 1 convolutions. The weights and the answers do not change, but a network of convolutions accepts a bigger image.
+**Build 3:** Third, the box is only the window. The window VGG16 is surest about holds just the dog’s head: IoU 0.16 with the dog’s box.
 
-- Ask: What changes if the input is bigger than 14 × 14?
-- Expected: A dense layer would break, since it expects exactly 400 inputs. Convolutions just slide further and give more outputs.
+- Ask: Why is the surest window a poor box?
+- Expected: The classifier says “dog” for any crop with enough dog in it, and a window cannot change its shape to fit.
 
-**Point here:** Ng, “Convolutional Implementation of Sliding Windows” (Course 4, Week 3): 14 × 14 × 3 → 10 × 10 × 16 → 5 × 5 × 16 → FC 400 → FC 400 → softmax, turned into 400 filters of 5 × 5 × 16, then 1 × 1 convolutions. He has 4 outputs (pedestrian, car, motorcycle, background); we use 3 to match our classifier.
+**Build 4:** Even the best-placed window reaches IoU 0.28. Fitting better needs more sizes and shapes: more crops still. We want one pass that writes the box.
 
-**Transition:** Now give it a bigger image.
+- Ask: What would fix both problems?
+- Expected: One pass over the whole photo that writes the boxes directly.
 
-## conv-windows: Ng’s trick, step 2: a 16 × 16 image gives four answers at once
+**Point here:** Ng lists the same costs: every crop is a full ConvNet pass; a coarse stride gives poor boxes and a fine one costs even more; and the best box may not even be square. His convolutional trick for the speed (one pass gives all 336 answers, 0.7 s instead of 28 s) is in Appendix B.
 
-**Build 1:** Give the same network a 16 × 16 image. The top-left 14 × 14 window flows through exactly as before and ends in the top-left output.
-
-- Ask: Where does the top-left window’s answer end up?
-- Expected: In the top-left of the 2 × 2 output.
-
-**Build 2:** The window 2 pixels to the right moves 2 cells in the first layer and 1 after pooling. Its answer is the top-right output.
-
-- Ask: Where does the window 2 pixels to the right end up?
-- Expected: In the top-right output: 2 cells to the right after the convolution, 1 after the 2 × 2 pool.
-
-**Build 3:** Four windows, four answers, from one pass. Where the windows overlap, each convolution is computed once instead of four times.
-
-- Ask: How many times is each overlapping pixel processed?
-- Expected: Once, instead of once per window that contains it.
-
-**Build 4:** Ng’s next example: a 28 × 28 image gives 8 × 8 answers, 64 windows 2 pixels apart. The step is 2 because of the max pool.
-
-- Ask: Why are the windows 2 pixels apart?
-- Expected: The 2 × 2 max pool halves the size, so one output step is 2 input pixels.
-
-**Point here:** Ng colours the four windows blue, green, orange and purple and follows them to the four outputs (Sermanet et al., OverFeat, 2014). In his drawing the 400-deep layers are flat squares; so are ours.
-
-**Transition:** The same trick on our photo.
-
-## conv-photo: The same trick on our photo: all 336 windows in one pass
-
-**Build 1:** On our photo: VGG16, an ImageNet classifier for 224 × 224 crops, with its dense layers written as convolutions. One pass gives 24 × 14 answers.
-
-- Ask: How many answers does one pass give?
-- Expected: 24 × 14 = 336: the same windows as the 336 crops.
-
-**Build 2:** Each answer belongs to one window and is drawn at the window’s centre. Windows over the dog say dog; windows over the cat say cat.
-
-- Ask: Which windows say dog?
-- Expected: Every window that holds a good part of the dog, even just its head.
-
-**Build 3:** On this laptop one pass takes 0.7 s; the 336 separate crops take 28 s. The two agree on 317 of the 336 windows.
-
-- Ask: Why do a few windows disagree with their crop?
-- Expected: VGG16 pads its convolutions with zeros: a crop sees zeros at its edges, while in the whole photo the same window sees its neighbours’ pixels.
-
-**Point here:** VGG16 (IMAGENET1K_V1) on the CPU, the crops run in batches of 16; its three dense layers become a 7 × 7 convolution and two 1 × 1 convolutions. The dog score adds up ImageNet’s 118 dog breeds and the cat score its 5 cat classes. “Same answer”: both say dog, both say cat, or both say neither, at 0.5. Ng’s toy has no padding, so there the two are exactly equal.
-
-**Transition:** Do these windows give good boxes?
+**Transition:** YOLO: grid the photo, and let every cell write a box.
 
 **Source:** VGG16 (torchvision, ImageNet) run on this photo by scripts/run_models.py; timed on a laptop CPU. The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## window-boxes: A window is a fixed square: its box cannot fit the dog
+## grid-3x2: YOLO: grid the photo, and let every cell predict a record
 
-**Build 1:** The window VGG16 is surest about, dog 1.00, holds the dog’s head. As a box for the dog it is poor: IoU 0.16.
-
-- Ask: Which window is VGG16 surest about?
-- Expected: The one on the dog’s head: it is sure there is a dog, but the window is not the dog’s box (IoU 0.16).
-
-**Build 2:** Even the best-placed 224-pixel window reaches only IoU 0.28. Windows are squares on a 32-pixel lattice; the dog is a tall rectangle.
-
-- Ask: What is the best IoU any 224-pixel window gets with the dog?
-- Expected: 0.28: that window lies inside the dog, so IoU = 224² ÷ (361 × 505).
-
-**Build 3:** Ng’s next step: let the network write the box itself, of any size and shape, as Part 4’s localiser did. That is YOLO.
-
-- Ask: How can we get a box that fits?
-- Expected: Let the network output the box numbers, as Part 4’s localiser did.
-
-**Point here:** Ng ends the convolutional sliding windows with this weakness, and starts “Bounding Box Predictions” with it: the windows’ positions are fixed by the stride, and the best box may not even be square. Bigger windows fit better (the best 448 window reaches 0.73 here), but every extra size and shape costs a full set of windows.
-
-**Transition:** YOLO: a grid, and a record in every cell.
-
-**Source:** VGG16 (torchvision, ImageNet) run on this photo by scripts/run_models.py. The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
-
-## grid-3x2: YOLO: a grid on the photo, and a record for every cell
-
-**Build 1:** Ng’s next step, YOLO: cut the photo into a coarse grid. Ours has 3 × 2 cells of 320 pixels; rows and columns count from 0.
+**Build 1:** YOLO’s idea: cut the photo into a grid and let every cell predict. Ours has 3 × 2 cells of 320 pixels; rows and columns count from 0.
 
 - Ask: How big is each cell?
 - Expected: 960 ÷ 3 = 320 wide and 640 ÷ 2 = 320 tall.
 
-**Build 2:** Give every cell Part 4’s record, about that cell alone: object?, a box, a cat score and a dog score.
+**Build 2:** Each cell predicts Part 4’s record, a vector of 7 numbers about that cell: object?, the box b_x, b_y, b_w, b_h, and a cat and a dog score.
 
-- Ask: What does a cell write?
+- Ask: What does a cell predict?
 - Expected: Part 4’s 7-number record: object?, b_x, b_y, b_w, b_h, cat, dog.
 
 **Build 3:** Six cells with seven numbers each: 42 numbers describe the whole photo.
@@ -1032,7 +967,30 @@ Planned main route: 111 minutes, including student responses. Optional slides ar
 
 **Point here:** Ng (“Bounding Box Predictions”): put a 3 × 3 grid on the image and apply the localisation algorithm of the first video to each of the nine cells; 19 × 19 in practice. We draw 3 × 2 so that the cells of our 960 × 640 photo are square.
 
-**Transition:** Which cell describes the dog?
+**Transition:** Where do six records come from? One network.
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## grid-structure: The structure: one CNN pass writes all six records
+
+**Build 1:** One CNN reads the whole photo once. Its output is a 2 × 3 block with 7 numbers at each position: one record per cell. You Only Look Once.
+
+- Ask: What shape is the network’s output?
+- Expected: 2 × 3 × 7: a 7-number record for each of the 6 cells.
+
+**Build 2:** Convolutions keep the photo’s layout, so each output position belongs to one cell: top-left to top-left, and so on. The colours show the six pairs.
+
+- Ask: Which output position describes the bottom-left cell?
+- Expected: The bottom-left one, (1, 0): convolutions keep the layout.
+
+**Build 3:** Each position sees much more than its own cell, so a cell can describe an object bigger than itself, like the dog.
+
+- Ask: Why can a cell describe a dog bigger than itself?
+- Expected: Its numbers are computed from a large part of the photo around the cell, not from the cell alone.
+
+**Point here:** Ng: input 100 × 100 × 3, a ConvNet, output 3 × 3 × 8; one pass, fast enough for video. Real YOLOs shrink the photo 32 times, so our 960 × 640 photo gives 30 × 20 positions (5.3). The region a position sees is its receptive field; the dashed box only sketches it.
+
+**Transition:** Which cell should describe the dog?
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
@@ -1106,7 +1064,20 @@ Planned main route: 111 minutes, including student responses. Optional slides ar
 
 **Point here:** Ng: b_x and b_y lie between 0 and 1, while b_h and b_w can be greater than 1 when the object spans several cells. The YOLO paper keeps them in range with a sigmoid for the centre and an exponential for the size.
 
-**Transition:** All six cells together.
+**Transition:** Try it yourself: move a box.
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## target-play: Try it: move a box, and watch its cell write the record
+
+**Build 1:** Drag the box or its corner dot. The cell holding the centre lights up and writes the record. Try the finer grids: the same box, counted in smaller cells.
+
+- Ask: What happens to the record when the centre crosses a grid line?
+- Expected: Another cell takes over, and b_x or b_y jumps from near 1 to near 0.
+
+**Point here:** b_x and b_y always stay between 0 and 1. b_w and b_h grow as the cells shrink: the dog is 1.13 cells wide on the 3 × 2 grid and 11.3 on the 30 × 20 grid of 5.3.
+
+**Transition:** All six cells: the target for the photo.
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
@@ -1129,27 +1100,57 @@ Planned main route: 111 minutes, including student responses. Optional slides ar
 
 **Point here:** Ng writes this target as a 3 × 3 × 8 block for his 3 × 3 grid and three classes; ours is 2 × 3 × 7.
 
-**Transition:** One network writes the whole block.
+**Transition:** The same target, built in code.
 
 **Source:** Our annotation of the courtyard photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## one-pass: One CNN pass writes all six records
+## target-code: Building the target in code, one line at a time
 
-**Build 1:** Train one CNN whose output is a 2 × 3 × 7 block: 7 numbers for each of the 6 cells. The photo goes through it once.
+**Build 1:** Build the target in code. Every cell starts as “no object”: a 2 × 3 × 7 block of zeros. The “?” entries stay 0; the loss will skip them.
 
-- Ask: How many times does the CNN look at the photo?
-- Expected: Once.
+- Ask: Why start from zeros?
+- Expected: Most cells hold no centre, so object? = 0 is their right target, and their other entries are skipped anyway.
 
-**Build 2:** Output cell (1, 1) should write the dog’s record and (1, 0) the cat’s. As with Ng’s windows, one pass does every cell: You Only Look Once.
+**Build 2:** Loop over the annotated objects, each a box and a class. First the dog: box (407, 83, 768, 588), class 1.
 
-- Ask: What should output cell (1, 1) learn to write?
-- Expected: The dog’s record: (1, 0.84, 0.05, 1.13, 1.58, 0, 1).
+- Ask: How many times does the loop run here?
+- Expected: Twice: once for the dog, once for the cat.
 
-**Point here:** Ng: input 100 × 100 × 3, a ConvNet, output 3 × 3 × 8; because it is one convolutional pass, YOLO runs fast enough for video. The network’s layers are not drawn to scale.
+**Build 3:** Its centre is the middle of the box: (588, 336).
 
-**Transition:** Train it: compare with the target.
+- Ask: Where is the dog’s centre?
+- Expected: (588, 336), the middle of its box.
 
-**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+**Build 4:** Divide by the cell size, 320, and round down: row 1, column 1. Only this cell will describe the dog.
+
+- Ask: Which cell holds it?
+- Expected: Row ⌊336/320⌋ = 1, column ⌊588/320⌋ = 1.
+
+**Build 5:** Set object? to 1 in that cell.
+
+- Ask: Which entry is set first?
+- Expected: object? = 1, in cell (1, 1) only.
+
+**Build 6:** The centre inside the cell: b_x = 588 / 320 − 1 ≈ 0.84 and b_y = 336 / 320 − 1 ≈ 0.05.
+
+- Ask: Why subtract c and r?
+- Expected: cx / s counts cells from the photo’s left edge; subtracting c leaves the position inside the cell, between 0 and 1.
+
+**Build 7:** The size in cells: b_w = 361 / 320 ≈ 1.13 and b_h = 505 / 320 ≈ 1.58.
+
+- Ask: Why can b_w exceed 1?
+- Expected: It counts cells, and the dog is wider than one cell.
+
+**Build 8:** Mark the class, dog. The loop does the same for the cat in cell (1, 0), and the other four cells stay all zeros.
+
+- Ask: What does the whole target look like?
+- Expected: Two cells with full records and four with object? 0: the six records of the last slide.
+
+**Point here:** The tensor has no “?”: the entries we do not care about are zeros, and the loss reads only object? where object? is 0. Real YOLO code does the same with a mask. Run on our two boxes, this function gives exactly the numbers of the last slides.
+
+**Transition:** Train: compare the network’s block with this target.
+
+**Source:** Our annotation of the courtyard photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
 ## loss-grid: Training: Part 4’s loss in every cell
 
@@ -1167,6 +1168,11 @@ Planned main route: 111 minutes, including student responses. Optional slides ar
 
 - Ask: How is the network trained?
 - Expected: Add the cells’ losses into one number and lower it by gradient descent.
+
+**Build 4:** In code: a mask m marks the cells with a centre. object? is compared in every cell, the other six numbers only where m is true.
+
+- Ask: Which entries does the second sum use?
+- Expected: Entries 1 to 6 (the box and the two classes), only in the cells where m is true.
 
 **Point here:** YOLOv1 weighted the box terms by 5 and the empty cells’ object? terms by 0.5, because empty cells far outnumber the others. Appendix B works the loss through with the real network’s numbers.
 
@@ -1275,9 +1281,25 @@ Planned main route: 111 minutes, including student responses. Optional slides ar
 
 **Point here:** Ng (“YOLO Algorithm”): every cell writes its prediction; drop the low-probability ones, then run non-max suppression for each class. One of the 11 plant boxes comes from YOLOv8n’s 16-pixel grid (Part 7); the other 30 boxes come from the 32-pixel grid. YOLOv8 trains about ten cells per object as positives, which strengthens the cluster.
 
-**Transition:** Part 5 in one slide.
+**Transition:** The whole algorithm, step by step.
 
 **Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## yolo-steps: YOLO, the whole algorithm
+
+**Build 1:** Training, for every photo in the set: grid it, write each object’s record in its centre cell and “no object” elsewhere, then lower Part 4’s loss.
+
+- Ask: Which step of training uses the annotation?
+- Expected: Building the target: the centre cell and the box in cell units come from the annotated boxes.
+
+**Build 2:** Test time: one pass, every cell writes a record, decode the boxes, keep the confident ones (31 here), and remove the duplicates.
+
+- Ask: Which step of test time is still missing?
+- Expected: Removing duplicates: non-maximum suppression, Part 6.
+
+**Point here:** Ng’s “YOLO Algorithm” video has the same two halves: build the training target cell by cell (his has two anchors), then at test time drop the low-probability boxes and run NMS for each class.
+
+**Transition:** Part 5 in one slide.
 
 ## recap-5: Part 5 in one slide
 
@@ -1806,21 +1828,103 @@ Planned main route: 111 minutes, including student responses. Optional slides ar
 
 **Point here:** COCO samples the envelope at 101 recall values instead: 0.865 here.
 
-**Transition:** Average over classes and IoU thresholds.
+**Transition:** The same computation in code.
 
-## map: mAP: average over classes, and over IoU thresholds
+## ap-code: AP in code, one line at a time
 
-**Build 1:** mAP averages AP over classes. COCO goes further and averages over ten IoU thresholds, from loose (0.5) to strict (0.95), which rewards tight boxes.
+**Build 1:** AP in code, on the six ranked detections of the walk: write each one as a hit (1) or a miss (0), in score order.
+
+- Ask: What goes into the computation?
+- Expected: Only the hits and misses, in score order, and the number of objects.
+
+**Build 2:** Count the true positives so far, rank by rank.
+
+- Ask: What is tp after rank 3?
+- Expected: 2: ranks 1 and 2 were hits.
+
+**Build 3:** And the false positives so far.
+
+- Ask: What is fp after rank 4?
+- Expected: 2: ranks 3 and 4 were misses.
+
+**Build 4:** Precision at each rank: the true positives over everything reported up to that rank.
+
+- Ask: What is the precision at rank 3?
+- Expected: 2/3: two hits among three reported.
+
+**Build 5:** Recall at each rank: the true positives over the 3 objects.
+
+- Ask: What is the recall at rank 5?
+- Expected: 3/3 = 1: all three objects found.
+
+**Build 6:** The envelope: walk up from the bottom and keep the best precision seen so far, so the curve only steps down.
+
+- Ask: Why walk from the bottom up?
+- Expected: So each rank gets the best precision reachable at its recall or beyond.
+
+**Build 7:** The recall each rank adds: the width of its step. Only the three hits add any; the rows with width 0 do not count.
+
+- Ask: Which ranks add recall?
+- Expected: Ranks 1, 2 and 5, the hits.
+
+**Build 8:** Multiply each width by its height and add: ⅓ × 1 + ⅓ × 1 + ⅓ × 0.6 = 0.867, the area of the last slide.
+
+- Ask: What is AP?
+- Expected: 0.867
+
+**Point here:** This is the all-point area of Pascal VOC (2010 onwards). COCO instead reads the envelope at 101 recall values from 0 to 1 and averages them; here that gives 0.865.
+
+**Transition:** Now on real detections, live.
+
+## ap-play: Try it: AP on real detections
+
+**Build 1:** YOLOv8n’s 38 person detections on our eight photos, ranked by score, against 17 people. Raise the IoU threshold: from 0.85, loose boxes turn into false positives.
+
+- Ask: At which IoU threshold does AP first drop below 1?
+- Expected: At 0.85: a few boxes overlap their person with an IoU between 0.80 and 0.85.
+
+**Point here:** The AP here reads the envelope at 101 recall values, as COCO does. The mean of the ten thresholds is 0.919, the person AP of the next slides.
+
+**Transition:** One of those boxes, up close.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## map-iou: COCO’s AP: the same, at ten IoU thresholds
+
+**Build 1:** Part 1’s 13-pixel pedestrian: YOLOv8n’s box is a pixel off, IoU 0.87. A true positive up to a threshold of 0.85; a false positive at 0.90 and 0.95.
+
+- Ask: Why does a one-pixel slip matter so much here?
+- Expected: The pedestrian is 13 pixels wide: one pixel is almost a tenth of its width.
+
+**Build 2:** Person AP at each of COCO’s ten thresholds: 1 up to 0.80, then 0.84, 0.79, 0.56, as boxes that are slightly loose stop counting.
+
+- Ask: Why does AP fall only at the strict thresholds?
+- Expected: Every person is found with IoU above 0.8; only some boxes are tighter than 0.85, 0.90 or 0.95.
+
+**Build 3:** COCO’s headline AP averages the ten: 0.919. It rewards boxes that are tight, not just roughly right.
+
+- Ask: What does averaging over thresholds reward?
+- Expected: Tight boxes: a box that is only roughly right counts at 0.5 but not at 0.9.
+
+**Point here:** COCO calls this AP (or AP@[.50:.95]); AP50 and AP75 are the values at 0.50 and 0.75. Small objects suffer most, because a pixel is a large share of their size; COCO also reports AP for small, medium and large objects.
+
+**Transition:** Average over the classes too.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## map: mAP: average the AP over the classes
+
+**Build 1:** Do the same for every class and average: mAP. YOLOv8n on our eight photos ranges from 0.80 for bicycles to 1 for buses and cars: mAP 0.936.
 
 - Ask: What does mAP average over?
-- Expected: Classes (and, for COCO, IoU thresholds).
+- Expected: Classes (and, for COCO, also the ten IoU thresholds).
 
-**Build 2:** Raising the IoU threshold turns loose boxes into false positives and their objects into misses: AP can only fall.
+**Build 2:** At IoU 0.5 alone every class scores 1, so mAP@0.5 is 1.000. On clean photos only the strict average tells detectors apart.
 
-- Ask: Why average over IoU thresholds?
-- Expected: To reward tight boxes over boxes that are only roughly right.
+- Ask: Why is mAP@0.5 exactly 1 here?
+- Expected: Every object of every class is found, ranked above every false box, with IoU above 0.5.
 
-**Build 3:** On our eight clean photos: 1.00 at IoU 0.5, 0.94 over the strict thresholds. On COCO, 0.373: real scenes are far harder.
+**Build 3:** COCO’s 5,000 cluttered photos and 80 classes give YOLOv8n 0.373. Our handful of clean photos is a sanity check, not a benchmark.
 
 - Ask: Why is COCO’s number so much lower than ours?
 - Expected: COCO has 80 classes and crowded, cluttered, small objects; our eight photos are clean and easy. A handful of photos is not a benchmark.
@@ -1840,7 +1944,51 @@ Planned main route: 111 minutes, including student responses. Optional slides ar
 
 **Notebook:** Notebook part 8 evaluates YOLOv8n on the eight photos with the hand-written evaluator.
 
-**Transition:** Wrap-up.
+**Transition:** Before we close: boxes that turn.
+
+## obb-crack: Boxes that turn: axis-aligned or oriented?
+
+**Build 1:** Every box so far had its edges parallel to the photo’s sides: an axis-aligned box, four numbers. Around this thin, slanted crack it is mostly metal.
+
+- Ask: How much of the axis-aligned box is crack?
+- Expected: About 1/4.6 of it; the rest is metal.
+
+**Build 2:** An oriented box adds one number, the angle θ: (c_x, c_y, w, h, θ). It turns with the crack and hugs it.
+
+- Ask: How many numbers does an oriented box need?
+- Expected: Five: the centre, the width, the height and the angle.
+
+**Build 3:** The axis-aligned box is 4.6 times bigger: about 78% of it is not crack. The two boxes’ IoU is only 0.22.
+
+- Ask: When does the angle not matter?
+- Expected: When objects are upright, like our cat and dog: their axis-aligned boxes are already tight.
+
+**Point here:** Our oriented box for the crack: centre (618, 182), 96 × 14 pixels at 46°; the axis-aligned box is the tightest one around its corners. Part 1’s hand-drawn box, (578, 142, 668, 214), is a little looser. Oriented boxes are also written as their four corners, eight numbers, as in the DOTA aerial data set.
+
+**Transition:** Where the angle really matters: packed, slanted objects.
+
+**Source:** Our oriented box on the course-owned photo (see SOURCES.md).
+
+## obb-ships: Packed, slanted objects need the angle
+
+**Build 1:** Seen from above, four ships moored side by side at 45°. Their oriented boxes do not touch: IoU 0 between neighbours.
+
+- Ask: Do the ships overlap?
+- Expected: No: a strip of water separates them, and their oriented boxes do not touch.
+
+**Build 2:** Their axis-aligned boxes overlap a lot: IoU 0.56 between neighbours. NMS at 0.5 would keep one ship and delete the next as a duplicate.
+
+- Ask: Why do their axis-aligned boxes overlap?
+- Expected: Each slanted ship needs a big square box, which reaches over its neighbours.
+
+**Build 3:** So detectors for aerial photos, scene text and documents predict the angle too: YOLOv8-OBB writes (c_x, c_y, w, h, θ) for every cell.
+
+- Ask: What must change in IoU and NMS for oriented boxes?
+- Expected: IoU becomes the area of the overlap of two rotated rectangles, a polygon, over their union; NMS then uses that IoU.
+
+**Point here:** The ships are drawn shapes, 280 × 40 pixels, 64 pixels apart along the quay; the IoUs are computed exactly (scripts/science.py). Oriented boxes bring their own trouble: 0° and 180° are the same box, and a 90° turn swaps w and h, so the loss must allow for that. DOTA (aerial images) and ICDAR (scene text) are the usual benchmarks.
+
+**Transition:** The lecture in one slide.
 
 ## summary: One question, one answer
 
@@ -2317,6 +2465,76 @@ Planned main route: 111 minutes, including student responses. Optional slides ar
 **Point here:** DETR trained for 500 epochs on COCO; Deformable DETR, DINO and RT-DETR made such models faster to train and real-time.
 
 **Transition:** End of Appendix A. Appendix B: more depth.
+
+## fc-conv: Ng’s trick, step 1: write the dense layers as convolutions (optional)
+
+**Build 1:** Ng’s toy classifier for 14 × 14 crops, drawn as blocks of numbers: a convolution, a max pool, two dense layers of 400 units, then 3 answers.
+
+- Ask: How many numbers does the 5 × 5 × 16 block hold?
+- Expected: 5 × 5 × 16 = 400.
+
+**Build 2:** Write the first dense layer as 400 filters of 5 × 5 × 16. Each one covers the whole block, so it sees all 400 inputs, like one dense unit.
+
+- Ask: What does one 5 × 5 × 16 filter compute on that block?
+- Expected: A weighted sum of all 400 numbers plus a bias: exactly one dense unit.
+
+**Build 3:** The other two dense layers become 1 × 1 convolutions. The weights and the answers do not change, but a network of convolutions accepts a bigger image.
+
+- Ask: What changes if the input is bigger than 14 × 14?
+- Expected: A dense layer would break, since it expects exactly 400 inputs. Convolutions just slide further and give more outputs.
+
+**Point here:** Ng, “Convolutional Implementation of Sliding Windows” (Course 4, Week 3): 14 × 14 × 3 → 10 × 10 × 16 → 5 × 5 × 16 → FC 400 → FC 400 → softmax, turned into 400 filters of 5 × 5 × 16, then 1 × 1 convolutions. He has 4 outputs (pedestrian, car, motorcycle, background); we use 3 to match our classifier.
+
+**Transition:** Now give it a bigger image.
+
+## conv-windows: Ng’s trick, step 2: a 16 × 16 image gives four answers at once (optional)
+
+**Build 1:** Give the same network a 16 × 16 image. The top-left 14 × 14 window flows through exactly as before and ends in the top-left output.
+
+- Ask: Where does the top-left window’s answer end up?
+- Expected: In the top-left of the 2 × 2 output.
+
+**Build 2:** The window 2 pixels to the right moves 2 cells in the first layer and 1 after pooling. Its answer is the top-right output.
+
+- Ask: Where does the window 2 pixels to the right end up?
+- Expected: In the top-right output: 2 cells to the right after the convolution, 1 after the 2 × 2 pool.
+
+**Build 3:** Four windows, four answers, from one pass. Where the windows overlap, each convolution is computed once instead of four times.
+
+- Ask: How many times is each overlapping pixel processed?
+- Expected: Once, instead of once per window that contains it.
+
+**Build 4:** Ng’s next example: a 28 × 28 image gives 8 × 8 answers, 64 windows 2 pixels apart. The step is 2 because of the max pool.
+
+- Ask: Why are the windows 2 pixels apart?
+- Expected: The 2 × 2 max pool halves the size, so one output step is 2 input pixels.
+
+**Point here:** Ng colours the four windows blue, green, orange and purple and follows them to the four outputs (Sermanet et al., OverFeat, 2014). In his drawing the 400-deep layers are flat squares; so are ours.
+
+**Transition:** The same trick on our photo.
+
+## conv-photo: The same trick on our photo: all 336 windows in one pass (optional)
+
+**Build 1:** On our photo: VGG16, an ImageNet classifier for 224 × 224 crops, with its dense layers written as convolutions. One pass gives 24 × 14 answers.
+
+- Ask: How many answers does one pass give?
+- Expected: 24 × 14 = 336: the same windows as the 336 crops.
+
+**Build 2:** Each answer belongs to one window and is drawn at the window’s centre. Windows over the dog say dog; windows over the cat say cat.
+
+- Ask: Which windows say dog?
+- Expected: Every window that holds a good part of the dog, even just its head.
+
+**Build 3:** On this laptop one pass takes 0.7 s; the 336 separate crops take 28 s. The two agree on 317 of the 336 windows.
+
+- Ask: Why do a few windows disagree with their crop?
+- Expected: VGG16 pads its convolutions with zeros: a crop sees zeros at its edges, while in the whole photo the same window sees its neighbours’ pixels.
+
+**Point here:** VGG16 (IMAGENET1K_V1) on the CPU, the crops run in batches of 16; its three dense layers become a 7 × 7 convolution and two 1 × 1 convolutions. The dog score adds up ImageNet’s 118 dog breeds and the cat score its 5 cat classes. “Same answer”: both say dog, both say cat, or both say neither, at 0.5. Ng’s toy has no padding, so there the two are exactly equal.
+
+**Transition:** Their boxes are still only the windows: Part 5 goes on from there.
+
+**Source:** VGG16 (torchvision, ImageNet) run on this photo by scripts/run_models.py; timed on a laptop CPU. The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
 ## opt-yolov1: YOLOv1 (2016): one responsible cell per object (optional)
 

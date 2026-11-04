@@ -4,7 +4,7 @@
   "title": "Object detection",
   "series": "ES 667 Deep Learning",
   "subtitle": "From one label to a set of objects",
-  "minutes": 111,
+  "minutes": 120,
   "notebook": "object-detection.ipynb",
   "sections": [
     {
@@ -50,12 +50,12 @@
     {
       "id": "eval",
       "title": "Part 8 · Measuring a detector",
-      "minutes": 14
+      "minutes": 20
     },
     {
       "id": "wrap",
       "title": "Wrap-up",
-      "minutes": 5
+      "minutes": 8
     },
     {
       "id": "detr",
@@ -68,9 +68,9 @@
       "minutes": 0
     }
   ],
-  "coreSlides": 97,
-  "optionalSlides": 33,
-  "totalStates": 333,
+  "coreSlides": 102,
+  "optionalSlides": 36,
+  "totalStates": 365,
   "slides": [
     {
       "id": "title",
@@ -444,7 +444,7 @@
       "id": "crop-classifier",
       "title": "Start from a tool we have: a classifier for crops",
       "section": "dense",
-      "chapter": "5.1 From sliding windows to one pass",
+      "chapter": "5.1 Sliding windows, and what is wrong with them",
       "builds": 2,
       "optional": false
     },
@@ -452,45 +452,29 @@
       "id": "sliding",
       "title": "Slide the classifier over the photo",
       "section": "dense",
-      "chapter": "5.1 From sliding windows to one pass",
+      "chapter": "5.1 Sliding windows, and what is wrong with them",
       "builds": 5,
       "optional": false
     },
     {
-      "id": "fc-conv",
-      "title": "Ng’s trick, step 1: write the dense layers as convolutions",
+      "id": "sliding-cons",
+      "title": "What is wrong with sliding windows?",
       "section": "dense",
-      "chapter": "5.1 From sliding windows to one pass",
-      "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "conv-windows",
-      "title": "Ng’s trick, step 2: a 16 × 16 image gives four answers at once",
-      "section": "dense",
-      "chapter": "5.1 From sliding windows to one pass",
+      "chapter": "5.1 Sliding windows, and what is wrong with them",
       "builds": 4,
       "optional": false
     },
     {
-      "id": "conv-photo",
-      "title": "The same trick on our photo: all 336 windows in one pass",
-      "section": "dense",
-      "chapter": "5.1 From sliding windows to one pass",
-      "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "window-boxes",
-      "title": "A window is a fixed square: its box cannot fit the dog",
-      "section": "dense",
-      "chapter": "5.1 From sliding windows to one pass",
-      "builds": 3,
-      "optional": false
-    },
-    {
       "id": "grid-3x2",
-      "title": "YOLO: a grid on the photo, and a record for every cell",
+      "title": "YOLO: grid the photo, and let every cell predict a record",
+      "section": "dense",
+      "chapter": "5.2 YOLO: a record in every cell",
+      "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "grid-structure",
+      "title": "The structure: one CNN pass writes all six records",
       "section": "dense",
       "chapter": "5.2 YOLO: a record in every cell",
       "builds": 3,
@@ -521,6 +505,14 @@
       "optional": false
     },
     {
+      "id": "target-play",
+      "title": "Try it: move a box, and watch its cell write the record",
+      "section": "dense",
+      "chapter": "5.2 YOLO: a record in every cell",
+      "builds": 1,
+      "optional": false
+    },
+    {
       "id": "target-photo",
       "title": "The target for the whole photo: six records",
       "section": "dense",
@@ -529,11 +521,11 @@
       "optional": false
     },
     {
-      "id": "one-pass",
-      "title": "One CNN pass writes all six records",
+      "id": "target-code",
+      "title": "Building the target in code, one line at a time",
       "section": "dense",
       "chapter": "5.2 YOLO: a record in every cell",
-      "builds": 2,
+      "builds": 8,
       "optional": false
     },
     {
@@ -541,7 +533,7 @@
       "title": "Training: Part 4’s loss in every cell",
       "section": "dense",
       "chapter": "5.2 YOLO: a record in every cell",
-      "builds": 3,
+      "builds": 4,
       "optional": false
     },
     {
@@ -582,6 +574,14 @@
       "section": "dense",
       "chapter": "5.3 The real grid, and its boxes",
       "builds": 4,
+      "optional": false
+    },
+    {
+      "id": "yolo-steps",
+      "title": "YOLO, the whole algorithm",
+      "section": "dense",
+      "chapter": "5.3 The real grid, and its boxes",
+      "builds": 2,
       "optional": false
     },
     {
@@ -793,10 +793,34 @@
       "optional": false
     },
     {
-      "id": "map",
-      "title": "mAP: average over classes, and over IoU thresholds",
+      "id": "ap-code",
+      "title": "AP in code, one line at a time",
       "section": "eval",
       "chapter": "8.2 Precision, recall, AP",
+      "builds": 8,
+      "optional": false
+    },
+    {
+      "id": "ap-play",
+      "title": "Try it: AP on real detections",
+      "section": "eval",
+      "chapter": "8.2 Precision, recall, AP",
+      "builds": 1,
+      "optional": false
+    },
+    {
+      "id": "map-iou",
+      "title": "COCO’s AP: the same, at ten IoU thresholds",
+      "section": "eval",
+      "chapter": "8.3 Stricter IoU, and mAP",
+      "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "map",
+      "title": "mAP: average the AP over the classes",
+      "section": "eval",
+      "chapter": "8.3 Stricter IoU, and mAP",
       "builds": 3,
       "optional": false
     },
@@ -804,15 +828,31 @@
       "id": "eval-code",
       "title": "Evaluation in code",
       "section": "eval",
-      "chapter": "8.2 Precision, recall, AP",
+      "chapter": "8.3 Stricter IoU, and mAP",
       "builds": 1,
+      "optional": false
+    },
+    {
+      "id": "obb-crack",
+      "title": "Boxes that turn: axis-aligned or oriented?",
+      "section": "wrap",
+      "chapter": "9.1 Boxes that turn",
+      "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "obb-ships",
+      "title": "Packed, slanted objects need the angle",
+      "section": "wrap",
+      "chapter": "9.1 Boxes that turn",
+      "builds": 3,
       "optional": false
     },
     {
       "id": "summary",
       "title": "One question, one answer",
       "section": "wrap",
-      "chapter": "9.1 Summary",
+      "chapter": "9.2 Summary",
       "builds": 2,
       "optional": false
     },
@@ -820,7 +860,7 @@
       "id": "iou-uses",
       "title": "Three uses of IoU, easy to confuse",
       "section": "wrap",
-      "chapter": "9.1 Summary",
+      "chapter": "9.2 Summary",
       "builds": 3,
       "optional": false
     },
@@ -828,7 +868,7 @@
       "id": "apps-again",
       "title": "Back to the six jobs: the three everyday ones",
       "section": "wrap",
-      "chapter": "9.1 Summary",
+      "chapter": "9.2 Summary",
       "builds": 2,
       "optional": false
     },
@@ -836,7 +876,7 @@
       "id": "apps-new",
       "title": "Back to the six jobs: the three new ones",
       "section": "wrap",
-      "chapter": "9.1 Summary",
+      "chapter": "9.2 Summary",
       "builds": 2,
       "optional": false
     },
@@ -844,7 +884,7 @@
       "id": "next",
       "title": "Next: beyond boxes",
       "section": "wrap",
-      "chapter": "9.1 Summary",
+      "chapter": "9.2 Summary",
       "builds": 1,
       "optional": false
     },
@@ -1006,6 +1046,30 @@
       "section": "detr",
       "chapter": "A.4 Two answers",
       "builds": 2,
+      "optional": true
+    },
+    {
+      "id": "fc-conv",
+      "title": "Ng’s trick, step 1: write the dense layers as convolutions",
+      "section": "optional",
+      "chapter": "",
+      "builds": 3,
+      "optional": true
+    },
+    {
+      "id": "conv-windows",
+      "title": "Ng’s trick, step 2: a 16 × 16 image gives four answers at once",
+      "section": "optional",
+      "chapter": "",
+      "builds": 4,
+      "optional": true
+    },
+    {
+      "id": "conv-photo",
+      "title": "The same trick on our photo: all 336 windows in one pass",
+      "section": "optional",
+      "chapter": "",
+      "builds": 3,
       "optional": true
     },
     {

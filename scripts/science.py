@@ -547,6 +547,83 @@ assert S['windows']['big_n'] == [17, 7]
 S['windows']['big_best_iou'] = r(max(iou(dog, [x, y, x + 448, y + 448]) for x in range(0, Wp - 447, 32) for y in range(0, Hp - 447, 32)), 2)
 assert 0.7 < S['windows']['big_best_iou'] < 0.75
 
+# ---------------------------------------------------------------- Part 8: AP on real detections, and its IoU threshold
+# every YOLOv8n person detection on the eight photos (after NMS, score >= 0.01) against our annotated people
+gp = [{'photo': n, 'box': b} for n, lst in A['photos'].items() for c_, b in lst if c_ == 'person']
+dp = sorted([x for x in detections('yolo') if x['name'] == 'person'], key=lambda x: -x['score'])
+thrs = [round(float(t), 2) for t in np.arange(0.5, 0.96, 0.05)]
+ap_by = {t: ap_coco(pr_curve(match_eval(dp, gp, t), len(gp))) for t in thrs}
+S['ap_play'] = {'gt': [{'photo': g['photo'], 'box': [round(v, 1) for v in g['box']]} for g in gp],
+                'dets': [{'photo': d['photo'], 'score': r(d['score']), 'box': [round(v, 1) for v in d['box']]} for d in dp],
+                'sizes': {n: Y['photos'][n]['size'] for n in A['photos']}, 'thresholds': thrs, 'ap_by': [r(ap_by[t], 2) for t in thrs],
+                'ap': r(np.mean(list(ap_by.values())))}
+assert len(gp) == 17 and len(dp) == 38 and S['ap_play']['ap'] == S['benchmark']['yolo']['per_class']['person']['ap']
+assert S['ap_play']['ap_by'][:7] == [1.0] * 7 and S['ap_play']['ap_by'][7:] == [0.84, 0.79, 0.56]
+# one person box that is right at IoU 0.85 but wrong at 0.90: its IoU with the annotation lies in between
+rows85 = match_eval(dp, gp, 0.85)
+ex = max((x for x in rows85 if x['hit'] and x['iou'] < 0.9), key=lambda x: x['score'])
+gex = max((g for g in gp if g['photo'] == ex['photo']), key=lambda g: iou(g['box'], ex['box']))
+S['ap_example'] = {'photo': ex['photo'], 'box': [round(v, 1) for v in ex['box']], 'gt': gex['box'], 'score': r(ex['score']), 'iou': r(ex['iou'], 2)}
+assert 0.85 <= S['ap_example']['iou'] < 0.9
+
+# ---------------------------------------------------------------- the wrap-up: axis-aligned against oriented boxes
+def obb_corners(cx, cy, w, h, deg):
+    t = math.radians(deg); c, s_ = math.cos(t), math.sin(t)
+    return [[cx + c * dx - s_ * dy, cy + s_ * dx + c * dy] for dx, dy in ((-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2))]
+
+
+def poly_area(pts):
+    return abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(pts, pts[1:] + pts[:1]))) / 2
+
+
+def clip(subject, clipper):
+    """Sutherland-Hodgman: the part of convex polygon `subject` inside convex polygon `clipper`."""
+    def inside(q, a, b):
+        return (b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0]) >= 0
+
+    def cut(p_, q, a, b):
+        d = (q[0] - p_[0]) * (b[1] - a[1]) - (q[1] - p_[1]) * (b[0] - a[0])
+        t_ = ((a[0] - p_[0]) * (b[1] - a[1]) - (a[1] - p_[1]) * (b[0] - a[0])) / d
+        return [p_[0] + (q[0] - p_[0]) * t_, p_[1] + (q[1] - p_[1]) * t_]
+
+    out = subject
+    for a, b in zip(clipper, clipper[1:] + clipper[:1]):
+        src, out = out, []
+        for i, q in enumerate(src):
+            p_ = src[i - 1]
+            if inside(q, a, b):
+                if not inside(p_, a, b):
+                    out.append(cut(p_, q, a, b))
+                out.append(q)
+            elif inside(p_, a, b):
+                out.append(cut(p_, q, a, b))
+        if not out:
+            return []
+    return out
+
+
+def poly_iou(a, b):
+    c_ = clip(a, b)
+    i_ = poly_area(c_) if c_ else 0.0
+    return i_ / (poly_area(a) + poly_area(b) - i_)
+
+
+rect_poly = lambda b: [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]]
+assert abs(poly_iou(rect_poly(dog), rect_poly(S['average_box']['box'])) - iou(dog, S['average_box']['box'])) < 1e-9
+# our oriented box for the crack on the part (figures/defect.jpg): it runs from about (588, 151) to (648, 213)
+ck = {'cx': 618, 'cy': 182, 'w': 96, 'h': 14, 'deg': 46}
+cc_ = obb_corners(**ck)
+ca = [math.floor(min(p[0] for p in cc_)), math.floor(min(p[1] for p in cc_)), math.ceil(max(p[0] for p in cc_)), math.ceil(max(p[1] for p in cc_))]
+S['obb'] = {'crack': {**ck, 'corners': [[round(v, 1) for v in q] for q in cc_], 'aabb': ca, 'area_obb': ck['w'] * ck['h'], 'area_aabb': area(ca),
+                      'ratio': r(area(ca) / (ck['w'] * ck['h']), 1), 'iou': r(poly_iou(cc_, rect_poly(ca)), 2)}}
+assert abs(poly_iou(cc_, rect_poly(ca)) - ck['w'] * ck['h'] / area(ca)) < 1e-6   # the oriented box lies inside its axis-aligned box
+# four ships moored side by side at 45 degrees, seen from above: 280 x 40 each, 64 px apart along the quay
+ships = [obb_corners(130 + 64 * k, 160, 280, 40, -45) for k in range(4)]
+sb = [[min(p[0] for p in q), min(p[1] for p in q), max(p[0] for p in q), max(p[1] for p in q)] for q in ships]
+S['obb']['ships'] = {'corners': [[[round(v, 1) for v in p] for p in q] for q in ships], 'aabb': [[round(v, 1) for v in b] for b in sb],
+                     'iou_obb': r(poly_iou(ships[0], ships[1]), 2), 'iou_aabb': r(iou(sb[0], sb[1]), 2)}
+assert S['obb']['ships']['iou_obb'] == 0 and 0.5 < S['obb']['ships']['iou_aabb'] < 0.7
+
 (ROOT / 'data/science.json').write_text(json.dumps(S, separators=(',', ':')))
 print('wrote data/science.json', round((ROOT / 'data/science.json').stat().st_size / 1e3), 'kB')
 for k in ('iou_practice', 'iou_real', 'average_box', 'slots', 'cell', 'counts', 'class_aware', 'detr_layers', 'match', 'match_loss', 'practice'):
