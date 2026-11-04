@@ -4,7 +4,7 @@
   "title": "Object detection",
   "series": "ES 667 Deep Learning",
   "subtitle": "From one label to a set of objects",
-  "minutes": 118,
+  "minutes": 108,
   "notebook": "object-detection.ipynb",
   "sections": [
     {
@@ -30,12 +30,12 @@
     {
       "id": "onebox",
       "title": "Part 4 · One box, then many",
-      "minutes": 13
+      "minutes": 7
     },
     {
       "id": "dense",
       "title": "Part 5 · A candidate at every place",
-      "minutes": 26
+      "minutes": 22
     },
     {
       "id": "nms",
@@ -68,8 +68,8 @@
       "minutes": 0
     }
   ],
-  "coreSlides": 105,
-  "optionalSlides": 24,
+  "coreSlides": 96,
+  "optionalSlides": 33,
   "totalStates": 318,
   "slides": [
     {
@@ -409,8 +409,8 @@
       "optional": false
     },
     {
-      "id": "box-loss",
-      "title": "Training the box head: compare four numbers",
+      "id": "loss-y",
+      "title": "The loss: compare only where it counts",
       "section": "onebox",
       "chapter": "4.1 One object, one box",
       "builds": 3,
@@ -425,42 +425,10 @@
       "optional": false
     },
     {
-      "id": "k-slots",
-      "title": "Give the head K slots",
-      "section": "onebox",
-      "chapter": "4.2 Several objects, several slots",
-      "builds": 4,
-      "optional": false
-    },
-    {
-      "id": "slots-crowd",
-      "title": "Problem 1: more objects than slots",
-      "section": "onebox",
-      "chapter": "4.2 Several objects, several slots",
-      "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "slot-order",
-      "title": "Problem 2: which dog belongs in slot 1?",
-      "section": "onebox",
-      "chapter": "4.2 Several objects, several slots",
-      "builds": 4,
-      "optional": false
-    },
-    {
-      "id": "two-fixes",
-      "title": "Two ways to decide which output answers for which object",
-      "section": "onebox",
-      "chapter": "4.2 Several objects, several slots",
-      "builds": 2,
-      "optional": false
-    },
-    {
       "id": "recap-4",
       "title": "Part 4 in one slide",
       "section": "onebox",
-      "chapter": "4.2 Several objects, several slots",
+      "chapter": "4.1 One object, one box",
       "builds": 1,
       "optional": false
     },
@@ -486,14 +454,6 @@
       "section": "dense",
       "chapter": "5.1 From sliding windows to one pass",
       "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "shared-work",
-      "title": "Neighbouring windows see almost the same pixels",
-      "section": "dense",
-      "chapter": "5.1 From sliding windows to one pass",
-      "builds": 2,
       "optional": false
     },
     {
@@ -553,6 +513,14 @@
       "optional": false
     },
     {
+      "id": "loss-grid",
+      "title": "Training: Part 4’s loss, cell by cell",
+      "section": "dense",
+      "chapter": "5.2 YOLO: a record in every cell",
+      "builds": 3,
+      "optional": false
+    },
+    {
       "id": "two-in-a-cell",
       "title": "One record per cell: what if two centres share a cell?",
       "section": "dense",
@@ -564,55 +532,15 @@
       "id": "fine-grid",
       "title": "In practice: a fine grid of 32-pixel cells",
       "section": "dense",
-      "chapter": "5.3 In practice, and the loss",
-      "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "record-84",
-      "title": "In practice: 80 classes, and no “object?”",
-      "section": "dense",
-      "chapter": "5.3 In practice, and the loss",
-      "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "prediction-record",
-      "title": "What the trained network wrote at cell (10, 18)",
-      "section": "dense",
-      "chapter": "5.3 In practice, and the loss",
+      "chapter": "5.3 The real grid, and its boxes",
       "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "bce",
-      "title": "Scoring one yes/no answer: binary cross-entropy",
-      "section": "dense",
-      "chapter": "5.3 In practice, and the loss",
-      "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "loss-cells",
-      "title": "The loss at two cells: the dog’s, and an empty one",
-      "section": "dense",
-      "chapter": "5.3 In practice, and the loss",
-      "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "loss-total",
-      "title": "The loss for the whole photo",
-      "section": "dense",
-      "chapter": "5.3 In practice, and the loss",
-      "builds": 3,
       "optional": false
     },
     {
       "id": "decode",
       "title": "At test time: read the box back out of the cell",
       "section": "dense",
-      "chapter": "5.4 Reading boxes back out",
+      "chapter": "5.3 The real grid, and its boxes",
       "builds": 3,
       "optional": false
     },
@@ -620,7 +548,7 @@
       "id": "cell-inspector",
       "title": "Every cell writes a record: point at one",
       "section": "dense",
-      "chapter": "5.4 Reading boxes back out",
+      "chapter": "5.3 The real grid, and its boxes",
       "builds": 1,
       "optional": false
     },
@@ -628,7 +556,7 @@
       "id": "fires",
       "title": "About ten cells fire for each animal",
       "section": "dense",
-      "chapter": "5.4 Reading boxes back out",
+      "chapter": "5.3 The real grid, and its boxes",
       "builds": 2,
       "optional": false
     },
@@ -636,7 +564,7 @@
       "id": "every-box",
       "title": "Every cell draws a box, even on the wall",
       "section": "dense",
-      "chapter": "5.4 Reading boxes back out",
+      "chapter": "5.3 The real grid, and its boxes",
       "builds": 2,
       "optional": false
     },
@@ -644,7 +572,7 @@
       "id": "all-candidates",
       "title": "Decode every cell, keep scores ≥ 0.25: 31 boxes",
       "section": "dense",
-      "chapter": "5.4 Reading boxes back out",
+      "chapter": "5.3 The real grid, and its boxes",
       "builds": 3,
       "optional": false
     },
@@ -652,7 +580,7 @@
       "id": "recap-5",
       "title": "Part 5 in one slide",
       "section": "dense",
-      "chapter": "5.4 Reading boxes back out",
+      "chapter": "5.3 The real grid, and its boxes",
       "builds": 1,
       "optional": false
     },
@@ -921,10 +849,42 @@
       "optional": true
     },
     {
+      "id": "k-slots",
+      "title": "Give the head K slots",
+      "section": "detr",
+      "chapter": "A.1 Several objects, several slots",
+      "builds": 4,
+      "optional": true
+    },
+    {
+      "id": "slots-crowd",
+      "title": "Problem 1: more objects than slots",
+      "section": "detr",
+      "chapter": "A.1 Several objects, several slots",
+      "builds": 2,
+      "optional": true
+    },
+    {
+      "id": "slot-order",
+      "title": "Problem 2: which dog belongs in slot 1?",
+      "section": "detr",
+      "chapter": "A.1 Several objects, several slots",
+      "builds": 4,
+      "optional": true
+    },
+    {
+      "id": "two-fixes",
+      "title": "Two ways to decide which output answers for which object",
+      "section": "detr",
+      "chapter": "A.1 Several objects, several slots",
+      "builds": 2,
+      "optional": true
+    },
+    {
       "id": "slots-again",
       "title": "Back to the slots, with three changes",
       "section": "detr",
-      "chapter": "A.1 Slots that read the image",
+      "chapter": "A.2 Slots that read the image",
       "builds": 3,
       "optional": true
     },
@@ -932,7 +892,7 @@
       "id": "detr-pipeline",
       "title": "DETR, from photo to 100 predictions",
       "section": "detr",
-      "chapter": "A.1 Slots that read the image",
+      "chapter": "A.2 Slots that read the image",
       "builds": 4,
       "optional": true
     },
@@ -940,7 +900,7 @@
       "id": "queries",
       "title": "A query is learned once and reused for every photo",
       "section": "detr",
-      "chapter": "A.1 Slots that read the image",
+      "chapter": "A.2 Slots that read the image",
       "builds": 2,
       "optional": true
     },
@@ -948,7 +908,7 @@
       "id": "detr-output",
       "title": "DETR on the courtyard: 100 slots, most of them empty",
       "section": "detr",
-      "chapter": "A.1 Slots that read the image",
+      "chapter": "A.2 Slots that read the image",
       "builds": 3,
       "optional": true
     },
@@ -956,7 +916,7 @@
       "id": "detr-attention",
       "title": "Where two queries looked",
       "section": "detr",
-      "chapter": "A.1 Slots that read the image",
+      "chapter": "A.2 Slots that read the image",
       "builds": 2,
       "optional": true
     },
@@ -964,7 +924,7 @@
       "id": "detr-layers",
       "title": "Duplicates disappear inside the decoder",
       "section": "detr",
-      "chapter": "A.1 Slots that read the image",
+      "chapter": "A.2 Slots that read the image",
       "builds": 3,
       "optional": true
     },
@@ -972,7 +932,7 @@
       "id": "match-why",
       "title": "Training: which prediction should learn which dog?",
       "section": "detr",
-      "chapter": "A.2 Matching slots to objects",
+      "chapter": "A.3 Matching slots to objects",
       "builds": 2,
       "optional": true
     },
@@ -980,7 +940,7 @@
       "id": "giou",
       "title": "One more measure: generalised IoU",
       "section": "detr",
-      "chapter": "A.2 Matching slots to objects",
+      "chapter": "A.3 Matching slots to objects",
       "builds": 3,
       "optional": true
     },
@@ -988,7 +948,7 @@
       "id": "cost-one",
       "title": "The cost of one pairing: query 61 and the left dog",
       "section": "detr",
-      "chapter": "A.2 Matching slots to objects",
+      "chapter": "A.3 Matching slots to objects",
       "builds": 4,
       "optional": true
     },
@@ -996,7 +956,7 @@
       "id": "cost-matrix",
       "title": "Fill the table: the cost of every pairing",
       "section": "detr",
-      "chapter": "A.2 Matching slots to objects",
+      "chapter": "A.3 Matching slots to objects",
       "builds": 3,
       "optional": true
     },
@@ -1004,7 +964,7 @@
       "id": "greedy",
       "title": "Why not let each object grab its cheapest slot?",
       "section": "detr",
-      "chapter": "A.2 Matching slots to objects",
+      "chapter": "A.3 Matching slots to objects",
       "builds": 3,
       "optional": true
     },
@@ -1012,7 +972,7 @@
       "id": "match-loss",
       "title": "After matching: the loss",
       "section": "detr",
-      "chapter": "A.2 Matching slots to objects",
+      "chapter": "A.3 Matching slots to objects",
       "builds": 3,
       "optional": true
     },
@@ -1020,7 +980,7 @@
       "id": "why-no-nms",
       "title": "Why DETR needs no NMS",
       "section": "detr",
-      "chapter": "A.3 Two answers",
+      "chapter": "A.4 Two answers",
       "builds": 2,
       "optional": true
     },
@@ -1028,7 +988,7 @@
       "id": "detr-code",
       "title": "DETR in code: matching, then inference",
       "section": "detr",
-      "chapter": "A.3 Two answers",
+      "chapter": "A.4 Two answers",
       "builds": 2,
       "optional": true
     },
@@ -1036,7 +996,7 @@
       "id": "two-answers",
       "title": "Two answers to one question",
       "section": "detr",
-      "chapter": "A.3 Two answers",
+      "chapter": "A.4 Two answers",
       "builds": 2,
       "optional": true
     },
@@ -1062,6 +1022,46 @@
       "section": "optional",
       "chapter": "",
       "builds": 5,
+      "optional": true
+    },
+    {
+      "id": "record-84",
+      "title": "YOLOv8n’s record: 80 classes, and no “object?”",
+      "section": "optional",
+      "chapter": "",
+      "builds": 3,
+      "optional": true
+    },
+    {
+      "id": "prediction-record",
+      "title": "What the trained network wrote at cell (10, 18)",
+      "section": "optional",
+      "chapter": "",
+      "builds": 2,
+      "optional": true
+    },
+    {
+      "id": "bce",
+      "title": "Scoring one yes/no answer: binary cross-entropy",
+      "section": "optional",
+      "chapter": "",
+      "builds": 2,
+      "optional": true
+    },
+    {
+      "id": "loss-cells",
+      "title": "The loss at two cells: the dog’s, and an empty one",
+      "section": "optional",
+      "chapter": "",
+      "builds": 3,
+      "optional": true
+    },
+    {
+      "id": "loss-total",
+      "title": "The loss for the whole photo, on the real grid",
+      "section": "optional",
+      "chapter": "",
+      "builds": 3,
       "optional": true
     },
     {

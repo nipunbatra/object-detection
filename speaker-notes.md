@@ -1,6 +1,6 @@
 # Object detection: speaker notes
 
-Planned main route: 118 minutes, including student responses. Optional slides are outside this budget.
+Planned main route: 108 minutes, including student responses. Optional slides are outside this budget.
 
 ## Pacing
 
@@ -10,8 +10,8 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 | Part 1 · Why detect objects? | 12 |
 | Part 2 · From one label to a list | 9 |
 | Part 3 · Boxes and IoU | 16 |
-| Part 4 · One box, then many | 13 |
-| Part 5 · A candidate at every place | 26 |
+| Part 4 · One box, then many | 7 |
+| Part 5 · A candidate at every place | 22 |
 | Part 6 · One box per object: NMS | 16 |
 | Part 7 · Three grids for three sizes | 6 |
 | Part 8 · Measuring a detector | 14 |
@@ -758,7 +758,7 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 
 ## part-4: Part 4 · One box is easy; several are not
 
-**Build 1:** One box is plain regression. Several boxes raise a new question: which output answers for which object?
+**Build 1:** One object is easy: a classifier with four more outputs. Two objects show why detection needs more than that.
 
 - Ask: What could go wrong with two objects and one box output?
 - Expected: The network cannot know which object to describe; it may average them.
@@ -767,17 +767,17 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 
 ## one-object: One object: a box head beside the class head
 
-**Build 1:** A classifier: a CNN turns the photo into one feature vector; a linear layer turns it into class scores.
+**Build 1:** Start from a classifier: a CNN turns the photo into one feature vector, and a layer turns that into class scores.
 
 - Ask: What does the box head output?
-- Expected: Four numbers, for example a normalised (c_x, c_y, w, h).
+- Expected: Four numbers: the box’s centre and size, b_x, b_y, b_w, b_h.
 
-**Build 2:** Add a second small layer on the same vector that outputs four numbers: the box.
+**Build 2:** Add a second small layer on the same vector: four numbers for the box.
 
 - Ask: Which part is shared?
 - Expected: The CNN and its feature vector.
 
-**Build 3:** Train both at once: cross-entropy for the class, and a loss that compares the four box numbers with the annotation’s.
+**Build 3:** Train both at once, comparing each output with the annotation.
 
 - Ask: What could the box loss be?
 - Expected: Any distance between the four predicted and four true numbers, such as the sum of absolute differences.
@@ -786,45 +786,45 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 
 ## target-y: Write the answer as numbers: the target for one photo
 
-**Build 1:** For two classes, a localiser writes seven numbers: is there an object, its box, and which class. Here: 1, the cat’s box, cat 1, dog 0.
+**Build 1:** The answer as numbers: object? 1, then the box as fractions of the photo (0 at the top-left, 1 at the bottom-right), then cat 1, dog 0.
 
 - Ask: What are the seven target numbers for the cat photo?
-- Expected: 1; then (0.667, 0.527, 0.319, 0.642); then cat 1, dog 0.
+- Expected: 1; then about (0.67, 0.53, 0.32, 0.64); then cat 1, dog 0.
 
-**Build 2:** A photo of empty floor. “Object?” is 0. Its box and class have no right answer, so the target there is “?”.
+**Build 2:** A photo of empty floor: object? is 0. The box and the class have no right answer, so Ng writes “?”: don’t care.
 
 - Ask: What should the box be for a photo with no object?
 - Expected: Nothing: there is no box, so we do not care what the network writes there.
 
-**Build 3:** The loss counts only entries with a right answer: for the floor, just the first. A detector meets this “?” at most places in a photo.
+**Build 3:** Only entries with a right answer are learned: for the floor, just object?.
 
 - Ask: Which entries does the loss use for the floor photo?
 - Expected: Only “object?”, with target 0.
 
 **Point here:** This is how Andrew Ng introduces localisation (Deep Learning Specialization, Course 4, Week 3): y = (p_c, b_x, b_y, b_h, b_w, c_1, c_2, c_3), with “?” for every entry after p_c = 0.
 
-**Transition:** Train the box part, with numbers.
+**Transition:** The loss: compare where it counts.
 
 **Source:** Our annotation of the single-cat photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## box-loss: Training the box head: compare four numbers
+## loss-y: The loss: compare only where it counts
 
-**Build 1:** The L1 box loss: for each of the four numbers, the absolute difference between prediction and target; add them.
+**Build 1:** When there is an object, all seven outputs are compared with the target. Ng adds up the squared differences.
 
-- Ask: What does the loss add up?
-- Expected: Four absolute differences.
+- Ask: Which entries count for the cat photo?
+- Expected: All seven.
 
-**Build 2:** Take the 60-px guess from Part 3 as the prediction, in normalised units. The centre is off; the size is right.
+**Build 2:** When there is none, only object? is compared. The “?” entries are skipped: whatever the network writes there costs nothing.
 
-- Ask: Which numbers differ here?
-- Expected: The centre (c_x and c_y); width and height match.
+- Ask: Which entries count for the empty floor?
+- Expected: Only object?.
 
-**Build 3:** Loss 0.125. It is zero only if all four numbers match; gradient descent moves the four outputs toward the target.
+**Build 3:** Real detectors pick a better loss for each kind of entry, but the rule stays the same: skip the “?”.
 
-- Ask: When is the loss zero?
-- Expected: When all four predicted numbers equal the target’s.
+- Ask: What does a real detector use for the class entries?
+- Expected: Cross-entropy, as in classification.
 
-**Point here:** Normalised units keep the four terms on one scale; the notebook trains exactly this head on single-object images.
+**Point here:** Ng (Course 4, Week 3, Object Localization) uses squared error in both cases for simplicity, then says that in practice the classes use log-likelihood, p_c a logistic loss, and the box squared error.
 
 **Transition:** Now two animals.
 
@@ -847,102 +847,16 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 
 **Common misconception:** More training does not fix it: the hedge is the optimum of this loss for this task.
 
-**Transition:** Give the head more than one output.
+**Transition:** Part 4 in one slide.
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## k-slots: Give the head K slots
-
-**Build 1:** Give the head K slots instead of one. Each slot holds a record like the one-object target: a class and four box numbers. Here K = 5.
-
-- Ask: What does each slot write?
-- Expected: A class and four box numbers, like the one-object head.
-
-**Build 2:** The target for our photo puts the dog in one slot and the cat in another, with their boxes in normalised units.
-
-- Ask: Why the dog in slot 1 and not slot 4?
-- Expected: No reason: the slots have no order. That choice comes back as Problem 2.
-
-**Build 3:** The three spare slots need a way to say “nothing here”: one more class, no object. Their boxes have no right answer, so they are “?”.
-
-- Ask: What should a spare slot predict?
-- Expected: The class “no object”. Its box is left out of the loss.
-
-**Build 4:** However many objects a photo has, the output keeps one size: K slots, each with C class scores, a no-object score and four box numbers.
-
-- Ask: How many numbers for K = 5 and C = 80?
-- Expected: 5 × (80 + 1 + 4) = 425.
-
-**Transition:** What if a photo has more objects than slots?
-
-**Source:** Our annotation of the courtyard photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
-
-## slots-crowd: Problem 1: more objects than slots
-
-**Build 1:** Problem 1: the crowd photo has 11 people. A head with K = 5 slots can report at most 5 of them, however well it is trained.
-
-- Ask: How many of the 11 people can a 5-slot head report?
-- Expected: At most 5.
-
-**Build 2:** So make K larger than any photo needs, say 100. Here 11 slots would hold a person, and the other 89 would say “no object”.
-
-- Ask: How large should K be?
-- Expected: Larger than the number of objects in any photo you expect.
-
-**Point here:** K is fixed when the network is built, so it must cover the most crowded photo you expect; the spare slots learn “no object”.
-
-**Transition:** Problem 2 is harder: which object goes in which slot?
-
-**Source:** Our annotation of the crowd photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
-
-## slot-order: Problem 2: which dog belongs in slot 1?
-
-**Build 1:** Suppose the head is perfect: slot 1 boxes the left dog exactly, slot 2 the right dog. Nothing could be more right.
-
-- Ask: Are the two slots’ boxes correct?
-- Expected: Yes, exactly: they are the annotated boxes.
-
-**Build 2:** But the annotator happened to list the right dog first. Compare slot k with entry k: each slot is a whole dog away from its entry, 0.603 in normalised units.
-
-- Ask: What is the loss if slot k is compared with entry k?
-- Expected: 1.206: 0.603 for each slot, mostly the half-photo gap between the two centres.
-
-**Build 3:** Compare each slot with the dog it actually boxed: both differences are 0.
-
-- Ask: And if each slot is compared with its own dog?
-- Expected: 0.
-
-**Build 4:** Nothing about the prediction changed, only the order of the list. A loss that pairs outputs with targets by position punishes a perfect answer.
-
-- Ask: What must the loss do instead?
-- Expected: Pair each output with the object it describes, whatever the list order.
-
-**Point here:** The L1 sums are over normalised (c_x, c_y, w, h). The list order here is made up for the example: whoever labels a photo lists its objects in some order, and nothing makes it match the slots.
-
-**Transition:** Two ways to pair outputs with objects.
-
-**Source:** Our annotation of the two-dog photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
-
-## two-fixes: Two ways to decide which output answers for which object
-
-**Build 1:** Fix A gives every output a fixed place in the image, and whatever is there is its job, so order cannot matter.
-
-- Ask: How does fix A remove the order problem?
-- Expected: An output answers for the object at its place; there is nothing to order.
-
-**Build 2:** Fix B keeps free slots and, before each loss, matches them to objects at the lowest total cost, so order cannot matter either.
-
-- Ask: How does fix B?
-- Expected: The pairing is chosen by cost, not by position in the list.
-
-**Transition:** Part 4 in one slide.
-
 ## recap-4: Part 4 in one slide
 
-**Build 1:** Next: fix A, a grid of cells, each writing a box and class scores.
+**Build 1:** Next: give every place in the photo its own record.
 
-- Ask: Why did the same correct prediction cost 100 times more?
-- Expected: Because the loss paired outputs with targets by list position, and the list happened to be in the other order.
+- Ask: Why does one record fail for two animals?
+- Expected: It can describe only one object, so it hedges between them.
 
 **Transition:** Part 5.
 
@@ -975,48 +889,30 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 
 ## sliding: Slide the classifier over the photo
 
-**Build 1:** Put a 224-pixel window on the photo, crop it and classify it. This one says “dog”.
+**Build 1:** Put a 224 × 224 window in the top-left corner, crop it and classify it: nothing there.
 
-- Ask: What does the classifier say about this window?
-- Expected: Dog.
+- Ask: What does the first crop show?
+- Expected: Wall and plants: nothing.
 
-**Build 2:** Move the window 32 pixels at a time, across and down: 30 places across, 20 down.
+**Build 2:** Slide it 32 pixels at a time, across and then down. Most crops say nothing; this one says dog.
 
-- Ask: How many places are there?
-- Expected: 960 ÷ 32 = 30 across, 640 ÷ 32 = 20 down: 600.
+- Ask: How many crops for one window size?
+- Expected: (960 − 224) ÷ 32 + 1 = 24 across, (640 − 224) ÷ 32 + 1 = 14 down: 336.
 
-**Build 3:** Objects come in many sizes and shapes, so try 3 sizes and 3 shapes at every place. Each crop is a full run of the classifier.
+**Build 3:** Objects come in different sizes, so repeat with a bigger window, and a bigger one. Every crop is a full run of the classifier: slow.
 
-- Ask: How many classifier runs per photo?
-- Expected: 600 × 3 × 3 = 5,400.
+- Ask: Why try bigger windows?
+- Expected: An object can be bigger than the window, like this dog.
 
-**Point here:** Detectors around 2013 worked like this (OverFeat). R-CNN (2014) classified about 2,000 proposed crops per image and needed about 47 seconds per image at test time (CS231n, 2017): Appendix B, two-stage detectors. The sizes and shapes drawn are examples.
+**Point here:** Ng’s sliding windows (Course 4, Week 3, Object Detection): a classifier trained on closely cropped cars, slid with a stride, then with bigger windows. OverFeat (2013) worked like this; R-CNN (2014) classified about 2,000 proposed crops per image.
 
-**Transition:** Look at two neighbouring windows.
-
-**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
-
-## shared-work: Neighbouring windows see almost the same pixels
-
-**Build 1:** Classify neighbouring windows separately and the features of their shared pixels are computed again and again.
-
-- Ask: How much do neighbouring windows overlap?
-- Expected: 192 of every 224 columns: 86%.
-
-**Build 2:** If that shared work were done once, all the runs could collapse into one. A small example shows how a CNN does it.
-
-- Ask: Where is the waste?
-- Expected: The features of the shared pixels are computed once for every window that contains them.
-
-**Point here:** Ng calls the fix the convolutional implementation of sliding windows (after OverFeat, Sermanet et al., 2014): build the classifier from convolutions only, and the whole photo is classified at every position in one pass.
-
-**Transition:** A small example.
+**Transition:** Can one pass do all the windows?
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
 ## conv-windows: A small example: the same classifier on a bigger image
 
-**Build 1:** A classifier built only from convolutions and pooling turns a 14 × 14 crop into one answer. Each 5 × 5 convolution trims 4 from the size.
+**Build 1:** Neighbouring windows overlap, so most of their work is repeated. Ng’s trick: build the classifier from convolutions only. On a 14 × 14 crop it gives one answer.
 
 - Ask: What does a 5 × 5 convolution do to a 14 × 14 input?
 - Expected: It gives 10 × 10: 14 − 5 + 1 = 10.
@@ -1073,12 +969,12 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 
 ## centre-cell: Which cell answers for the dog? The one that holds its centre
 
-**Build 1:** The rule: the cell that holds an object’s centre answers for it. Divide the dog’s centre by 320 and round down: cell (1, 1).
+**Build 1:** The rule: the cell that holds an object’s centre answers for it. The dog’s centre lands in the bottom-middle cell, (1, 1).
 
 - Ask: Which cell holds the dog’s centre?
 - Expected: (1, 1): row 1, column 1.
 
-**Build 2:** The cat’s centre falls in cell (1, 0). Each object gets exactly one cell, fixed by where it is, so the list order no longer matters.
+**Build 2:** The cat’s centre lands in cell (1, 0). Each object gets exactly one cell, fixed by where it is.
 
 - Ask: Why does this rule solve Part 4’s order problem?
 - Expected: Each object’s cell is fixed by where the object is, not by its place in the annotation list.
@@ -1094,7 +990,7 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 **Build 1:** b_x and b_y say where the dog’s centre sits inside its cell: 0 at the cell’s left or top edge, 1 at its right or bottom edge.
 
 - Ask: Where is the dog’s centre inside its cell?
-- Expected: b_x = 267.5 ÷ 320 = 0.836 across, b_y = 15.5 ÷ 320 = 0.048 down: near the cell’s top right.
+- Expected: About 0.84 across and 0.05 down: near the cell’s top right.
 
 **Build 2:** b_w and b_h give the size, counted in cells. The box is not confined to its cell: the dog is wider than one cell and about 1.6 cells tall.
 
@@ -1112,12 +1008,12 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 **Build 1:** The whole target, cell by cell. Cell (1, 1) holds the dog’s centre: object? 1, the box in cell units, dog 1.
 
 - Ask: What is the target in the dog’s cell?
-- Expected: (1, 0.836, 0.048, 1.128, 1.578, 0, 1).
+- Expected: (1, 0.84, 0.05, 1.13, 1.58, 0, 1).
 
 **Build 2:** Cell (1, 0) holds the cat’s centre: object? 1, its box, cat 1.
 
 - Ask: And in the cat’s?
-- Expected: (1, 0.677, 0.411, 0.653, 0.972, 1, 0).
+- Expected: (1, 0.68, 0.41, 0.65, 0.97, 1, 0).
 
 **Build 3:** The other four cells hold no centre: object? is 0 and the rest is “?”, as for Part 4’s empty floor. These 42 numbers are the target.
 
@@ -1143,6 +1039,29 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 - Expected: Cell (1, 1) of the photo, the one with the dog’s centre.
 
 **Point here:** Ng: input 100 × 100 × 3, a ConvNet, output 3 × 3 × 8; because it is one convolutional pass, YOLO runs fast enough for video.
+
+**Transition:** Train it: compare with the target.
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## loss-grid: Training: Part 4’s loss, cell by cell
+
+**Build 1:** Training compares the network’s block with the target, one cell at a time. In the two cells with a centre every number counts, as for Part 4’s cat photo.
+
+- Ask: Which numbers count in the dog’s cell?
+- Expected: All seven: object?, the box and the two class scores.
+
+**Build 2:** In the four empty cells only object? counts, as for Part 4’s empty floor.
+
+- Ask: Which count in an empty cell?
+- Expected: Only object?.
+
+**Build 3:** Add up the six cells’ losses and lower the total by gradient descent. One loss trains the whole network.
+
+- Ask: How is the network trained?
+- Expected: Add the cells’ losses into one number and lower it by gradient descent.
+
+**Point here:** YOLOv1 weighted the box terms by 5 and the empty cells’ object? terms by 0.5, because empty cells far outnumber the others. Appendix B works the loss through with the real network’s numbers.
 
 **Transition:** One record per cell: is that always enough?
 
@@ -1178,137 +1097,35 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 - Ask: How many cells does YOLOv8n’s grid have on our photo?
 - Expected: 30 × 20 = 600.
 
-**Build 2:** The same rule picks the dog’s cell: its centre falls in cell (10, 18).
+**Build 2:** Same rule, smaller cells: the dog’s centre falls in cell (10, 18). Each record also has a score for each of the 80 COCO classes.
 
 - Ask: Which cell holds the dog’s centre now?
 - Expected: (10, 18).
 
-**Build 3:** Measured in these small cells, the dog’s box is about 11 cells wide and 16 tall.
-
-- Ask: Why is b_w now about 11?
-- Expected: The cells are 32 pixels, and the dog is 361 pixels wide: 361 ÷ 32 = 11.281.
-
 **Point here:** YOLOv8n also reads two finer grids, of 16- and 8-pixel cells, for small objects (Part 7).
 
-**Transition:** And the record changes a little.
+**Transition:** At test time: read a box out of the dog’s cell.
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
-
-## record-84: In practice: 80 classes, and no “object?”
-
-**Build 1:** YOLOv8n knows the 80 COCO classes, so its record has the 4 box numbers and 80 class scores: 84 numbers per cell.
-
-- Ask: How many numbers does each cell write?
-- Expected: 84: 4 for the box and 80 class scores.
-
-**Build 2:** It drops “object?”: a cell says “nothing here” by giving every class a low score.
-
-- Ask: How does a cell say “nothing here”?
-- Expected: By giving all 80 classes a low score.
-
-**Build 3:** The whole output, for any photo this size: 30 × 20 × 84 numbers, written in one pass.
-
-- Ask: How many numbers does the whole grid write?
-- Expected: 30 × 20 × 84 = 50,400.
-
-**Point here:** YOLOv1 to YOLOv5 kept an object score like Ng’s p_c; YOLOv8 folds it into the class scores.
-
-**Transition:** Now what the trained network wrote at the dog’s cell.
-
-**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
-
-## prediction-record: What the trained network wrote at cell (10, 18)
-
-**Build 1:** The real network’s scores at this cell: dog a little below its target of 1, every other class near its target of 0.
-
-- Ask: How far is each class score from its target?
-- Expected: Dog: 1 − 0.871 = 0.129 too low; the others are near 0, their target.
-
-**Build 2:** Its box, in cell units, is close to the target too. The loss turns all these differences into one number to reduce.
-
-- Ask: Which box number is furthest off?
-- Expected: b_h: 16.015 against 15.781, 0.234 cells.
-
-**Point here:** YOLOv8n’s box at this cell is (588.42, 331.88, 362.35, 512.49) in pixels, centre and size; divided into cell units as on the previous slides.
-
-**Transition:** The class part of the loss.
-
-**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
-
-## bce: Scoring one yes/no answer: binary cross-entropy
-
-**Build 1:** A class score answers one yes/no question. If the answer is yes, the loss is −log p; if no, −log(1 − p), the same curve mirrored.
-
-- Ask: What is the loss for a yes answered with p = 1?
-- Expected: 0: −log 1 = 0.
-
-**Build 2:** For a yes: sure and right costs almost nothing; unsure (0.5) costs 0.69; sure and wrong (0.1) costs 2.30. Our dog cell, 0.871: 0.139.
-
-- Ask: Why does the curve shoot up near p = 0?
-- Expected: Being confidently wrong is punished hardest: −log p grows without bound as p → 0.
-
-**Point here:** The two cases are one formula: BCE(p, y) = −[y log p + (1 − y) log(1 − p)].
-
-**Transition:** Apply it to all 80 questions at our cell.
-
-## loss-cells: The loss at two cells: the dog’s, and an empty one
-
-**Build 1:** At the dog’s cell, the class part: dog is a yes, so −log 0.871. The other 79 are near-certain noes and add almost nothing.
-
-- Ask: Where does most of the dog cell’s class loss come from?
-- Expected: From the dog question: −log 0.871 = 0.139.
-
-**Build 2:** The box part: the L1 distance between the predicted and the target box numbers, in cells, as in Part 4.
-
-- Ask: How is the box part computed?
-- Expected: Four absolute differences: 0.029 + 0.113 + 0.042 + 0.234 = 0.418.
-
-**Build 3:** At an empty cell there is no box to compare, only the class part, and it is tiny: every class there is already near 0.
-
-- Ask: Why is there no box term at an empty cell?
-- Expected: There is no object there, so no box to compare with.
-
-**Point here:** Ng’s localiser used squared errors throughout; detectors today use binary cross-entropy for the classes and an L1 or IoU-based box loss.
-
-**Transition:** Put the pieces together.
-
-## loss-total: The loss for the whole photo
-
-**Build 1:** The loss for the photo: class terms from every cell, box terms only from the cells that hold an object.
-
-- Ask: Which cells add class terms? Box terms?
-- Expected: Every cell; only the object cells.
-
-**Build 2:** Count them for our photo. The 598 empty cells still matter: they learn to say nothing.
-
-- Ask: How many class terms are there?
-- Expected: 600 × 80 = 48,000.
-
-**Build 3:** Every cell uses the same weights, so every cell learns from every object in every photo.
-
-- Ask: Why does every cell learn from the dog?
-- Expected: The weights are shared: the same layers write every cell’s record.
-
-**Point here:** Real detectors weight the two parts and average over objects: YOLOv1 used 5 for the box terms and 0.5 for empty cells. YOLOv8’s loss has the same structure over its three grids.
-
-**Transition:** At test time there are no annotations: read the boxes out.
 
 ## decode: At test time: read the box back out of the cell
 
-**Build 1:** At test time there is no annotation, only what the cell wrote. Undo the cell units: the centre is the cell’s corner plus b_x and b_y cells.
+**Build 1:** At test time there is no annotation, only what the cell wrote: four box numbers and a score for each class. Dog scores 0.87.
 
-- Ask: Where is the box’s centre?
-- Expected: (588.4, 331.9).
+- Ask: What did the dog’s cell write?
+- Expected: Box numbers about (0.39, 0.37, 11.3, 16.0) and a dog score of 0.87.
 
-**Build 2:** The size is b_w and b_h cells, times 32 pixels. The corners follow as in Part 3: the box sits on the dog.
+**Build 2:** Undo the cell units: the centre is the cell’s corner plus b_x and b_y cells, and the size is b_w and b_h cells, all times 32.
 
-- Ask: How big is the box?
-- Expected: 362.3 × 512.5 pixels.
+- Ask: Where is the box’s centre, in pixels?
+- Expected: About (588, 332).
 
-**Build 3:** Its label is the class with the highest score, and that score is the box’s score.
+**Build 3:** The box sits on the dog. Its label is the best class, dog, and its score is 0.87.
 
 - Ask: Which score does the box get?
-- Expected: The largest of its 80 class scores: 0.871, dog.
+- Expected: Its best class score: 0.87, dog.
+
+**Point here:** These are YOLOv8n’s real outputs at cell (10, 18), turned into cell units. Appendix B compares them with the target.
 
 **Transition:** Every cell does this. Look at them all.
 
@@ -2029,10 +1846,96 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 
 **Build 1:** The other answer to the lecture’s question: DETR, 100 slots that read the image with attention, matched to objects instead of cleaned up by NMS.
 
-- Ask: What were the two problems of K slots in Part 4?
-- Expected: Too few slots for some photos, and no rule for which slot answers for which object.
+- Ask: Why not simply give the head several box outputs?
+- Expected: Then you must choose how many, and decide which output answers for which object.
 
-**Transition:** Fix them one at a time.
+**Transition:** Start with K slots.
+
+## k-slots: Give the head K slots (optional)
+
+**Build 1:** Give the head K slots instead of one. Each slot holds a record like the one-object target: a class and four box numbers. Here K = 5.
+
+- Ask: What does each slot write?
+- Expected: A class and four box numbers, like the one-object head.
+
+**Build 2:** The target for our photo puts the dog in one slot and the cat in another, with their boxes in normalised units.
+
+- Ask: Why the dog in slot 1 and not slot 4?
+- Expected: No reason: the slots have no order. That choice comes back as Problem 2.
+
+**Build 3:** The three spare slots need a way to say “nothing here”: one more class, no object. Their boxes have no right answer, so they are “?”.
+
+- Ask: What should a spare slot predict?
+- Expected: The class “no object”. Its box is left out of the loss.
+
+**Build 4:** However many objects a photo has, the output keeps one size: K slots, each with C class scores, a no-object score and four box numbers.
+
+- Ask: How many numbers for K = 5 and C = 80?
+- Expected: 5 × (80 + 1 + 4) = 425.
+
+**Transition:** What if a photo has more objects than slots?
+
+**Source:** Our annotation of the courtyard photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## slots-crowd: Problem 1: more objects than slots (optional)
+
+**Build 1:** Problem 1: the crowd photo has 11 people. A head with K = 5 slots can report at most 5 of them, however well it is trained.
+
+- Ask: How many of the 11 people can a 5-slot head report?
+- Expected: At most 5.
+
+**Build 2:** So make K larger than any photo needs, say 100. Here 11 slots would hold a person, and the other 89 would say “no object”.
+
+- Ask: How large should K be?
+- Expected: Larger than the number of objects in any photo you expect.
+
+**Point here:** K is fixed when the network is built, so it must cover the most crowded photo you expect; the spare slots learn “no object”.
+
+**Transition:** Problem 2 is harder: which object goes in which slot?
+
+**Source:** Our annotation of the crowd photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## slot-order: Problem 2: which dog belongs in slot 1? (optional)
+
+**Build 1:** Suppose the head is perfect: slot 1 boxes the left dog exactly, slot 2 the right dog. Nothing could be more right.
+
+- Ask: Are the two slots’ boxes correct?
+- Expected: Yes, exactly: they are the annotated boxes.
+
+**Build 2:** But the annotator happened to list the right dog first. Compare slot k with entry k: each slot is a whole dog away from its entry, 0.603 in normalised units.
+
+- Ask: What is the loss if slot k is compared with entry k?
+- Expected: 1.206: 0.603 for each slot, mostly the half-photo gap between the two centres.
+
+**Build 3:** Compare each slot with the dog it actually boxed: both differences are 0.
+
+- Ask: And if each slot is compared with its own dog?
+- Expected: 0.
+
+**Build 4:** Nothing about the prediction changed, only the order of the list. A loss that pairs outputs with targets by position punishes a perfect answer.
+
+- Ask: What must the loss do instead?
+- Expected: Pair each output with the object it describes, whatever the list order.
+
+**Point here:** The L1 sums are over normalised (c_x, c_y, w, h). The list order here is made up for the example: whoever labels a photo lists its objects in some order, and nothing makes it match the slots.
+
+**Transition:** Two ways to pair outputs with objects.
+
+**Source:** Our annotation of the two-dog photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## two-fixes: Two ways to decide which output answers for which object (optional)
+
+**Build 1:** Fix A gives every output a fixed place in the image, and whatever is there is its job, so order cannot matter.
+
+- Ask: How does fix A remove the order problem?
+- Expected: An output answers for the object at its place; there is nothing to order.
+
+**Build 2:** Fix B keeps free slots and, before each loss, matches them to objects at the lowest total cost, so order cannot matter either.
+
+- Ask: How does fix B?
+- Expected: The pairing is chosen by cost, not by position in the list.
+
+**Transition:** DETR: fix B, step by step.
 
 ## slots-again: Back to the slots, with three changes (optional)
 
@@ -2381,6 +2284,105 @@ Planned main route: 118 minutes, including student responses. Optional slides ar
 **Point here:** This is the anchor-free form of FCOS (2019) and YOLOv8 (2023). YOLOv1 (2016) instead predicted the centre’s offset inside the cell and the box’s width and height: optional slide.
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## record-84: YOLOv8n’s record: 80 classes, and no “object?” (optional)
+
+**Build 1:** YOLOv8n knows the 80 COCO classes, so its record has the 4 box numbers and 80 class scores: 84 numbers per cell.
+
+- Ask: How many numbers does each cell write?
+- Expected: 84: 4 for the box and 80 class scores.
+
+**Build 2:** It drops “object?”: a cell says “nothing here” by giving every class a low score.
+
+- Ask: How does a cell say “nothing here”?
+- Expected: By giving all 80 classes a low score.
+
+**Build 3:** The whole output, for any photo this size: 30 × 20 × 84 numbers, written in one pass.
+
+- Ask: How many numbers does the whole grid write?
+- Expected: 30 × 20 × 84 = 50,400.
+
+**Point here:** YOLOv1 to YOLOv5 kept an object score like Ng’s p_c; YOLOv8 folds it into the class scores.
+
+**Transition:** Now what the trained network wrote at the dog’s cell.
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## prediction-record: What the trained network wrote at cell (10, 18) (optional)
+
+**Build 1:** The real network’s scores at this cell: dog a little below its target of 1, every other class near its target of 0.
+
+- Ask: How far is each class score from its target?
+- Expected: Dog: 1 − 0.871 = 0.129 too low; the others are near 0, their target.
+
+**Build 2:** Its box, in cell units, is close to the target too. The loss turns all these differences into one number to reduce.
+
+- Ask: Which box number is furthest off?
+- Expected: b_h: 16.015 against 15.781, 0.234 cells.
+
+**Point here:** YOLOv8n’s box at this cell is (588.42, 331.88, 362.35, 512.49) in pixels, centre and size; divided into cell units as on the previous slides.
+
+**Transition:** The class part of the loss.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## bce: Scoring one yes/no answer: binary cross-entropy (optional)
+
+**Build 1:** A class score answers one yes/no question. If the answer is yes, the loss is −log p; if no, −log(1 − p), the same curve mirrored.
+
+- Ask: What is the loss for a yes answered with p = 1?
+- Expected: 0: −log 1 = 0.
+
+**Build 2:** For a yes: sure and right costs almost nothing; unsure (0.5) costs 0.69; sure and wrong (0.1) costs 2.30. Our dog cell, 0.871: 0.139.
+
+- Ask: Why does the curve shoot up near p = 0?
+- Expected: Being confidently wrong is punished hardest: −log p grows without bound as p → 0.
+
+**Point here:** The two cases are one formula: BCE(p, y) = −[y log p + (1 − y) log(1 − p)].
+
+**Transition:** Apply it to all 80 questions at our cell.
+
+## loss-cells: The loss at two cells: the dog’s, and an empty one (optional)
+
+**Build 1:** At the dog’s cell, the class part: dog is a yes, so −log 0.871. The other 79 are near-certain noes and add almost nothing.
+
+- Ask: Where does most of the dog cell’s class loss come from?
+- Expected: From the dog question: −log 0.871 = 0.139.
+
+**Build 2:** The box part: the L1 distance between the predicted and the target box numbers, in cells, as in Part 4.
+
+- Ask: How is the box part computed?
+- Expected: Four absolute differences: 0.029 + 0.113 + 0.042 + 0.234 = 0.418.
+
+**Build 3:** At an empty cell there is no box to compare, only the class part, and it is tiny: every class there is already near 0.
+
+- Ask: Why is there no box term at an empty cell?
+- Expected: There is no object there, so no box to compare with.
+
+**Point here:** Ng’s localiser used squared errors throughout; detectors today use binary cross-entropy for the classes and an L1 or IoU-based box loss.
+
+**Transition:** Put the pieces together.
+
+## loss-total: The loss for the whole photo, on the real grid (optional)
+
+**Build 1:** The loss for the photo: class terms from every cell, box terms only from the cells that hold an object.
+
+- Ask: Which cells add class terms? Box terms?
+- Expected: Every cell; only the object cells.
+
+**Build 2:** Count them for our photo. The 598 empty cells still matter: they learn to say nothing.
+
+- Ask: How many class terms are there?
+- Expected: 600 × 80 = 48,000.
+
+**Build 3:** Every cell uses the same weights, so every cell learns from every object in every photo.
+
+- Ask: Why does every cell learn from the dog?
+- Expected: The weights are shared: the same layers write every cell’s record.
+
+**Point here:** Real detectors weight the two parts and average over objects: YOLOv1 used 5 for the box terms and 0.5 for empty cells. YOLOv8’s loss has the same structure over its three grids.
+
+**Transition:** At test time there are no annotations: read the boxes out.
 
 ## opt-two-stage: Two-stage detectors: propose, then classify (optional)
 

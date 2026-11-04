@@ -44,6 +44,7 @@
 .yvec>div small{display:block;font-size:17px;color:var(--muted);margin-bottom:2px;font-weight:600}
 .yvec .t{border-color:#0F766E88}.yvec .q{border-color:#AAB3BC;color:var(--muted)}
 .yvec.sm{--yc:62px;font-size:20px;grid-auto-rows:64px}.yvec.sm>div small{font-size:14px}
+.loss-row{display:flex;align-items:center;gap:18px}.loss-row>.sl{width:130px;font-size:20px;color:var(--muted);font-weight:600}
 /* K slots: one row per slot, a class and four box numbers, all cells one size */
 .slotgrid{display:grid;grid-template-columns:auto 150px repeat(4,88px);grid-template-rows:34px;grid-auto-rows:48px;gap:8px;font-size:24px;font-variant-numeric:tabular-nums}
 .slotgrid>b{align-self:end;text-align:center;font-size:19px;color:var(--muted);font-weight:600}
