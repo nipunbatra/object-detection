@@ -125,6 +125,7 @@ def yolo_all():
                 k = off + rr * gw + cc
                 rec = yolo_record(raw, meta, k, names)
                 rec['scores'] = [float(v) for v in raw[k, 4:]]  # all 80, unrounded, for the loss
+                rec['cxcywh'] = [round(float(v), 2) for v in raw[k, :4]]  # the column's first four rows, as printed
                 photo[tag] = rec
             # the highest score anywhere on each level, per class, for the level slide
             photo['level_max'] = {}

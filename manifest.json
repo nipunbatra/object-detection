@@ -4,7 +4,7 @@
   "title": "Object detection",
   "series": "ES 667 Deep Learning",
   "subtitle": "From one label to a set of objects",
-  "minutes": 110,
+  "minutes": 118,
   "notebook": "object-detection.ipynb",
   "sections": [
     {
@@ -25,12 +25,12 @@
     {
       "id": "boxes",
       "title": "Part 3 · Boxes and IoU",
-      "minutes": 14
+      "minutes": 16
     },
     {
       "id": "onebox",
       "title": "Part 4 · One box, then many",
-      "minutes": 10
+      "minutes": 13
     },
     {
       "id": "dense",
@@ -40,7 +40,7 @@
     {
       "id": "nms",
       "title": "Part 6 · One box per object: NMS",
-      "minutes": 13
+      "minutes": 16
     },
     {
       "id": "scales",
@@ -68,9 +68,9 @@
       "minutes": 0
     }
   ],
-  "coreSlides": 107,
-  "optionalSlides": 23,
-  "totalStates": 293,
+  "coreSlides": 105,
+  "optionalSlides": 24,
+  "totalStates": 316,
   "slides": [
     {
       "id": "title",
@@ -333,12 +333,20 @@
       "title": "IoU, step 1: the overlap rectangle",
       "section": "boxes",
       "chapter": "3.2 Comparing two boxes: IoU",
-      "builds": 4,
+      "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "iou-overlap-area",
+      "title": "IoU, step 2: the overlap’s area",
+      "section": "boxes",
+      "chapter": "3.2 Comparing two boxes: IoU",
+      "builds": 3,
       "optional": false
     },
     {
       "id": "iou-union",
-      "title": "IoU, step 2: the union, then the ratio",
+      "title": "IoU, step 3: the union, then the ratio",
       "section": "boxes",
       "chapter": "3.2 Comparing two boxes: IoU",
       "builds": 3,
@@ -365,7 +373,7 @@
       "title": "IoU in code: every pair at once",
       "section": "boxes",
       "chapter": "3.2 Comparing two boxes: IoU",
-      "builds": 2,
+      "builds": 8,
       "optional": false
     },
     {
@@ -421,7 +429,23 @@
       "title": "Give the head K slots",
       "section": "onebox",
       "chapter": "4.2 Several objects, several slots",
-      "builds": 3,
+      "builds": 4,
+      "optional": false
+    },
+    {
+      "id": "slots-real",
+      "title": "A real detector with K = 100: DETR’s slots on our photo",
+      "section": "onebox",
+      "chapter": "4.2 Several objects, several slots",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "slots-crowd",
+      "title": "Problem 1: more objects than slots",
+      "section": "onebox",
+      "chapter": "4.2 Several objects, several slots",
+      "builds": 2,
       "optional": false
     },
     {
@@ -481,10 +505,18 @@
       "optional": false
     },
     {
-      "id": "one-pass",
-      "title": "One pass of a CNN: a 30 × 20 grid of feature vectors",
+      "id": "conv-windows",
+      "title": "A small example: the same classifier on a bigger image",
       "section": "dense",
       "chapter": "5.1 From sliding windows to one pass",
+      "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "one-pass",
+      "title": "The same trick on our photo: a 30 × 20 grid of cells",
+      "section": "dense",
+      "chapter": "5.2 A grid of cells, each writing a record",
       "builds": 2,
       "optional": false
     },
@@ -492,95 +524,47 @@
       "id": "cell-window",
       "title": "One cell: an address on the photo, with a wide view",
       "section": "dense",
-      "chapter": "5.1 From sliding windows to one pass",
+      "chapter": "5.2 A grid of cells, each writing a record",
       "builds": 2,
       "optional": false
     },
     {
-      "id": "cell-record",
-      "title": "Every cell writes a record: 4 box numbers, 80 class scores",
+      "id": "cell-vector",
+      "title": "Every cell writes the same kind of record",
       "section": "dense",
-      "chapter": "5.2 What each cell writes",
+      "chapter": "5.2 A grid of cells, each writing a record",
       "builds": 3,
       "optional": false
     },
     {
-      "id": "raw-output",
-      "title": "What actually comes out: one tensor of fixed shape",
-      "section": "dense",
-      "chapter": "5.2 What each cell writes",
-      "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "raw-column",
-      "title": "One column is one cell’s record",
-      "section": "dense",
-      "chapter": "5.2 What each cell writes",
-      "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "ltrb",
-      "title": "How a cell describes a box: its distances to the four sides",
-      "section": "dense",
-      "chapter": "5.2 What each cell writes",
-      "builds": 5,
-      "optional": false
-    },
-    {
       "id": "centre-cell",
-      "title": "The simplest rule: the cell that holds the centre",
+      "title": "Which cell answers for the dog? The one that holds its centre",
       "section": "dense",
-      "chapter": "5.3 Which cells answer for an object",
+      "chapter": "5.3 Which cell answers for an object",
       "builds": 2,
       "optional": false
     },
     {
-      "id": "which-cells",
-      "title": "More cells per object: every cell inside the box?",
+      "id": "cell-box",
+      "title": "The dog’s box, measured in cells",
       "section": "dense",
-      "chapter": "5.3 Which cells answer for an object",
-      "builds": 1,
-      "optional": false
-    },
-    {
-      "id": "centre-block",
-      "title": "A middle way: a block of cells around the centre",
-      "section": "dense",
-      "chapter": "5.3 Which cells answer for an object",
+      "chapter": "5.3 Which cell answers for an object",
       "builds": 2,
       "optional": false
     },
     {
-      "id": "fires",
-      "title": "The trained YOLOv8n: about ten cells fire per object",
+      "id": "target-photo",
+      "title": "The target for the whole photo, cell by cell",
       "section": "dense",
-      "chapter": "5.3 Which cells answer for an object",
-      "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "target-positive",
-      "title": "The target at a positive cell, (10, 18)",
-      "section": "dense",
-      "chapter": "5.3 Which cells answer for an object",
-      "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "target-background",
-      "title": "The target at a background cell: all zeros, and “?”",
-      "section": "dense",
-      "chapter": "5.3 Which cells answer for an object",
-      "builds": 1,
+      "chapter": "5.3 Which cell answers for an object",
+      "builds": 3,
       "optional": false
     },
     {
       "id": "prediction-record",
-      "title": "What the network wrote at cell (10, 18)",
+      "title": "What the trained network wrote at cell (10, 18)",
       "section": "dense",
-      "chapter": "5.3 Which cells answer for an object",
+      "chapter": "5.4 The loss",
       "builds": 2,
       "optional": false
     },
@@ -602,18 +586,10 @@
     },
     {
       "id": "loss-box",
-      "title": "Box loss: how far off are the four distances?",
+      "title": "Box loss: how far off are the four box numbers?",
       "section": "dense",
       "chapter": "5.4 The loss",
       "builds": 2,
-      "optional": false
-    },
-    {
-      "id": "loss-iou",
-      "title": "A box loss that does not care about size: 1 − IoU",
-      "section": "dense",
-      "chapter": "5.4 The loss",
-      "builds": 1,
       "optional": false
     },
     {
@@ -633,14 +609,6 @@
       "optional": false
     },
     {
-      "id": "loss-code",
-      "title": "The same loss in code",
-      "section": "dense",
-      "chapter": "5.4 The loss",
-      "builds": 2,
-      "optional": false
-    },
-    {
       "id": "decode",
       "title": "At test time: read the box back out of the cell",
       "section": "dense",
@@ -654,6 +622,22 @@
       "section": "dense",
       "chapter": "5.5 Reading boxes back out",
       "builds": 1,
+      "optional": false
+    },
+    {
+      "id": "fires",
+      "title": "About ten cells fire for each animal",
+      "section": "dense",
+      "chapter": "5.5 Reading boxes back out",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "every-box",
+      "title": "Every cell draws a box, even on the wall",
+      "section": "dense",
+      "chapter": "5.5 Reading boxes back out",
+      "builds": 2,
       "optional": false
     },
     {
@@ -746,10 +730,10 @@
     },
     {
       "id": "nms-code",
-      "title": "NMS in code",
+      "title": "NMS in code, one line at a time",
       "section": "nms",
       "chapter": "6.2 Thresholds and classes",
-      "builds": 2,
+      "builds": 8,
       "optional": false
     },
     {
@@ -757,15 +741,15 @@
       "title": "The dense answer, end to end",
       "section": "nms",
       "chapter": "6.2 Thresholds and classes",
-      "builds": 2,
+      "builds": 3,
       "optional": false
     },
     {
       "id": "detect-code",
-      "title": "The whole detector at test time, in eight lines",
+      "title": "The whole detector at test time, one line at a time",
       "section": "nms",
       "chapter": "6.2 Thresholds and classes",
-      "builds": 2,
+      "builds": 8,
       "optional": false
     },
     {
@@ -1070,6 +1054,14 @@
       "section": "optional",
       "chapter": "",
       "builds": 1,
+      "optional": true
+    },
+    {
+      "id": "opt-ltrb",
+      "title": "YOLOv8’s box: four distances from the cell centre",
+      "section": "optional",
+      "chapter": "",
+      "builds": 5,
       "optional": true
     },
     {

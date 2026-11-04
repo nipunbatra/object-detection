@@ -96,6 +96,13 @@ S['iou_gallery'] = [{'iou': t, 'shift': round(w * (1 - t) / (1 + t))} for t in (
 for g in S['iou_gallery']:
     b = [dog[0] + g['shift'], dog[1], dog[2] + g['shift'], dog[3]]
     assert abs(iou(dog, b) - g['iou']) < 0.005
+# the IoU figure's two answers: a loose box round the whole dog (twice its area, IoU 1/2)
+# and a box that keeps the body but cuts off the head (IoU 0.7)
+loose, headless = [283, 30, 891, 630], [dog[0], 234, dog[2], dog[3]]
+S['iou_answers'] = {'loose': {'box': loose, 'iou': r(iou(dog, loose)), 'ratio': r(area(loose) / area(dog), 2)},
+                    'headless': {'box': headless, 'iou': r(iou(dog, headless)), 'cut': headless[1] - dog[1]}}
+assert inter(dog, loose)[1] == area(dog) and abs(S['iou_answers']['loose']['iou'] - 0.5) < 0.001
+assert inter(dog, headless)[1] == area(headless) and abs(S['iou_answers']['headless']['iou'] - 0.7) < 0.002
 
 # ---------------------------------------------------------------- Part 3: one box head, and the average of two answers
 avg = [(a + b) / 2 for a, b in zip(cat, dog)]
@@ -170,6 +177,12 @@ S['cell'] = {'row': 10, 'col': 18, 'centre': [ax, ay], 'target_ltrb': target, 't
              'bg_row': bg['row'], 'bg_col': bg['col'], 'bg_top': bg['top'], 'bg_bce': r(sum(bg_terms), 4),
              'bg_max': r(max(bg['scores']), 4), 'scores': [round(v, 5) for v in sc], 'names': names}
 assert abs(S['cell']['bce_dog'] - (-math.log(sc[ci]))) < 5e-4
+# where the dog cell's record sits in the output: the stride-8 and stride-16 columns come first; its first four rows
+# are the box already decoded to centre and size, the same box as the distances (x1 = cx - w/2 = centre - l)
+S['cell']['k'] = cell['k']
+S['cell']['cxcywh'] = cell['cxcywh']
+assert cell['k'] == P['per_level'][0] + P['per_level'][1] + 10 * gw + 18
+assert abs(cell['cxcywh'][0] - cell['cxcywh'][2] / 2 - (ax - pred[0])) < 0.1
 S['counts'] = {'cells': P['n'], 'positives': len(pos_dog) + len(pos_cat)}
 S['counts']['background'] = S['counts']['cells'] - S['counts']['positives']
 
@@ -187,6 +200,10 @@ dr = [x for x in rounds if x['keep']['name'] == 'dog'][0]
 S['nms_courtyard']['dog_round'] = {'keep': strip(dr['keep']),
                                    'removed': [dict(strip(k), iou=r(v)) for k, v in sorted(dr['removed'], key=lambda kv: -kv[0]['score'])]}
 assert len(dr['removed']) == 9 and min(v for _, v in dr['removed']) > 0.9
+# the nms() written on the code slide ignores classes; on these 31 boxes it keeps the same four, one round each
+keep_a, rounds_a = nms(cands, 0.7, key=None)
+assert [k['score'] for k in keep_a] == [k['score'] for k in keep]
+S['nms_courtyard']['rounds'] = [{'keep': strip(x['keep']), 'removed': [dict(strip(k), iou=r(v)) for k, v in x['removed']]} for x in rounds_a]
 
 # the same greedy loop on the crowd photo, for several thresholds
 crowd = [k for k in Y['photos']['crowd']['candidates'] if k['name'] == 'person' and k['score'] >= 0.25]
@@ -466,6 +483,25 @@ assert len(tk) == 2 and max(x['iou'] for x in S['nms_two_dogs']['left_after_1'])
 
 # what a label file holds for the courtyard: a COCO class index and a normalised (cx, cy, w, h)
 S['label_file'] = [{'name': n, 'id': Y['names'].index(n), 'norm': S[n]['norm']} for n in ('dog', 'cat')]
+
+# DETR's 100 slots: on the courtyard, how many say "no object" and how many are sure of one;
+# on the crowd photo, how many slots it fills (score 0.9 or more) for the 11 annotated people
+S['detr']['n_sure'] = sum(q['p'] >= 0.9 for q in S['detr']['objects'])
+assert len(S['detr']['p_none']) == 100 and S['detr']['n_none_50'] == 93 and S['detr']['n_sure'] == 5
+dc = S['detr_finals']['crowd']
+S['detr_crowd'] = {'used': len(dc), 'people': sum(k['name'] == 'person' for k in dc),
+                   'bags': sum(k['name'] in ('backpack', 'handbag') for k in dc), 'annotated': len(S['annotations']['crowd'])}
+assert S['detr_crowd'] == {'used': 16, 'people': 10, 'bags': 6, 'annotated': 11}
+
+# Part 5 in Andrew Ng's YOLO form: a box as its centre's place inside its cell (0 to 1) and its size in cells
+def in_cell(c, row, col, s=32):
+    return [r((c[0] - col * s) / s), r((c[1] - row * s) / s), r(c[2] / s), r(c[3] / s)]
+S['ng'] = {'dog': in_cell([S['dog'][k] for k in ('cx', 'cy', 'w', 'h')], 10, 18),
+           'cat': in_cell(S['cat']['cxcywh'], *S['centre_cells']['cat']['cell']), 'pred': in_cell(S['cell']['cxcywh'], 10, 18)}
+S['ng']['l1_terms'] = [r(abs(a - b)) for a, b in zip(S['ng']['pred'], S['ng']['dog'])]
+S['ng']['l1'] = r(sum(S['ng']['l1_terms']))
+assert S['ng']['dog'] == [0.359, 0.484, 11.281, 15.781] and S['ng']['cat'] == [0.766, 0.109, 6.531, 9.719]
+assert S['ng']['pred'] == [0.388, 0.371, 11.323, 16.015] and S['ng']['l1'] == 0.418
 
 (ROOT / 'data/science.json').write_text(json.dumps(S, separators=(',', ':')))
 print('wrote data/science.json', round((ROOT / 'data/science.json').stat().st_size / 1e3), 'kB')

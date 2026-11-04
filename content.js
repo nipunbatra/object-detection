@@ -1,6 +1,6 @@
 // Object detection, Lecture 22 of ES 667. One photo carries the lecture: a cat and a dog in a courtyard.
 // Every number comes from data/science.json, which scripts/science.py computes from real YOLOv8n and DETR outputs.
-import {m,eq,at,only,cols,code,table,flow,palette,esc} from './shared/author.js';
+import {m,eq,at,only,cols,code,table,flow,palette,esc,highlight} from './shared/author.js';
 import {photo,rect,pill,label,line,arrow,gridLines,cell,heat,fig,svg,widget,panel,num,big,COL,MUTED,iouParts,mount as mountWidgets} from './widgets.js';
 
 const S=await fetch(new URL('./data/science.json',import.meta.url),{cache:'no-cache'}).then(r=>r.json());
@@ -12,6 +12,8 @@ const stack=(...a)=>`<div class="equation-stack">${a.join('')}</div>`;
 const ps=s=>`<p class="small">${s}</p>`;
 const bt=v=>big(v).replaceAll(',','{,}');   // a thousands comma inside TeX, without KaTeX's list spacing
 const sm=(...a)=>`<div class="equation-stack eq-sm">${a.join('')}</div>`;
+/** Code shown one line per click: rows are [build, line], build 0 for a line always shown; the line of the current click is tinted. */
+const codeSteps=rows=>`<pre class="code code-steps"><code>${rows.map(([b,l])=>`<span class="cl"${b?` data-at="${b}"`:''}>${highlight(l)||' '}</span>`).join('')}</code></pre>`;
 /** Reveals inside an SVG figure: an HTML wrapper would break out of the SVG, so use a group. */
 const gat=(b,svgInner)=>`<g data-at="${b}">${svgInner}</g>`,gonly=(b,svgInner)=>`<g data-only="${b}">${svgInner}</g>`;
 const tgt=s=>`<span class="target">${s}</span>`,gss=s=>`<span class="guess">${s}</span>`,lss=s=>`<span class="loss">${s}</span>`;
@@ -22,15 +24,15 @@ const PHOTO_SRC='The photographs are course-owned generated images (see SOURCES.
 
 export const meta={
  id:'object-detection',number:22,title:'Object detection',series:'ES 667 Deep Learning',
- subtitle:'From one label to a set of objects',minutes:110,notebook:'object-detection.ipynb',
+ subtitle:'From one label to a set of objects',minutes:118,notebook:'object-detection.ipynb',
  sections:[
   {id:'map',title:'Lecture map',minutes:1},
   {id:'why',title:'Part 1 · Why detect objects?',minutes:12},
   {id:'task',title:'Part 2 · From one label to a list',minutes:9},
-  {id:'boxes',title:'Part 3 · Boxes and IoU',minutes:14},
-  {id:'onebox',title:'Part 4 · One box, then many',minutes:10},
+  {id:'boxes',title:'Part 3 · Boxes and IoU',minutes:16},
+  {id:'onebox',title:'Part 4 · One box, then many',minutes:13},
   {id:'dense',title:'Part 5 · A candidate at every place',minutes:26},
-  {id:'nms',title:'Part 6 · One box per object: NMS',minutes:13},
+  {id:'nms',title:'Part 6 · One box per object: NMS',minutes:16},
   {id:'scales',title:'Part 7 · Three grids for three sizes',minutes:6},
   {id:'eval',title:'Part 8 · Measuring a detector',minutes:14},
   {id:'wrap',title:'Wrap-up',minutes:5},
@@ -47,7 +49,7 @@ const CHAPTERS=[
  ['2.1','A label or a list?'],['2.2','Why a list is awkward'],
  ['3.1','Four numbers for a box'],['3.2','Comparing two boxes: IoU'],
  ['4.1','One object, one box'],['4.2','Several objects, several slots'],
- ['5.1','From sliding windows to one pass'],['5.2','What each cell writes'],['5.3','Which cells answer for an object'],['5.4','The loss'],['5.5','Reading boxes back out'],
+ ['5.1','From sliding windows to one pass'],['5.2','A grid of cells, each writing a record'],['5.3','Which cell answers for an object'],['5.4','The loss'],['5.5','Reading boxes back out'],
  ['6.1','Non-maximum suppression'],['6.2','Thresholds and classes'],
  ['7.1','Three grids'],
  ['8.1','Right or wrong?'],['8.2','Precision, recall, AP'],
@@ -418,21 +420,38 @@ S_('iou-def','boxes','Intersection over union (IoU)',{builds:3,
  ask:['What is the intersection?','What is the union?','What is IoU when the two boxes are the same? When they are apart?'],
  expected:['The overlap: area inside both.','Everything inside at least one box.','1 and 0.'],
  transition:'Compute it for the dog and the guess.'});
-const ip=S.iou_practice;
-const iouFig=b=>courtyard(gtBox(DOG,'A',{size:28})+prBox(guess,'B',{size:28})+(b>=4?rect(ip.inter_box,{stroke:'none',w:0,fill:COL.guess,op:.35}):'')+
+const ip=S.iou_practice,IB=ip.inter_box;
+const iouFig=b=>courtyard(gtBox(DOG,'A',{size:28})+prBox(guess,'B',{size:28})+(b>=3?rect(IB,{stroke:'none',w:0,fill:COL.guess,op:.35}):'')+
  (b>=1?line(guess[0],0,guess[0],H,{stroke:COL.ink,w:3,dash:'8 6'}):'')+(b>=2?line(0,guess[1],W,guess[1],{stroke:COL.ink,w:3,dash:'8 6'}):'')+(b>=3?line(DOG[2],0,DOG[2],H,{stroke:COL.ink,w:3,dash:'8 6'})+line(0,DOG[3],W,DOG[3],{stroke:COL.ink,w:3,dash:'8 6'}):''),'The overlap rectangle of the two boxes',{view:dogView});
-S_('iou-overlap','boxes','IoU, step 1: the overlap rectangle',{builds:4,
- body:cols(`<div class="state-slot">${[1,2,3,4].map(b=>`<div data-only="${b}">${iouFig(b)}</div>`).join('')}</div>`,
-  sm(at(1,eq(R`\text{left}=\max(${DOG[0]},\,${guess[0]})=${ip.inter_box[0]}`)),at(2,eq(R`\text{top}=\max(${DOG[1]},\,${guess[1]})=${ip.inter_box[1]}`)),
-   at(3,eq(R`\text{right}=\min(${DOG[2]},\,${guess[2]})=${ip.inter_box[2]}`)),at(3,eq(R`\text{bottom}=\min(${DOG[3]},\,${guess[3]})=${ip.inter_box[3]}`)),
-   at(4,eq(R`\text{area}=${ip.iw}\times${ip.ih}=${bt(ip.inter)}`))),'0.9fr 1.1fr'),
- lines:['The overlap starts where both boxes have started: the larger of the two left edges.','Likewise its top is the larger of the two tops.','It ends where the first box ends: the smaller right edge and the smaller bottom edge.',`Its area: ${ip.iw} × ${ip.ih} = ${big(ip.inter)} square pixels. (If a width came out negative, the boxes would not touch: area 0.)`],
- ask:['Why the larger of the two left edges?','What is the top of the overlap?','Why the smaller right edge?','What is the overlap’s area?'],
- expected:['A point is in both boxes only if it is right of both left edges.',String(ip.inter_box[1]),'A point must be left of both right edges.',`${big(ip.inter)} px².`],
+S_('iou-overlap','boxes','IoU, step 1: the overlap rectangle',{builds:3,
+ body:cols(`<div class="state-slot">${[1,2,3].map(b=>`<div data-only="${b}">${iouFig(b)}</div>`).join('')}</div>`,
+  sm(at(1,eq(R`\text{left}=\max(${DOG[0]},\,${guess[0]})=${IB[0]}`)),at(2,eq(R`\text{top}=\max(${DOG[1]},\,${guess[1]})=${IB[1]}`)),
+   at(3,eq(R`\text{right}=\min(${DOG[2]},\,${guess[2]})=${IB[2]}`)),at(3,eq(R`\text{bottom}=\min(${DOG[3]},\,${guess[3]})=${IB[3]}`))),'0.9fr 1.1fr'),
+ lines:['The overlap starts where both boxes have started: the larger of the two left edges.','Likewise its top is the larger of the two tops.','It ends where the first box ends: the smaller right edge and the smaller bottom edge. The shaded rectangle is the overlap.'],
+ ask:['Why the larger of the two left edges?','What is the top of the overlap?','Why the smaller right edge?'],
+ expected:['A point is in both boxes only if it is right of both left edges.',String(IB[1]),'A point must be left of both right edges.'],
+ transition:'Next, its width, height and area.',source:PHOTO_SRC});
+const dim=(x1,y1,x2,y2,t,tx,ty,anchor)=>arrow(x1,y1,x2,y2,{stroke:COL.ink,w:4,both:true})+label(tx,ty,t,{size:30,fill:COL.ink,weight:700,anchor,halo:true});
+const overlapSize=courtyard(gtBox(DOG,'A',{size:28})+prBox(guess,'B',{size:28})+rect(IB,{stroke:'none',w:0,fill:COL.guess,op:.35})+
+ [[IB[0],0,IB[0],H],[0,IB[1],W,IB[1]],[IB[2],0,IB[2],H],[0,IB[3],W,IB[3]]].map(([x1,y1,x2,y2])=>line(x1,y1,x2,y2,{stroke:COL.ink,w:3,dash:'8 6'})).join('')+
+ gat(1,dim(IB[0],IB[3]-30,IB[2],IB[3]-30,`${ip.iw} px`,(IB[0]+IB[2])/2,IB[3]-44,'middle'))+gat(2,dim(IB[0]+45,IB[1],IB[0]+45,IB[3],`${ip.ih} px`,IB[0]+59,(IB[1]+IB[3])/2+10,'start'))+
+ gat(3,label((IB[0]+IB[2])/2+30,(IB[1]+IB[3])/2-60,`${big(ip.inter)} px²`,{size:34,fill:COL.ink,weight:700,anchor:'middle',halo:true})),'The overlap’s width and height, measured between its edges',{view:dogView});
+S_('iou-overlap-area','boxes','IoU, step 2: the overlap’s area',{builds:3,
+ body:cols(overlapSize,
+  sm(`<div class="table-sm tight fit">${table(['','left','top','right','bottom'],[['overlap',...IB]])}</div>`,
+   at(1,eq(R`\text{width}=\text{right}-\text{left}=${IB[2]}-${IB[0]}=${ip.iw}`)),
+   at(2,eq(R`\text{height}=\text{bottom}-\text{top}=${IB[3]}-${IB[1]}=${ip.ih}`)),
+   at(3,eq(R`\text{area}=\text{width}\times\text{height}=${ip.iw}\times${ip.ih}=${bt(ip.inter)}`))),'0.9fr 1.1fr'),
+ lines:['Measure the overlap the way we measured the dog’s box. Width first: its right edge minus its left edge.',
+  'Then the height: bottom minus top. A negative width or height would mean the boxes do not touch, and the overlap is 0.',
+  `So the two boxes share ${big(ip.inter)} square pixels. This is the top of the IoU fraction.`],
+ ask:['How wide is the overlap?','How tall is the overlap?','What is the overlap’s area?'],
+ expected:[`${IB[2]} − ${IB[0]} = ${ip.iw} pixels.`,`${IB[3]} − ${IB[1]} = ${ip.ih} pixels.`,`${ip.iw} × ${ip.ih} = ${big(ip.inter)} px².`],
  misconception:'Clamp the width and height at zero: two boxes far apart would otherwise give a “negative overlap” whose product can be positive.',
  transition:'Now the union.',source:PHOTO_SRC});
-S_('iou-union','boxes','IoU, step 2: the union, then the ratio',{builds:3,
- body:stack(at(1,eq(R`\text{area}(A)=${S.dog.w}\times${S.dog.h}=${bt(ip.area_a)},\qquad \text{area}(B)=${bt(ip.area_b)}`)),
+S_('iou-union','boxes','IoU, step 3: the union, then the ratio',{builds:3,
+ body:stack(at(1,eq(R`\text{area}(A)=(${DOG[2]}-${DOG[0]})\times(${DOG[3]}-${DOG[1]})=${S.dog.w}\times${S.dog.h}=${bt(ip.area_a)}`)),
+  at(1,eq(R`\text{area}(B)=(${guess[2]}-${guess[0]})\times(${guess[3]}-${guess[1]})=${guess[2]-guess[0]}\times${guess[3]-guess[1]}=${bt(ip.area_b)}`)),
   at(2,eq(R`\text{union}=${bt(ip.area_a)}+${bt(ip.area_b)}-${bt(ip.inter)}=${bt(ip.union)}`)),
   at(3,eq(R`\mathrm{IoU}=\frac{${bt(ip.inter)}}{${bt(ip.union)}}=${num(ip.iou,3)}`))),
  lines:['Each box’s own area. The guess has the same size as our box; it is only moved.','Adding the two areas counts the overlap twice, so subtract it once.',`IoU = ${num(ip.iou,3)}. A move of 60 px right and 40 px down cost more than a third of the score.`],
@@ -447,26 +466,46 @@ S_('iou-feel','boxes','What IoU values look like',{builds:2,
  expected:['Most people accept 0.7 and reject 0.3; 0.5 is the usual cut-off.',`Its box has IoU ${num(S.iou_real.iou,3)}.`],
  point:'For a sideways move s of a box of width w, IoU = (w − s)/(w + s): IoU 0.5 needs s = w/3.',
  transition:'Try it yourself.',source:YOLO_SRC});
+const ans=S.iou_answers;
 S_('iou-play','boxes','Try it: drag a box over the dog',{builds:1,
  body:widget('iou-play','Drag a box and watch its IoU with the dog’s box'),
- lines:['Drag the purple box. Can you find a box with IoU 0.5 that looks good? One with IoU 0.7 that looks bad?'],
- ask:['Where must the box be for IoU to be 1?'],expected:['Exactly on the teal box: “Snap onto the dog”.'],
- point:'Shrink the box inside the dog: IoU falls even though every purple pixel is on the dog. IoU punishes too small as much as too big.',
+ lines:['Drag the purple box. Can you find a box with IoU 0.5 that looks good? One with IoU 0.7 that looks bad? The two lower buttons show one of each.'],
+ ask:['Which box scores about 0.5 yet looks fine, and which scores 0.7 yet looks wrong?'],
+ expected:[`A loose box round the whole dog, twice its area: IoU ${num(ans.loose.iou,2)}. A snug box with the head cut off: IoU ${num(ans.headless.iou,2)}. IoU counts pixels; it does not know the head matters.`],
+ point:'Shrink the box inside the dog: IoU falls even though every purple pixel is on the dog. IoU punishes too small as much as too big. “Snap onto the dog” gives IoU 1.',
  transition:'In code, IoU is computed for many pairs at once.'});
-S_('iou-code','boxes','IoU in code: every pair at once',{builds:2,
- body:`<div class="code-sm">`+stack(code(`def box_iou(a, b):              # a: (N, 4), b: (M, 4), corners
-    lt = torch.max(a[:, None, :2], b[None, :, :2])  # overlap's top-left
-    rb = torch.min(a[:, None, 2:], b[None, :, 2:])  # overlap's bottom-right
-    inter = (rb - lt).clamp(min=0).prod(-1)         # (N, M); 0 if apart
-    area = lambda x: (x[:, 2:] - x[:, :2]).prod(-1)
-    return inter / (area(a)[:, None] + area(b)[None, :] - inter)`),
-  at(2,code(`box_iou(torch.tensor([[${DOG.join('., ')}.]]), torch.tensor([[${guess.join('., ')}.]]))
-# tensor([[${num(ip.iou,4)}]])  -- torchvision.ops.box_iou gives the same`)))+'</div>',
- lines:['The same three steps, for N boxes against M boxes at once: max of the starts, min of the ends, clamp at zero, divide.',`On our two boxes: ${num(ip.iou,4)}. torchvision.ops.box_iou returns the same N × M matrix.`],
- ask:['What shape does box_iou return for 31 boxes against 2?','What does clamp(min=0) do?'],
- expected:['(31, 2): every pair.','Sets the width or height of a non-overlap to 0, so its area is 0.'],
- demo:'Notebook part 3 runs this on the two boxes and checks it against torchvision.ops.box_iou.',
- transition:'Part 3 in one slide.'});
+const cRing=(x,y)=>`<circle cx="${x}" cy="${y}" r="10" fill="#fff" stroke="${COL.ink}" stroke-width="3"/>`,cDot=(x,y)=>`<circle cx="${x}" cy="${y}" r="11" fill="${COL.ink}" stroke="#fff" stroke-width="3"/>`;
+const cTag=(x,y,t,o={})=>label(x,y,t,{size:24,fill:COL.ink,weight:650,halo:true,...o});
+// our box a and the guess b drawn to scale on paper, with what each line of box_iou computes (photo coordinates; the viewBox frames them)
+const iouCodeFig=`<div class="diagram-scroll"><svg class="plot wsvg" viewBox="340 20 660 660" role="img" aria-label="Our box a and the guess b, with what each line of box_iou computes">`+
+ gat(4,rect(IB,{stroke:'none',w:0,fill:COL.guess,op:.3})+cTag((IB[0]+IB[2])/2,(IB[1]+IB[3])/2,`inter = ${big(ip.inter)}`,{anchor:'middle'}))+
+ rect(DOG,{stroke:COL.target,w:5})+rect(guess,{stroke:COL.guess,w:5})+
+ cTag(DOG[0],DOG[1]-14,`a = (${DOG.join(', ')})`,{fill:COL.target})+cTag(guess[2]-18,guess[3]+34,`b = (${guess.join(', ')})`,{fill:COL.guess,anchor:'end'})+
+ gat(2,cRing(DOG[0],DOG[1])+cDot(IB[0],IB[1])+cTag(IB[0]+16,IB[1]+38,`lt = (${IB[0]}, ${IB[1]})`))+
+ gat(3,cRing(guess[2],guess[3])+cDot(IB[2],IB[3])+cTag(IB[2]-16,IB[3]-18,`rb = (${IB[2]}, ${IB[3]})`,{anchor:'end'}))+
+ gat(5,cTag(DOG[0]+10,DOG[1]+30,`area_a = ${big(ip.area_a)}`,{fill:COL.target,size:22})+cTag(guess[2]-10,guess[3]-6,`area_b = ${big(ip.area_b)}`,{fill:COL.guess,size:22,anchor:'end'}))+
+ gat(6,`<path d="M${DOG[0]},${DOG[1]} H${DOG[2]} V${guess[1]} H${guess[2]} V${guess[3]} H${guess[0]} V${DOG[3]} H${DOG[0]} Z" fill="none" stroke="${COL.ink}" stroke-width="4" stroke-dasharray="12 8"/>`+cTag(guess[2]+14,300,'union')+cTag(guess[2]+14,332,big(ip.union)))+
+ gat(7,cTag(guess[2]+14,420,'IoU',{fill:COL.guess})+cTag(guess[2]+14,458,num(ip.iou,3),{fill:COL.guess,size:34}))+'</svg></div>';
+S_('iou-code','boxes','IoU in code: every pair at once',{builds:8,
+ body:cols(`<div class="code-sm">${codeSteps([[1,'def box_iou(a, b):  # a: (N, 4), b: (M, 4)'],
+  [2,'    lt = torch.max(a[:, None, :2], b[:, :2])'],[3,'    rb = torch.min(a[:, None, 2:], b[:, 2:])'],
+  [4,'    inter = (rb - lt).clamp(min=0).prod(-1)'],[5,'    area_a = (a[:, 2:] - a[:, :2]).prod(-1)'],[5,'    area_b = (b[:, 2:] - b[:, :2]).prod(-1)'],
+  [6,'    union = area_a[:, None] + area_b - inter'],[7,'    return inter / union'],[0,''],
+  [8,`a = torch.tensor([[${DOG.join('., ')}.]])`],[8,`b = torch.tensor([[${guess.join('., ')}.]])`],[8,`box_iou(a, b)        # tensor([[${num(ip.iou,4)}]])`]])}</div>`,
+  iouCodeFig,'1.12fr 1fr'),
+ lines:['IoU for two lists of boxes in corner format: N boxes in a, M in b. We try it on one pair, our box and the guess.',
+  'Line 2 is step 1’s max: the larger of the two top-left corners. The None in a[:, None] lets every box in a meet every box in b.',
+  'Line 3 takes the smaller of the two bottom-right corners.',
+  'Subtract the corners for the width and height, set a negative one to 0, and multiply: the overlap.',
+  'Each box’s own area, the same way: bottom-right minus top-left, multiplied.',
+  'The union, as in step 3: both areas added, minus the overlap they both contain.',
+  `Divide: ${big(ip.inter)} / ${big(ip.union)} = ${num(ip.iou,3)}.`,
+  `Run it on our pair: ${num(ip.iou,4)}, as by hand. With 31 boxes in a and 2 in b, it returns a 31 × 2 matrix: every pair at once.`],
+ ask:['What shapes do a and b have?','Why max for the top-left corner?','Why min for the bottom-right?','What does clamp(min=0) do?','What are the two areas here?','Why subtract inter?','What does it return for our pair?','What shape does box_iou return for 31 boxes against 2?'],
+ expected:['(N, 4) and (M, 4): one row of corners per box.','A point in both boxes is right of both left edges and below both tops.','It must also be left of both right edges and above both bottoms.','It sets a negative width or height to 0, so boxes that do not touch have overlap 0.',`${big(ip.area_a)} px² each: ${S.dog.w} × ${S.dog.h}.`,'The overlap lies inside both boxes, so adding the two areas counts it twice.',num(ip.iou,3),'(31, 2): every pair.'],
+ point:'torchvision.ops.box_iou does the same, down to its union line, area1[:, None] + area2 - inter. Broadcasting does the pairing: (N, 1, 2) against (M, 2) gives (N, M, 2).',
+ demo:'Notebook part 3 runs box_iou on the two boxes and checks it against torchvision.ops.box_iou.',
+ transition:'Part 3 in one slide.',source:'The two boxes from step 1: our annotation of the dog and the guess moved 60 px right and 40 px down.'});
 recap(3,'boxes',[`A box is four numbers: corners (${DOG.join(', ')}), or centre and size.`,
  'A label file holds one line per object: a class and four numbers.',`IoU = overlap ÷ union: 1 for the same box, 0 for boxes apart. The 60-px guess: ${num(ip.iou,3)}.`,'IoU ≥ 0.5 is the usual “found it”.'],
  'ask a network for one box, then several, and see where it breaks.',
@@ -490,7 +529,7 @@ S_('one-object','onebox','One object: a box head beside the class head',{builds:
  expected:['Four numbers, for example a normalised (c_x, c_y, w, h).','The CNN and its feature vector.','Any distance between the four predicted and four true numbers, such as the sum of absolute differences.'],
  transition:'What exactly should the network learn to write?'});
 const SG=S.single;
-const yvec=(vals,cls)=>`<div class="yvec">${[['object?',vals[0]],[m('c_x'),vals[1]],[m('c_y'),vals[2]],[m('w'),vals[3]],[m('h'),vals[4]],['cat',vals[5]],['dog',vals[6]]].map(([k,v],i)=>`<div class="${cls}${i===1||i===5?' gap':''}"><small>${k}</small>${v}</div>`).join('')}</div>`;
+const yvec=(vals,cls)=>`<div class="yvec">${[['object?',vals[0]],[m('c_x'),vals[1]],[m('c_y'),vals[2]],[m('w'),vals[3]],[m('h'),vals[4]],['cat',vals[5]],['dog',vals[6]]].map(([k,v],i)=>`${i===1||i===5?'<i></i>':''}<div class="${cls}"><small>${k}</small>${v}</div>`).join('')}</div>`;
 S_('target-y','onebox','Write the answer as numbers: the target for one photo',{builds:3,
  body:stack(cols(photo('cat',W2,H2,gtBox(SG.box,'cat',{size:44,w:8}),'The single-cat photo with its box',{cls:'short'}),yvec([1,...SG.norm.map(v=>num(v,3)),1,0],'t'),'0.62fr 1.38fr'),
   at(2,cols(photo('cat',W2,H2,'','A patch of empty floor',{view:[40,370,560,320],cls:'short'}),yvec([0,'?','?','?','?','?','?'],'q')+at(3,small('Only “object?” is learned here: each <b>?</b> is left out of the loss.')),'0.62fr 1.38fr'))),
@@ -523,14 +562,48 @@ S_('two-objects','onebox','Two animals, one box: which one should it draw?',{bui
  misconception:'More training does not fix it: the hedge is the optimum of this loss for this task.',
  transition:'Give the head more than one output.',source:PHOTO_SRC});
 chap('4.2');
-const slotsFig=()=>fig(1000,300,[0,1,2,3,4].map(i=>{const x=20+i*196;return `<g data-at="${i<2?1:2}"><rect x="${x}" y="40" width="180" height="200" rx="10" fill="#fff" stroke="${i<2?COL.guess:MUTED}" stroke-width="3"/>${label(x+90,80,`slot ${i+1}`,{size:26,anchor:'middle',fill:COL.ink,weight:650})}${label(x+90,130,i<2?'class scores':'no object',{size:22,anchor:'middle',fill:i<2?COL.guess:MUTED})}${label(x+90,165,i<2?'+ 4 box numbers':'',{size:22,anchor:'middle',fill:COL.guess})}</g>`;}).join(''),'Five output slots; two hold objects, three say no object');
-S_('k-slots','onebox','Give the head K slots',{builds:3,
- body:stack(slotsFig(),at(3,p('Problem 1: the crowd photo has 11 people, and 5 slots cannot hold them.'))),
- lines:['Give the head K slots instead of one. Each slot writes a class and a box. Two animals: two slots used.',
-  'The other slots must be able to say “nothing here”: add a no-object class. Output size: K × (C + 1 + 4), fixed.','So choose K larger than any photo needs: DETR (Appendix A) uses K = 100.'],
- ask:['How many numbers does the head output for K = 5 and C = 80?','What do unused slots predict?','How do we avoid running out of slots?'],
- expected:['5 × (80 + 1 + 4) = 425.','A “no object” class.','Make K bigger than any photo needs, e.g. 100.'],
- transition:'Problem 2 is harder: which object goes in which slot?'});
+// K slots: the target for our photo, one row per slot (dog, cat, then three spare slots)
+const slotGrid=()=>{const rows=[['dog',S.dog.norm],['cat',S.cat.norm],null,null,null];
+ return `<div class="slotgrid"><span></span><b>class</b>${[m('c_x'),m('c_y'),m('w'),m('h')].map(k=>`<b>${k}</b>`).join('')}`+
+  rows.map((r,i)=>`<span class="sl">slot ${i+1}</span>`+(r?[r[0],...r[1].map(v=>num(v,3))].map(v=>`<div class="t"><span data-at="2">${v}</span></div>`).join('')
+   :['no object','?','?','?','?'].map(v=>`<div class="q"><span data-at="3">${v}</span></div>`).join(''))).join('')+'</div>';};
+S_('k-slots','onebox','Give the head K slots',{builds:4,
+ body:cols(courtyard(gtBox(DOG,'dog',{size:44,w:7})+gtBox(CAT,'cat',{size:44,w:7})+gat(2,pill(DOG[0],DOG[3],'slot 1',{fill:COL.target,size:44})+pill(CAT[0],CAT[3],'slot 2',{fill:COL.target,size:44})),'Our photo: the dog goes in slot 1, the cat in slot 2'),
+  stack(slotGrid(),at(4,`<div class="eq-sm">${eq(R`K\times(C+1+4)=5\times(80+1+4)=${5*(80+1+4)}`)}</div>`)),'0.8fr 1.2fr'),
+ lines:['Give the head K slots instead of one. Each slot holds a record like the one-object target: a class and four box numbers. Here K = 5.',
+  'The target for our photo puts the dog in one slot and the cat in another, with their boxes in normalised units.',
+  'The three spare slots need a way to say “nothing here”: one more class, no object. Their boxes have no right answer, so they are “?”.',
+  'However many objects a photo has, the output keeps one size: K slots, each with C class scores, a no-object score and four box numbers.'],
+ ask:['What does each slot write?','Why the dog in slot 1 and not slot 4?','What should a spare slot predict?','How many numbers for K = 5 and C = 80?'],
+ expected:['A class and four box numbers, like the one-object head.','No reason: the slots have no order. That choice comes back as Problem 2.','The class “no object”. Its box is left out of the loss.','5 × (80 + 1 + 4) = 425.'],
+ transition:'A real detector built with slots.',source:'Our annotation of the courtyard photo (data/annotations.json). '+PHOTO_SRC});
+// DETR's 100 slots on the courtyard photo: each tile is one slot (a query), shaded by 1 − p(no object)
+const dq=S.detr,sure=dq.objects.filter(o=>o.p>=.9),short=n=>n==='potted plant'?'plant':n;
+const slotTiles=fig(600,600,dq.p_none.map((pn,q)=>{const x=(q%10)*60+3,y=Math.floor(q/10)*60+3,o=sure.find(k=>k.q===q),dark=1-pn>.5;
+ return `<rect x="${x}" y="${y}" width="54" height="54" rx="6" fill="${COL.guess}" fill-opacity="${Math.max(.05,1-pn).toFixed(3)}" stroke="#D5DAE0" stroke-width="1.5"/>`+
+  label(x+6,y+18,q,{size:15,fill:dark?'#fff':MUTED,weight:dark?700:''})+(o?gat(2,label(x+27,y+44,short(o.name),{size:16,fill:'#fff',anchor:'middle',weight:700})):'');}).join(''),
+ 'DETR’s 100 slots for our photo, each shaded by how sure it is that it holds an object');
+const toBox=(c,w,h)=>[(c[0]-c[2]/2)*w,(c[1]-c[3]/2)*h,(c[0]+c[2]/2)*w,(c[1]+c[3]/2)*h];
+S_('slots-real','onebox','A real detector with K = 100: DETR’s slots on our photo',{builds:2,
+ body:cols(slotTiles,courtyard(gat(2,sure.map(o=>prBox(toBox(o.box,W,H),`${o.q} ${short(o.name)}`,{size:26,w:5})).join('')),'The courtyard photo with the boxes of DETR’s five sure slots',{cls:'short'}),'0.85fr 1.15fr'),
+ lines:['DETR is a real detector built this way, with K = 100. Its 100 slots for our photo, each shaded by how sure it is of an object.',
+  `Above 0.9, ${sure.length} slots are sure: the dog, the cat and ${sure.filter(o=>o.name==='potted plant').length} potted plants, a COCO class we did not annotate. ${dq.n_none_50} of the 100 say no object.`],
+ ask:['How many slots does DETR have?','What do most of the slots say?'],
+ expected:['100, whatever the photo.',`No object: ${dq.n_none_50} of the 100.`],
+ point:`The shade is 1 − p(no object). The numbers are DETR’s query indices. Two more slots are unsure: a potted plant at ${num(dq.objects.find(o=>o.q===15).p,2)} and one at ${num(dq.objects.find(o=>o.q===42).p,2)}.`,
+ transition:'What if a photo has more objects than slots?',source:DETR_SRC});
+const dcr=S.detr_crowd;
+S_('slots-crowd','onebox','Problem 1: more objects than slots',{builds:2,
+ body:cols(photo('crowd',W2,H2,gonly(1,S.annotations.crowd.map(x=>x[1]).sort((u,v)=>u[0]-v[0]).map((b,i)=>gtBox(b,String(i+1),{size:30,w:5})).join(''))+
+   gonly(2,S.detr_finals.crowd.map(k=>prBox(k.box,'',{w:k.name==='person'?5:3,dash:k.name==='person'?'':'10 6'})).join('')),'The crowd photo: the 11 annotated people, then the boxes of DETR’s 16 sure slots'),
+  only(1,stack(`<div class="big-number">${dcr.annotated}</div>`,p('people in the photo'),`<div class="big-number">5</div>`,p('slots, if K = 5')))+
+  only(2,stack(`<div class="big-number">100</div>`,p('slots in DETR'),`<div class="big-number">${dcr.used}</div>`,p(`used here: ${dcr.people} people, ${dcr.bags} bags`))),'1.5fr 1fr'),
+ lines:[`Problem 1: the crowd photo has ${dcr.annotated} people. A head with K = 5 slots can report at most 5 of them, however well it is trained.`,
+  `So make K larger than any photo needs. DETR’s K = 100 leaves room: here ${dcr.used} of its slots are sure of an object, ${dcr.people} people and ${dcr.bags} bags.`],
+ ask:[`How many of the ${dcr.annotated} people can a 5-slot head report?`,'How large should K be?'],
+ expected:['At most 5.','Larger than the number of objects in any photo you expect. DETR uses 100.'],
+ point:`Sure means a score of 0.9 or more. At that level DETR finds ${dcr.people} of the ${dcr.annotated} people; the bags are dashed. The DETR paper sets K well above the usual number of objects in an image (Carion et al., 2020).`,
+ transition:'Problem 2 is harder: which object goes in which slot?',source:DETR_SRC+' '+PHOTO_SRC});
 const sl=S.slots,two=S.annotations['two-dogs'];
 const toPx=c=>[(c[0]-c[2]/2)*W2,(c[1]-c[3]/2)*H2,(c[0]+c[2]/2)*W2,(c[1]+c[3]/2)*H2];
 S_('slot-order','onebox','Problem 2: which dog belongs in slot 1?',{builds:4,
@@ -558,7 +631,7 @@ recap(4,'onebox',['One box: a box head, an L1 loss; with no object, the box targ
  {ask:'Why did the same correct prediction cost 100 times more?',expected:'Because the loss paired outputs with targets by list position, and the list happened to be in the other order.',transition:'Part 5.'});
 // ================================================================================================ Part 5
 partBreak(5,'dense','A candidate at every place','Tie each output to a place: a grid of cells over the photo, each writing one record.',[
- 'From a crop classifier, to sliding windows, to one CNN pass: a grid of cells.','What each cell writes: four box numbers and 80 class scores.','Which cells answer for each object; targets and loss, by hand for one cell.','At test time, read every cell’s box back out.'],
+ 'From sliding windows to one CNN pass: a grid of cells.','Each cell writes a box and 80 class scores.','The cell holding an object’s centre learns it: target and loss.','At test time every cell gives a box; keep the confident ones.'],
  {line:'Every cell of a grid writes a record. We work out its target and its loss, then read its box back out.',ask:'If every place in the image has its own output, which outputs should describe the dog?',expected:'The ones at, or near, the dog’s location.',transition:'Start from a tool we already have: a classifier.'});
 chap('5.1');
 const G=S.grid,CELL=S.cell,s32=G.stride,WN=S.windows;
@@ -572,171 +645,151 @@ S_('crop-classifier','dense','Start from a tool we have: a classifier for crops'
  expected:['Dog, cat, nothing.','Say where objects are in a large photo, or find two of them.'],
  point:'Andrew Ng’s detection lectures start the same way: a car classifier trained on closely cropped car images, then slid over the image.',
  transition:'Slide it over the photo.',source:PHOTO_SRC});
-const windows=[[380,60,800,610],[80,270,350,630],[600,120,780,330]];
+// sliding: a 224-px window on the dog, the same window stepping 32 px along a row, then other sizes and shapes (examples)
+const win0=[440,130,440+WN.size,130+WN.size],slideRow=[0,1,2,3,4].map(i=>[win0[0]+i*WN.shift,win0[1],win0[2]+i*WN.shift,win0[3]]);
+const winShapes=[[507,255,667,415],[477,115,697,555],[367,225,807,445]];
 S_('sliding','dense','Slide the classifier over the photo',{builds:3,
- body:cols(courtyard(windows.map((b,i)=>gat(i===0?1:2,rect(b,{stroke:i===0?COL.guess:COL.amber,w:5,dash:i===0?'':'12 7'}))).join(''),'Windows of different sizes placed over the photo'),
-  stack(at(1,p('Crop a window and classify it: dog.')),
-   at(2,p(`Move it every 32 px across and down: ${WN.cols} × ${WN.rows} = ${big(WN.positions)} positions.`)),
-   at(3,p(`Objects come in many sizes and shapes: try ${WN.sizes} sizes × ${WN.shapes} shapes at each position. <b>${big(WN.crops)} crops</b>, each through a whole CNN.`))),'1.2fr 1fr'),
- lines:['Put a window on the photo, crop it, classify it. This window says “dog”.',`Move the window every 32 pixels: ${WN.cols} positions across, ${WN.rows} down, ${big(WN.positions)} windows.`,`At each position try ${WN.sizes} sizes and ${WN.shapes} shapes. It works, but every crop is a full run of the classifier, so it is slow.`],
- ask:['What does the classifier say about this window?','How many positions are there?','How many classifier runs per photo?'],
- expected:['Dog.',`${WN.cols} × ${WN.rows} = ${big(WN.positions)}.`,`${big(WN.positions)} × ${WN.sizes} × ${WN.shapes} = ${big(WN.crops)}.`],
- point:'Detectors around 2013 worked like this (OverFeat). R-CNN (2014) classified about 2,000 proposed crops per image and needed about 47 seconds per image at test time (CS231n, 2017): Appendix B, two-stage detectors.',
+ body:cols(courtyard(gonly(1,rect(win0,{stroke:COL.guess,w:6}))+gonly(2,slideRow.map((b,i)=>rect(b,{stroke:COL.guess,w:i?3:6,op:i?.7:1})).join(''))+gonly(3,winShapes.map(b=>rect(b,{stroke:COL.amber,w:6,dash:'14 8'})).join('')),'A window on the dog, the same window moved 32 pixels at a time, and windows of other sizes and shapes'),
+  stack(at(1,p(`Crop a ${WN.size} × ${WN.size} window and classify it: dog.`)),
+   at(2,`<div class="eq-sm">${eq(R`\tfrac{${W}}{${WN.shift}}\times\tfrac{${H}}{${WN.shift}}=${WN.cols}\times${WN.rows}=${WN.positions}\ \text{places}`)}</div>`),
+   at(3,`<div class="eq-sm">${eq(R`${WN.positions}\times\underbrace{${WN.sizes}}_{\text{sizes}}\times\underbrace{${WN.shapes}}_{\text{shapes}}=${bt(WN.crops)}\ \text{crops}`)}</div>`)),'1.2fr 1fr'),
+ lines:[`Put a ${WN.size}-pixel window on the photo, crop it and classify it. This one says “dog”.`,
+  `Move the window ${WN.shift} pixels at a time, across and down: ${WN.cols} places across, ${WN.rows} down.`,
+  `Objects come in many sizes and shapes, so try ${WN.sizes} sizes and ${WN.shapes} shapes at every place. Each crop is a full run of the classifier.`],
+ ask:['What does the classifier say about this window?','How many places are there?','How many classifier runs per photo?'],
+ expected:['Dog.',`${W} ÷ ${WN.shift} = ${WN.cols} across, ${H} ÷ ${WN.shift} = ${WN.rows} down: ${big(WN.positions)}.`,`${big(WN.positions)} × ${WN.sizes} × ${WN.shapes} = ${big(WN.crops)}.`],
+ point:'Detectors around 2013 worked like this (OverFeat). R-CNN (2014) classified about 2,000 proposed crops per image and needed about 47 seconds per image at test time (CS231n, 2017): Appendix B, two-stage detectors. The sizes and shapes drawn are examples.',
  transition:'Look at two neighbouring windows.',source:PHOTO_SRC});
 const wA=[380,120,380+WN.size,120+WN.size],wB=[380+WN.shift,120,380+WN.shift+WN.size,120+WN.size];
 S_('shared-work','dense','Neighbouring windows see almost the same pixels',{builds:2,
  body:cols(courtyard(rect([wB[0],wA[1],wA[2],wA[3]],{stroke:'none',w:0,fill:COL.guess,op:.2})+rect(wA,{stroke:COL.guess,w:5})+rect(wB,{stroke:COL.amber,w:5,dash:'12 7'}),'Two windows 224 pixels wide, 32 pixels apart, sharing most of their pixels',{view:[300,40,460,360]}),
-  stack(p(`Two windows, ${WN.size} px wide, ${WN.shift} px apart: they share ${Math.round(WN.shared*100)}% of their pixels.`),
-   at(2,p('<b>A CNN does the sliding itself</b>: its convolutions already slide over every position, once.'))),'1.1fr 1fr'),
- lines:['Classify neighbouring windows separately and most of their features are computed twice.','Run the CNN once on the whole photo and read one output per position: every window at once, the shared work done once.'],
- ask:['How much do neighbouring windows overlap?','How can the shared work be done only once?'],
- expected:[`${Math.round(WN.shared*100)}%: ${WN.size-WN.shift} of every ${WN.size} columns.`,'Run the CNN on the whole photo once; each position of its output plays the role of one window.'],
- point:'Ng calls this the convolutional implementation of sliding windows (after OverFeat, Sermanet et al., 2014): turn the classifier’s fully connected layers into convolutions and the whole photo is classified at every position in one pass.',
- transition:'One pass of a CNN.',source:PHOTO_SRC});
-S_('one-pass','dense','One pass of a CNN: a 30 × 20 grid of feature vectors',{builds:2,
- body:cols(flow([
-   {id:'img',x:10,y:10,w:230,h:84,label:'photo',sub:'960 × 640 × 3',role:'data'},
-   {id:'cnn',x:10,y:150,w:230,h:84,label:'CNN',sub:'shrinks 32×',role:'ink'},
-   {id:'map',x:10,y:290,w:230,h:84,label:'feature map',sub:'30 × 20 × 256',role:'q'}],
-   [{from:'img',to:'cnn',fromSide:'bottom',toSide:'top'},{from:'cnn',to:'map',fromSide:'bottom',toSide:'top'}],{width:250,height:380,label:'Photo, CNN, feature map'}),
-  at(2,grid('','The 30 by 20 grid over the photo',{cls:'short'})),'0.55fr 1.45fr'),
- lines:['The photo goes through a CNN that halves the resolution five times: 960 × 640 becomes 30 × 20, with 256 numbers at each position.',
-  'Lay that 30 × 20 grid over the photo. Each square, a cell, stands for one position of the feature map: 600 cells, 600 “windows”.'],
- ask:['What size is the feature map?','How many cells are there?'],
- expected:['30 × 20 positions, 256 numbers each.','600.'],
- point:'For YOLOv8n this is the stride-32 output of the neck: one step of the map is 32 pixels of photo.',
- transition:'Zoom in on one cell.'});
+  stack(p(`Two windows ${WN.size} px wide, ${WN.shift} px apart. Columns they share:`),
+   `<div class="eq-sm">${eq(R`\frac{${WN.size}-${WN.shift}}{${WN.size}}=\frac{${WN.size-WN.shift}}{${WN.size}}=${num(WN.shared,2)}`)}</div>`,
+   at(2,p(`${big(WN.crops)} runs, each redoing work its neighbours already did.`))),'1.1fr 1fr'),
+ lines:['Classify neighbouring windows separately and the features of their shared pixels are computed again and again.',
+  'If that shared work were done once, all the runs could collapse into one. A small example shows how a CNN does it.'],
+ ask:['How much do neighbouring windows overlap?','Where is the waste?'],
+ expected:[`${WN.size-WN.shift} of every ${WN.size} columns: ${Math.round(WN.shared*100)}%.`,'The features of the shared pixels are computed once for every window that contains them.'],
+ point:'Ng calls the fix the convolutional implementation of sliding windows (after OverFeat, Sermanet et al., 2014): build the classifier from convolutions only, and the whole photo is classified at every position in one pass.',
+ transition:'A small example.',source:PHOTO_SRC});
+// Ng's example: a classifier built from convolutions takes a 14 x 14 crop to one answer, and a 16 x 16 image to 2 x 2 answers
+const ngFig=(()=>{const u=13,x0=24,y0=34,col=[COL.guess,COL.target,COL.amber,COL.data],off=[[0,0],[2,0],[0,2],[2,2]],ox=420;
+ const sq=n=>{let g='';for(let i=0;i<=n;i++)g+=line(x0+i*u,y0,x0+i*u,y0+n*u,{stroke:'#C9D0D7',w:1})+line(x0,y0+i*u,x0+n*u,y0+i*u,{stroke:'#C9D0D7',w:1});return g;};
+ const out=(n,coloured)=>{const s=64,oy=y0+(16*u-n*s)/2;let g='';for(let r=0;r<n;r++)for(let c=0;c<n;c++){const i=r*2+c;g+=`<rect x="${ox+c*s}" y="${oy+r*s}" width="${s-6}" height="${s-6}" rx="6" fill="${coloured?col[i]:'#fff'}" fill-opacity="${coloured?.8:1}" stroke="${coloured?col[i]:COL.ink}" stroke-width="3"/>`;}return g;};
+ const mid=arrow(x0+16*u+30,y0+8*u,ox-24,y0+8*u,{stroke:COL.ink,w:3,head:16})+label((x0+16*u+30+ox-24)/2,y0+8*u-14,'the same layers',{size:20,anchor:'middle',fill:COL.ink});
+ return fig(560,290,gonly(1,sq(14)+rect([x0,y0,x0+14*u,y0+14*u],{stroke:COL.guess,w:4})+label(x0,y0+16*u+28,'a 14 × 14 crop',{size:21,fill:COL.ink,weight:650})+out(1,false)+label(ox,y0+16*u+28,'1 answer',{size:21,fill:COL.ink,weight:650}))+
+  gonly('2-3',sq(16)+label(x0,y0+16*u+28,'a 16 × 16 image',{size:21,fill:COL.ink,weight:650})+out(2,false)+label(ox,y0+16*u+28,'2 × 2 answers',{size:21,fill:COL.ink,weight:650}))+
+  gat(3,off.map(([dx,dy],i)=>rect([x0+dx*u+1.5*i,y0+dy*u+1.5*i,x0+(dx+14)*u-1.5*i,y0+(dy+14)*u-1.5*i],{stroke:col[i],w:3})).join('')+out(2,true))+mid,
+  'A classifier for 14 by 14 crops gives one answer; on a 16 by 16 image the same layers give four, one for each 14 by 14 window');})();
+S_('conv-windows','dense','A small example: the same classifier on a bigger image',{builds:3,
+ body:cols(ngFig,sm(eq(R`14\xrightarrow{\text{conv }5\times5}10\xrightarrow{\text{pool }2}5\xrightarrow{\text{conv }5\times5}1`),
+  at(2,eq(R`16\xrightarrow{\text{conv }5\times5}12\xrightarrow{\text{pool }2}6\xrightarrow{\text{conv }5\times5}2`)),
+  at(3,eq(R`\text{window step}=\text{pooling step}=2\ \text{px}`))),'1.25fr 1fr'),
+ lines:['A classifier built only from convolutions and pooling turns a 14 × 14 crop into one answer. Each 5 × 5 convolution trims 4 from the size.',
+  'Feed the same layers a 16 × 16 image. Nothing in the network changes, yet the output grows to 2 × 2: four answers.',
+  'Each answer is the classifier on one 14 × 14 window, the windows 2 pixels apart. The pixels they share are processed once.'],
+ ask:['What does a 5 × 5 convolution do to a 14 × 14 input?','How many answers does a 16 × 16 image give?','Which window does the top-right answer belong to?'],
+ expected:['It gives 10 × 10: 14 − 5 + 1 = 10.','2 × 2 = 4: 16 − 5 + 1 = 12, halved to 6, and 6 − 5 + 1 = 2.','The window 2 pixels to the right of the first: columns 2 to 15, rows 0 to 13.'],
+ point:'Andrew Ng’s example (Deep Learning Specialization, Course 4, Week 3: convolutional implementation of sliding windows); the last layers are convolutions, so they accept any input size. The sizes are his, not YOLOv8’s.',
+ transition:'Now our photo and our CNN.'});
+chap('5.2');
+const [cx0,cy0]=CELL.centre;
+S_('one-pass','dense','The same trick on our photo: a 30 × 20 grid of cells',{builds:2,
+ body:cols(grid(gat(2,cell(10,18,s32,{fill:COL.guess,op:.75})+rect([cx0-WN.size/2,cy0-WN.size/2,cx0+WN.size/2,cy0+WN.size/2],{stroke:COL.guess,w:5,dash:'14 8'})),'The 30 by 20 grid over the photo; one cell and a 224-pixel window around it'),
+  stack(`<div class="eq-sm">${eq(R`${W}\div32=${G.cols},\quad ${H}\div32=${G.rows}`)}${eq(R`${G.cols}\times${G.rows}=${G.cols*G.rows}\ \text{cells}`)}</div>`,at(2,p(`One cell in place of one ${WN.size}-px window.`))),'1.45fr 1fr'),
+ lines:['The same trick on our photo: one pass of a CNN gives one output for every place on a grid, 32 pixels apart. Each place is a cell.',
+  'Each cell takes the place of one window of the sliding search, and all 600 come out of the same single pass.'],
+ ask:['How many cells are there?','What does one cell replace?'],
+ expected:[`${W} ÷ 32 = ${G.cols} across, ${H} ÷ 32 = ${G.rows} down: ${G.cols*G.rows}.`,'One window position of the sliding search, without a CNN run of its own.'],
+ point:'For YOLOv8n this is the output of its neck after the photo has been halved five times (2⁵ = 32), 256 numbers per cell.',
+ transition:'Zoom in on one cell.',source:PHOTO_SRC});
 S_('cell-window','dense','One cell: an address on the photo, with a wide view',{builds:2,
- body:cols(grid(cell(10,18,s32,{fill:COL.guess,op:.7})+gat(2,rect(DOG,{stroke:COL.guess,w:4,dash:'12 8'})),'Cell (10, 18) highlighted; a dashed outline of the dog around it',{view:dogView}),
-  stack(p('Cell (row 10, column 18) covers a 32 × 32 block: x from 576 to 608, y from 320 to 352.'),
-   at(2,p('Its 256 numbers were computed from a region <b>much larger</b> than its block, wide enough to take in the whole dog.'))),'1fr 1.1fr'),
- lines:['Zoom in on one cell, (10, 18), in the middle of the dog. Rows and columns count from 0.','Each CNN layer mixes in neighbouring positions, so one cell can describe a box much larger than itself.'],
- ask:['Which block of pixels does cell (10, 18) cover?','Can a cell describe an object larger than its block?'],
- expected:['x from 576 to 608, y from 320 to 352.','Yes: its vector is computed from a large region of the photo (its receptive field).'],
+ body:cols(grid(cell(10,18,s32,{fill:COL.guess,op:.7})+gat(2,rect(DOG,{stroke:COL.guess,w:4,dash:'12 8'})),'Cell (10, 18) highlighted, and a dashed outline of the dog around it',{view:dogView}),
+  sm(eq(R`x:\ 18\times32=${18*s32}\ \text{to}\ ${18*s32}+32=${19*s32}`),eq(R`y:\ 10\times32=${10*s32}\ \text{to}\ ${10*s32}+32=${11*s32}`),
+   at(2,p('Receptive field: far larger than its 32 × 32 square.'))),'1fr 1.1fr'),
+ lines:['Zoom in on cell (10, 18): row 10 and column 18, counting from 0. Multiply by 32 to find its square of pixels.',
+  'Each CNN layer mixes in neighbouring positions, so the cell’s numbers describe a region wide enough to take in the whole dog.'],
+ ask:['Which pixels does cell (10, 18) cover?','Can a cell describe an object larger than its square?'],
+ expected:[`x from ${18*s32} to ${19*s32}, y from ${10*s32} to ${11*s32}.`,'Yes: its numbers are computed from a large region of the photo, its receptive field.'],
  misconception:'A cell is not a 32-pixel crop that knows only its own pixels.',
  transition:'What does each cell write?',source:PHOTO_SRC});
-const recFig=()=>{const sc=CELL.scores,x0=300,bw=8.4,y0=230,hh=180;let bars='';
- sc.forEach((v,i)=>{bars+=`<rect x="${(x0+i*bw).toFixed(1)}" y="${(y0-v*hh).toFixed(1)}" width="${(bw-1.6).toFixed(1)}" height="${Math.max(1.5,v*hh).toFixed(1)}" fill="${i===16?COL.guess:'#AAB3BC'}"/>`;});
- const box=CELL.pred_ltrb.map((v,i)=>`<rect x="${20+i*66}" y="70" width="58" height="120" rx="6" fill="#fff" stroke="${COL.guess}" stroke-width="3"/>${label(49+i*66,118,['l','t','r','b'][i],{size:24,anchor:'middle',fill:COL.guess,weight:700})}${label(49+i*66,160,num(v,0),{size:20,anchor:'middle',fill:COL.ink})}`).join('');
- return fig(1000,270,box+label(20,50,'4 box numbers (px)',{size:22,fill:COL.guess,weight:600})+`<g data-at="2">${bars}${line(x0,y0,x0+80*bw,y0,{stroke:AXc})}${label(x0,50,'80 class scores, one per COCO class',{size:22,fill:COL.ink,weight:600})}${label(x0+16*bw+12,y0-sc[16]*hh+8,`dog ${num(sc[16],3)}`,{size:22,fill:COL.guess,weight:700})}${label(x0,y0+30,'person',{size:18})}${label(x0+79*bw,y0+30,'toothbrush',{size:18,anchor:'end'})}</g>`,'The record of one cell: four box numbers and eighty class scores');};
 const AXc='#AAB3BC';
-chap('5.2');
-S_('cell-record','dense','Every cell writes a record: 4 box numbers, 80 class scores',{builds:3,
- body:stack(recFig(),at(3,p('There is no separate “object?” number: a cell says “nothing here” by giving all 80 classes a low score.'))),
- lines:['Cell (10, 18) writes four numbers that place a box: its distances to the box’s left, top, right and bottom edges.',
-  `And 80 scores, one per COCO class, each between 0 and 1. Here dog is ${num(CELL.p_dog,3)}; the other 79 are near zero.`,
-  'Part 4’s localiser had an “object?” number. YOLOv8 does without one.'],
- ask:['What do the four box numbers mean?','Why does every class get its own score?','How does a cell say “there is nothing here”?'],
- expected:['Distances from the cell’s centre to the four sides of a box.','A cell answers 80 yes/no questions: is there a person? a dog? … All can be “no”.','By giving every class a low score.'],
- point:'These are the real numbers YOLOv8n wrote at this cell. The head writes distances in cells; we show them ×32, in pixels. YOLOv1 to YOLOv5 did have a separate objectness score.',
- transition:'What the network actually returns.',source:YOLO_SRC});
-S_('raw-output','dense','What actually comes out: one tensor of fixed shape',{builds:2,
- body:stack(code(`x = load_photo("cat-dog.jpg")   # (1, 3, 640, 960): RGB values in 0..1
-y, _ = net(x)                    # YOLOv8n, before any clean-up
-y.shape                          # torch.Size([1, 84, 12600])`),
-  at(2,`<div class="eq-sm">${eq(R`${bt(G.total)}\text{ columns}=\underbrace{600}_{\text{this grid}}+\underbrace{${bt(G.total-600)}}_{\text{two finer grids (Part 7)}}`)}</div>`)),
- lines:[`Run the real network on the courtyard photo and print the shape: 84 rows and ${big(G.total)} columns.`,'One column per cell: 600 from our 30 × 20 grid, the rest from two finer grids (Part 7).'],
- ask:['What shape does YOLOv8n output for this photo?',`Where do the ${big(G.total)} columns come from?`],
- expected:[`(1, 84, ${big(G.total)}).`,`One per cell: 600 from the 30 × 20 grid, ${big(G.total-600)} from two finer grids.`],
- point:'Print shapes before anything else, as Karpathy does in every Zero to Hero lecture: most bugs show up as a wrong shape. The code is from scripts/run_models.py.',
- demo:'Notebook part 5 runs YOLOv8n on the photo, prints this shape and reads the column of cell (10, 18).',
- transition:'Read one column.',source:YOLO_SRC});
-S_('raw-column','dense','One column is one cell’s record',{builds:2,
- body:stack(code(`y[0, :4, k]     # cell k's box: c_x, c_y, w, h in pixels`),
-  at(2,code(`y[0, 4:, k]     # its 80 class scores, each between 0 and 1`)),
-  at(2,`<div class="eq-sm">${eq(R`84=\underbrace{4}_{\text{box}}+\underbrace{80}_{\text{classes}}`)}</div>`)),
- lines:['Column k is cell k’s record. Its first 4 rows place the box: the head has already turned l, t, r, b into a centre and a size.','The other 80 rows are its class scores: 84 = 4 + 80, whatever the photo shows.'],
- ask:['What do the first four rows of a column hold?','Does the shape depend on how many objects are in the photo?'],
- expected:['The cell’s box, as a centre and a size in pixels.','No, only on the photo’s size. A photo of an empty wall gives the same shape.'],
- point:'One small layer, with the same weights, writes the record at every cell: a 1 × 1 convolution over the feature map.',
- transition:'Back to the four box numbers.',source:YOLO_SRC});
-const C0=CELL.centre,T0=CELL.target_ltrb;
-const ltrbFig=(vals,stroke,b,from=1)=>{const [l,t,r,bb]=vals,[cx,cy]=C0;const f=fsz(dogView,21,420);
- const A=(k,x2,y2,txt,tx,ty,anchor)=>`<g data-at="${from+k}">${arrow(cx,cy,x2,y2,{stroke,w:5,head:18})}${label(tx,ty,txt,{size:f,fill:stroke,weight:700,anchor,halo:true})}</g>`;
- return A(0,cx-l,cy,`l = ${num(l,1).replace('.0','')}`,cx-l/2,cy-14,'middle')+A(1,cx,cy-t,`t = ${num(t,1).replace('.0','')}`,cx+12,cy-t/2,'start')+A(2,cx+r,cy,`r = ${num(r,1).replace('.0','')}`,cx+r/2,cy+38,'middle')+A(3,cx,cy+bb,`b = ${num(bb,1).replace('.0','')}`,cx+12,cy+bb/2+30,'start');};
-S_('ltrb','dense','How a cell describes a box: its distances to the four sides',{builds:5,
- body:cols(grid(gtBox(DOG,'',{w:4})+cell(10,18,s32,{fill:COL.guess,op:.7})+`<circle cx="${C0[0]}" cy="${C0[1]}" r="9" fill="#fff" stroke="${COL.ink}" stroke-width="3"/>`+ltrbFig(T0,COL.target,null,2),'Arrows from the cell centre to the four sides of the dog’s box',{view:dogView}),
-  sm(eq(R`\text{centre}=(18.5\times32,\ 10.5\times32)=(${C0[0]},\,${C0[1]})`),
-   at(2,eq(R`l=${C0[0]}-${DOG[0]}=${T0[0]}`)),at(3,eq(R`t=${C0[1]}-${DOG[1]}=${T0[1]}`)),at(4,eq(R`r=${DOG[2]}-${C0[0]}=${T0[2]}`)),at(5,eq(R`b=${DOG[3]}-${C0[1]}=${T0[3]}`))),'1fr 1.1fr'),
- lines:['Stand at the centre of cell (10, 18): column 18 and row 10, plus a half, times 32 pixels.',`Left: how far to the box’s left edge. ${C0[0]} − ${DOG[0]} = ${T0[0]} pixels.`,`Top: ${C0[1]} − ${DOG[1]} = ${T0[1]}.`,`Right: ${DOG[2]} − ${C0[0]} = ${T0[2]}.`,`Bottom: ${DOG[3]} − ${C0[1]} = ${T0[3]}. Like standing in a room and measuring the distance to each wall: four numbers fix the box.`],
- ask:['Where is the centre of cell (10, 18)?','What is l?','What is t?','What is r?','How would you get the box back from (l, t, r, b)?'],
- expected:[`(${C0.join(', ')}).`,String(T0[0]),String(T0[1]),String(T0[2]),`x₁ = ${C0[0]} − l, y₁ = ${C0[1]} − t, x₂ = ${C0[0]} + r, y₂ = ${C0[1]} + b.`],
- point:'This is the anchor-free form of FCOS (2019) and YOLOv8 (2023). YOLOv1 (2016) instead predicted the centre’s offset inside the cell and the box’s width and height: optional slide.',
- transition:'Which cells should be asked to do this for the dog?',source:PHOTO_SRC});
+// one cell's record, drawn as a strip: four box numbers, then 80 thin bars, one per class
+const recStrip=fig(690,170,[0,1,2,3].map(i=>`<rect x="${10+i*70}" y="40" width="62" height="62" rx="6" fill="#fff" stroke="${COL.guess}" stroke-width="3"/>`+label(41+i*70,80,`b<tspan dy="6" font-size="15">${'xywh'[i]}</tspan>`,{size:22,anchor:'middle',fill:COL.guess,weight:700})).join('')+
+ Array.from({length:80},(_,i)=>`<rect x="${(300+i*4.1).toFixed(1)}" y="40" width="3" height="62" fill="${AXc}"/>`).join('')+
+ label(10,26,'4 box numbers',{size:20,fill:COL.guess,weight:650})+label(300,26,'80 class scores, one per COCO class',{size:20,fill:COL.ink,weight:650})+label(300,128,'person',{size:16})+label(300+79*4.1+3,128,'toothbrush',{size:16,anchor:'end'}),'One cell’s record: four box numbers and eighty class scores');
+S_('cell-vector','dense','Every cell writes the same kind of record',{builds:3,
+ body:cols(grid(cell(10,18,s32,{fill:COL.guess,op:.75}),'The grid with one cell highlighted',{cls:'short'}),
+  stack(recStrip,at(2,`<div class="eq-sm">${eq(R`${G.cols}\times${G.rows}\times(4+80)=${bt(G.cols*G.rows*84)}\ \text{numbers}`)}</div>`),at(3,p('No “object?” number: a cell with nothing in it gives every class a low score.'))),'1fr 1.15fr'),
+ lines:['Each cell writes one record, like Part 4’s one-object target: four numbers for a box, and a score for each of the 80 COCO classes.',
+  'All the cells together give a 30 × 20 × 84 block of numbers. Its size never depends on what the photo shows.',
+  'Part 4’s record began with “object?”. YOLOv8 drops it: a cell says “nothing here” by giving every class a low score.'],
+ ask:['What does each cell write?','How many numbers does the whole grid write?','How does a cell say “nothing here”?'],
+ expected:['A box (four numbers) and 80 class scores.',`${G.cols} × ${G.rows} × 84 = ${big(G.cols*G.rows*84)}.`,'By giving all 80 classes a low score.'],
+ point:'Ng’s version for a 3 × 3 grid and three classes is a 3 × 3 × 8 block, with an “object?” number p_c first. YOLOv1 to YOLOv5 kept such an object score; YOLOv8 folds it into the class scores.',
+ transition:'Which cell should describe the dog?',source:PHOTO_SRC});
 chap('5.3');
-const inside=b=>{let s='';for(let r=0;r<G.rows;r++)for(let c=0;c<G.cols;c++){const x=(c+.5)*s32,y=(r+.5)*s32;if(x>b[0]&&x<b[2]&&y>b[1]&&y<b[3])s+=cell(r,c,s32,{fill:COL.target,op:.3});}return s;};
-const block=(cells,fill,op=.6)=>cells.map(([r,c])=>cell(r,c,s32,{fill,op})).join('');
-const CC=S.centre_cells,dot=(c,col)=>`<circle cx="${c[0]}" cy="${c[1]}" r="10" fill="${col}" stroke="#fff" stroke-width="4"/>`;
-S_('centre-cell','dense','The simplest rule: the cell that holds the centre',{builds:2,
+const CC=S.centre_cells,NG=S.ng,dot=(c,col)=>`<circle cx="${c[0]}" cy="${c[1]}" r="10" fill="${col}" stroke="#fff" stroke-width="4"/>`;
+const divRound=(name,c)=>eq(R`\text{${name}: }${c.centre[0]}\div32=${num(c.centre[0]/32,2)},\ \ ${c.centre[1]}\div32=${num(c.centre[1]/32,2)}`)+eq(R`\Rightarrow\ \text{column }${c.cell[1]},\ \text{row }${c.cell[0]}`);
+S_('centre-cell','dense','Which cell answers for the dog? The one that holds its centre',{builds:2,
  body:cols(grid(gtBox(DOG,'dog',{size:28})+gtBox(CAT,'cat',{size:28})+cell(...CC.dog.cell,s32,{fill:COL.target,op:.75})+dot(CC.dog.centre,COL.target)+gat(2,cell(...CC.cat.cell,s32,{fill:COL.target,op:.75})+dot(CC.cat.centre,COL.target)),'The cell that contains each box’s centre is filled'),
-  stack(p(`The dog’s box centre, (${CC.dog.centre.join(', ')}), falls in cell (${CC.dog.cell.join(', ')}). That cell is <b>responsible</b> for the dog.`),
-   at(2,p(`The cat’s centre, (${CC.cat.centre.join(', ')}), falls in cell (${CC.cat.cell.join(', ')}).`)),at(2,small(`Two cells learn an object; the other ${G.rows*G.cols-2} learn “nothing here”.`))),'1.3fr 1fr'),
- lines:['One rule: the cell that contains the box’s centre answers for the object. For the dog, that is our cell.','Every object now has exactly one cell, decided by where it is, so there is no slot order to argue about.'],
+  sm(divRound('dog',CC.dog),at(2,divRound('cat',CC.cat))),'1.15fr 1fr'),
+ lines:[`The rule Andrew Ng teaches: the cell that holds an object’s centre answers for it. Divide the dog’s centre by 32 and round down: cell (${CC.dog.cell.join(', ')}).`,
+  `The cat’s centre falls in cell (${CC.cat.cell.join(', ')}). Each object gets exactly one cell, fixed by where it is, so the list order no longer matters.`],
  ask:['Which cell holds the dog’s centre?','Why does this rule solve Part 4’s order problem?'],
- expected:[`(${CC.dog.cell.join(', ')}).`,'Each object’s cell is fixed by where the object is, not by its position in the annotation list.'],
- point:'This is YOLOv1’s rule (Redmon et al., 2016), and the one Andrew Ng teaches: the object is assigned to the grid cell that contains its midpoint.',
- transition:'Is one cell per object enough?',source:PHOTO_SRC});
-const span=cells=>{const r=cells.map(x=>x[0]),c=cells.map(x=>x[1]);return `rows ${Math.min(...r)} to ${Math.max(...r)}, columns ${Math.min(...c)} to ${Math.max(...c)}`;};
-S_('which-cells','dense','More cells per object: every cell inside the box?',{builds:1,
- body:cols(grid(gtBox(DOG,'dog',{size:28})+gtBox(CAT,'cat',{size:28})+inside(DOG),'The cells whose centres lie inside the dog’s box'),
-  ps(`Every cell inside the dog’s box: <b>${G.inside_dog}</b> cells, many of them mostly floor.`),'1.3fr 1fr'),
- lines:['One positive cell per object is a weak training signal. Using every cell in the box adds edge cells that see mostly floor, a noisy target.'],
- ask:['How many cells are inside the dog’s box, and why not train them all?'],
- expected:[`${G.inside_dog}; the cells near its edges see mostly floor, so their target is noisy.`],
- transition:'A middle way.',source:PHOTO_SRC});
-S_('centre-block','dense','A middle way: a block of cells around the centre',{builds:2,
- body:cols(grid(gtBox(DOG,'dog',{size:28})+gtBox(CAT,'cat',{size:28})+block(G.pos_dog,COL.target)+gat(2,block(G.pos_cat,COL.target)),'The three-by-three blocks at the centres of the dog and the cat'),
-  stack(ps(`FCOS calls this “centre sampling”. Dog: ${span(G.pos_dog)}.`),
-   at(2,ps(`Cat: ${span(G.pos_cat)}. These ${S.counts.positives} cells are <b>positives</b>; the other ${600-S.counts.positives} are <b>background</b>.`))),'1.3fr 1fr'),
- lines:[`The cells within 1.5 cells of the centre: a 3 × 3 block around cell (${CC.dog.cell.join(', ')}).`,
-  'Do the same for the cat. Every other cell learns “no object of any class”.'],
- ask:['Which cells does centre sampling pick for the dog?','What do all the other cells learn?'],
- expected:[`The nine cells in ${span(G.pos_dog)}.`,'To give every class a low score: background.'],
- point:'Rules differ between detectors: YOLOv1 used only the centre cell; FCOS the cells near the centre; YOLOv8 picks the 10 cells whose current predictions fit the object best. All put the positives near the object.',
- transition:'What does the trained network actually do?',source:PHOTO_SRC});
-const fireMap=(map,col)=>heat(map,s32,{color:col,min:.05});
-S_('fires','dense','The trained YOLOv8n: about ten cells fire per object',{builds:2,
- body:cols(grid(gtBox(DOG,'',{w:3})+gtBox(CAT,'',{w:3})+fireMap(G.map_dog,COL.guess)+gat(2,fireMap(G.map_cat,COL.amber)),'Dog scores and cat scores of every cell'),
-  stack(p(`Shade = the cell’s dog score. ${G.fire_dog.length} cells score above 0.25, all near the dog’s centre; ${G.dog_overlap} of them are in our 3 × 3 block.`),
-   at(2,p(`Cat: again ${G.fire_cat.length} cells. YOLOv8 trains 10 positives per object.`))),'1.3fr 1fr'),
- lines:['The real network’s dog score at every cell: a small cluster near the dog’s centre, and nothing elsewhere.','A second cluster for the cat. About ten cells per object, as training asked: the source of the duplicates we remove later.'],
- ask:['Where are the dog scores high?','How many cells fire for each animal, and why that many?'],
- expected:['In a block of cells around the dog’s centre.',`About ${G.fire_dog.length}: YOLOv8 trains its 10 best-fitting cells per object as positives.`],
- point:'The firing block is shifted one cell up and right of the 3 × 3 rule: YOLOv8 chooses its positives by how well each cell’s current prediction fits, not by distance alone.',
- transition:'Write the target of one positive cell.',source:YOLO_SRC});
+ expected:[`(${CC.dog.cell.join(', ')}): row ${CC.dog.cell[0]}, column ${CC.dog.cell[1]}.`,'Each object’s cell is fixed by where the object is, not by its place in the annotation list.'],
+ point:'This is YOLOv1’s rule (Redmon et al., 2016), as Ng teaches it. YOLOv8 trains about ten cells near each centre instead of one; the idea is the same: the place decides which outputs answer.',
+ transition:'Write the dog’s box from that cell’s point of view.',source:PHOTO_SRC});
+// the dog's centre inside its cell, enlarged: b_x and b_y are fractions of the cell
+const [bx0,by0]=[CC.dog.centre[0]-CC.dog.cell[1]*s32,CC.dog.centre[1]-CC.dog.cell[0]*s32];
+const cellInset=(()=>{const L=170,x0=16,y0=26,px=x0+NG.dog[0]*L,py=y0+NG.dog[1]*L;
+ return fig(330,236,`<rect x="${x0}" y="${y0}" width="${L}" height="${L}" fill="${COL.target}" fill-opacity=".12" stroke="${COL.target}" stroke-width="3"/>`+
+  line(x0,py,px,py,{stroke:COL.ink,w:3,dash:'7 5'})+line(px,y0,px,py,{stroke:COL.ink,w:3,dash:'7 5'})+`<circle cx="${px}" cy="${py}" r="9" fill="${COL.target}" stroke="#fff" stroke-width="3"/>`+
+  label(x0+4,py+26,`b<tspan dy="5" font-size="14">x</tspan><tspan dy="-5"> = ${NG.dog[0]}</tspan>`,{size:19,fill:COL.ink,weight:650})+label(px+10,y0+30,`b<tspan dy="5" font-size="14">y</tspan><tspan dy="-5"> = ${NG.dog[1]}</tspan>`,{size:19,fill:COL.ink,weight:650})+
+  label(x0,y0-8,`(${CC.dog.cell[1]*s32}, ${CC.dog.cell[0]*s32})`,{size:17,fill:MUTED})+label(x0+L,y0+L+22,`(${(CC.dog.cell[1]+1)*s32}, ${(CC.dog.cell[0]+1)*s32})`,{size:17,fill:MUTED,anchor:'end'})+
+  label(x0+L+16,y0+L/2,'cell (10, 18),',{size:18,fill:COL.ink})+label(x0+L+16,y0+L/2+24,'enlarged',{size:18,fill:COL.ink}),'Cell (10, 18) enlarged, with the dog’s centre inside it');})();
+const cellsArrow=arrow(DOG[0],DOG[3]+28,DOG[2],DOG[3]+28,{stroke:COL.target,w:4,both:true})+label((DOG[0]+DOG[2])/2,DOG[3]+20,`${NG.dog[2]} cells`,{size:30,fill:COL.target,weight:700,anchor:'middle',halo:true})+
+ arrow(DOG[2]+24,DOG[1],DOG[2]+24,DOG[3],{stroke:COL.target,w:4,both:true})+label(DOG[2]+30,(DOG[1]+DOG[3])/2,`${NG.dog[3]}`,{size:30,fill:COL.target,weight:700,halo:true})+label(DOG[2]+30,(DOG[1]+DOG[3])/2+34,'cells',{size:30,fill:COL.target,weight:700,halo:true});
+S_('cell-box','dense','The dog’s box, measured in cells',{builds:2,
+ body:cols(grid(gtBox(DOG,'',{w:4})+cell(...CC.dog.cell,s32,{fill:COL.target,op:.55})+dot(CC.dog.centre,COL.target)+gat(2,cellsArrow),'The dog’s box with its centre cell; its width and height counted in cells',{view:[330,30,590,640],cls:'short'}),
+  `<div class="state-slot">${only(1,stack(`<div class="narrow">${cellInset}</div>`,`<div class="eq-sm">${eq(R`b_x=\frac{${CC.dog.centre[0]}-${CC.dog.cell[1]*s32}}{32}=\frac{${bx0}}{32}=${NG.dog[0]}`)}${eq(R`b_y=\frac{${CC.dog.centre[1]}-${CC.dog.cell[0]*s32}}{32}=\frac{${by0}}{32}=${NG.dog[1]}`)}</div>`))}${only(2,`<div class="eq-sm">${eq(R`b_w=\frac{${S.dog.w}}{32}=${NG.dog[2]}`)}${eq(R`b_h=\frac{${S.dog.h}}{32}=${NG.dog[3]}`)}</div>`)}</div>`,'0.85fr 1.15fr'),
+ lines:['b_x and b_y say where the dog’s centre sits inside its cell: 0 at the cell’s left or top edge, 1 at its right or bottom edge.',
+  'b_w and b_h give the size, counted in cells. The dog is about 11 cells wide and 16 tall, so both are larger than 1.'],
+ ask:['Where is the dog’s centre inside cell (10, 18)?','Why can b_w be larger than 1?'],
+ expected:[`b_x = ${bx0} ÷ 32 = ${NG.dog[0]} across, b_y = ${by0} ÷ 32 = ${NG.dog[1]} down: near the middle.`,'It counts cells, and the dog spans about 11 of them.'],
+ point:'Andrew Ng’s YOLO encoding: b_x and b_y between 0 and 1 inside the cell, b_w and b_h as multiples of the cell. YOLOv8 writes the same box as four distances from the cell centre to the sides (Appendix B).',
+ transition:'The target for the whole photo.',source:PHOTO_SRC});
+const tgtRow=(name,vals,cls,b)=>`<span class="sl">${name}</span>`+vals.map(v=>`<div class="${cls}"><span data-at="${b}">${v}</span></div>`).join('');
+S_('target-photo','dense','The target for the whole photo, cell by cell',{builds:3,
+ body:cols(grid(cell(...CC.dog.cell,s32,{fill:COL.target,op:.75})+gat(2,cell(...CC.cat.cell,s32,{fill:COL.target,op:.75}))+gat(3,cell(CELL.bg_row,CELL.bg_col,s32,{fill:'none',op:0,stroke:MUTED,w:5})),'The two cells that hold a centre, and one empty cell'),
+  `<div class="slotgrid tgt"><span></span>${[m('b_x'),m('b_y'),m('b_w'),m('b_h'),'cat','dog','others'].map(k=>`<b>${k}</b>`).join('')}`+
+   tgtRow(`cell (${CC.dog.cell.join(', ')})`,[...NG.dog,0,1,0],'t',1)+tgtRow(`cell (${CC.cat.cell.join(', ')})`,[...NG.cat,1,0,0],'t',2)+tgtRow('the other 598',['?','?','?','?',0,0,0],'q',3)+'</div>','0.8fr 1.2fr'),
+ lines:['The target for our photo, one cell at a time. Cell (10, 18) holds the dog’s centre: the box in cell units, 1 for dog, 0 for every other class.',
+  'Cell (14, 6) holds the cat’s centre: its box, 1 for cat, 0 for the rest.',
+  'The other 598 cells hold no centre: 0 for every class. Their box is “?”, left out of the loss, like Part 4’s empty floor.'],
+ ask:['What is the target at cell (10, 18)?','And at the cat’s cell?','What do the other cells learn?'],
+ expected:[`Box (${NG.dog.join(', ')}), dog 1, every other class 0.`,`Box (${NG.cat.join(', ')}), cat 1, every other class 0.`,'To give every class a low score; their box is not trained.'],
+ point:'Ng writes this target as a 3 × 3 × 8 block for a 3 × 3 grid and three classes. Ours is 30 × 20 × 84, almost all of it zeros.',
+ transition:'Now what the trained network wrote at the dog’s cell.',source:'Our annotation of the courtyard photo (data/annotations.json). '+PHOTO_SRC});
+chap('5.4');
+const NGK=['x','y','w','h'].map(k=>`b<tspan dy="6" font-size="14">${k}</tspan>`);  // b_x, b_y, b_w, b_h as SVG text
 /** A cell's record drawn the same way every time: four box numbers, then 80 class bars (dog is index 16). */
-const recordFig=({boxes,bars,marks=null,boxAt=1,alt,heading='80 class scores (dog is tall)'})=>{const x0=330,bw=8.2,y0=236,hh=170;let g='';
+const recordFig=({boxes,bars,marks=null,boxAt=1,alt,heading='80 class scores (dog is tall)',keys=['l','t','r','b']})=>{const x0=330,bw=8.2,y0=236,hh=170;let g='';
  boxes.forEach(({vals,col,name},row)=>{const y=60+row*(boxes.length>1?92:0)+(boxes.length>1?0:30);
-  g+=`<g data-at="${boxAt}">`+label(16,y-10,name,{size:20,fill:col,weight:650})+vals.map((v,i)=>`<rect x="${16+i*72}" y="${y}" width="64" height="${boxes.length>1?62:100}" rx="6" fill="#fff" stroke="${col}" stroke-width="3"/>${label(48+i*72,y+(boxes.length>1?26:40),['l','t','r','b'][i],{size:20,anchor:'middle',fill:col,weight:700})}${label(48+i*72,y+(boxes.length>1?52:80),v,{size:19,anchor:'middle',fill:COL.ink})}`).join('')+'</g>';});
+  g+=`<g data-at="${boxAt}">`+label(16,y-10,name,{size:20,fill:col,weight:650})+vals.map((v,i)=>`<rect x="${16+i*72}" y="${y}" width="64" height="${boxes.length>1?62:100}" rx="6" fill="#fff" stroke="${col}" stroke-width="3"/>${label(48+i*72,y+(boxes.length>1?26:40),keys[i],{size:20,anchor:'middle',fill:col,weight:700})}${label(48+i*72,y+(boxes.length>1?52:80),v,{size:19,anchor:'middle',fill:COL.ink})}`).join('')+'</g>';});
  bars.forEach(({vals,col})=>vals.forEach((v,i)=>{g+=`<rect x="${(x0+i*bw).toFixed(1)}" y="${(y0-v*hh).toFixed(1)}" width="${(bw-1.8).toFixed(1)}" height="${Math.max(1.5,v*hh).toFixed(1)}" fill="${i===16?col:'#AAB3BC'}"/>`;}));
  if(marks)g+=marks;
  g+=line(x0,y0,x0+80*bw,y0,{stroke:AXc})+label(x0,36,heading,{size:20,fill:COL.ink,weight:600})+label(x0,y0+28,'person',{size:17})+label(x0+80*bw,y0+28,'toothbrush',{size:17,anchor:'end'})+label(x0+16*bw+3,y0+28,'dog',{size:18,fill:COL.ink,weight:650,anchor:'middle'});
  return fig(1000,270,g,alt);};
-const zeros=Array(80).fill(0),dogOne=zeros.map((_,i)=>i===16?1:0);
-S_('target-positive','dense','The target at a positive cell, (10, 18)',{builds:2,
- body:stack(recordFig({boxes:[{vals:T0.map(String),col:COL.target,name:'box target (px)'}],bars:[{vals:dogOne,col:COL.target}],boxAt:2,alt:'Target record: dog 1, other classes 0, and four distances'}),
-  `<div class="state-slot">${only(1,ps('Class targets: <b>1 for dog</b>, 0 for each of the other 79 classes. Each is the answer to its own yes/no question.'))}${only(2,ps(`Box target: the four distances, (${T0.join(', ')}) px; in cells (÷ 32), (${CELL.target_cells.map(v=>num(v,2)).join(', ')}).`))}</div>`),
- lines:['A positive cell learns to say yes to “dog” and no to every other class.','Its box target is the four distances we just measured. A box much larger than a cell is fine.'],
- ask:['What are the class targets of a positive dog cell?','What is its box target?'],
- expected:['1 for dog, 0 for the other 79.',`(${T0.join(', ')}) pixels.`],
- transition:'And a cell where nothing is.'});
-S_('target-background','dense','The target at a background cell: all zeros, and “?”',{builds:1,
- body:recordFig({boxes:[{vals:['?','?','?','?'],col:MUTED,name:'box target: don’t care'}],bars:[{vals:zeros,col:MUTED}],heading:'80 class targets: all 0',alt:'Background record: every class 0, box don’t care'}),
- lines:[`A background cell, (${CELL.bg_row}, ${CELL.bg_col}) on the wall: every class target is 0; its box target is “?”, left out of the loss, as for Part 4’s empty floor.`],
- ask:['What does a background cell learn?'],
- expected:['To give every class a low score; nothing about boxes.'],
- point:'Of the 600 cells on this grid, 582 have this target. Part 4’s “object? = 0” is here “all 80 classes 0”.',
- transition:'Now what the network wrote at the positive cell.'});
-const pl=CELL.pred_ltrb;
 const dogMark=`<line x1="${330+16*8.2-3}" y1="${236-170}" x2="${330+17*8.2+1}" y2="${236-170}" stroke="${COL.target}" stroke-width="4"/>`+label(330+17*8.2+6,236-170+6,'target 1',{size:18,fill:COL.target,weight:650});
-S_('prediction-record','dense','What the network wrote at cell (10, 18)',{builds:2,
- body:stack(recordFig({boxes:[{vals:T0.map(String),col:COL.target,name:'target'},{vals:pl.map(v=>num(v,1)),col:COL.guess,name:'prediction'}],bars:[{vals:CELL.scores,col:COL.guess}],marks:dogMark,boxAt:2,alt:'Predicted record against the target'}),
-  `<div class="state-slot">${only(1,ps(`Dog: <b>${num(CELL.p_dog,3)}</b> (target 1). Cat ${num(CELL.top[1][1],4)}, skateboard ${num(CELL.top[2][1],5)}; the other 77 are smaller still (targets 0).`))}${only(2,ps('Distances: close to the target; the top edge is furthest off.'))}</div>`),
- lines:['The real network’s scores at this cell: dog a little below its target of 1, every other class near its target of 0.','The loss turns all these differences, class and box, into one number to reduce.'],
- ask:['How far is each class score from its target?','Which distance is furthest off?'],
- expected:['Dog: 1 − 0.871 = 0.129 too low; the others are near their target 0.','The top, t: 7.4 px too large.'],
+S_('prediction-record','dense','What the trained network wrote at cell (10, 18)',{builds:2,
+ body:stack(recordFig({keys:NGK,boxes:[{vals:NG.dog.map(v=>num(v,3)),col:COL.target,name:'target'},{vals:NG.pred.map(v=>num(v,3)),col:COL.guess,name:'prediction'}],bars:[{vals:CELL.scores,col:COL.guess}],marks:dogMark,boxAt:2,alt:'Predicted record against the target'}),
+  `<div class="state-slot">${only(1,ps(`Dog: ${num(CELL.p_dog,3)} (target 1). Cat ${num(CELL.top[1][1],4)}, skateboard ${num(CELL.top[2][1],5)}; the other 77 are smaller still (targets 0).`))}${only(2,ps('Box: close to the target. The predicted centre sits a little higher, and the box is a little taller.'))}</div>`),
+ lines:['The real network’s scores at this cell: dog a little below its target of 1, every other class near its target of 0.','Its box, in cell units, is close to the target too. The loss turns all these differences into one number to reduce.'],
+ ask:['How far is each class score from its target?','Which box number is furthest off?'],
+ expected:[`Dog: 1 − ${num(CELL.p_dog,3)} = ${num(1-CELL.p_dog,3)} too low; the others are near 0, their target.`,`b_h: ${NG.pred[3]} against ${NG.dog[3]}, ${NG.l1_terms[3]} cells.`],
+ point:`YOLOv8n’s box at this cell is (${CELL.cxcywh.join(', ')}) in pixels, centre and size; divided into cell units as on the previous slides.`,
  transition:'The class part of the loss.',source:YOLO_SRC});
-chap('5.4');
 const bcePlot=()=>{const P=panel({W:560,H:380,L:66,B:58,T:34,xMin:0,xMax:1,yMin:0,yMax:4.8,ticksX:[0,.25,.5,.75,1],ticksY:[0,1,2,3,4],xLabel:'p, the score of the right answer',yLabel:'−log p'});
  let pts=[];for(let i=1;i<=200;i++){const x=Math.max(.009,i/200);pts.push(`${P.x(x).toFixed(1)},${P.y(-Math.log(x)).toFixed(1)}`);}
  const mark=(x,txt,dx,dy,anchor='start')=>`<circle cx="${P.x(x).toFixed(1)}" cy="${P.y(-Math.log(x)).toFixed(1)}" r="8" fill="${COL.loss}" stroke="#fff" stroke-width="2"/>`+label(P.x(x)+dx,P.y(-Math.log(x))+dy,txt,{size:21,fill:COL.ink,weight:650,anchor});
@@ -757,85 +810,89 @@ S_('loss-class','dense','Class loss at cell (10, 18): 80 yes/no questions',{buil
  expected:[num(CELL.bce_dog,3),'Their scores are near 0, the right answer for a no.','A background cell must be able to say “none of the 80”: every yes/no answer no. A softmax over 80 classes always picks one.'],
  point:'In code use binary_cross_entropy_with_logits on the raw outputs: it is numerically stable where p is near 0 or 1.',
  transition:'The box part of the loss.'});
-const l1t=CELL.l1_terms;
-S_('loss-box','dense','Box loss: how far off are the four distances?',{builds:2,
- body:sm(eq(R`\mathcal{L}_\text{box}=\sum_{k\in\{l,t,r,b\}}\big|\qcol{\hat d_k}-\pcol{d_k}\big|`),
-  at(2,eq(R`=|${num(pl[0],1)}-${T0[0]}|+|${num(pl[1],1)}-${T0[1]}|+|${num(pl[2],1)}-${T0[2]}|+|${num(pl[3],1)}-${T0[3]}|`)),
-  at(2,eq(R`=${l1t.map(v=>num(v,1)).join('+')}=\lcol{${num(CELL.l1,1)}}\ \text{px}`))),
- lines:['Compare the four predicted distances with the four target distances, and add the absolute differences: the L1 loss of Part 4.',`${l1t.map(v=>num(v,1)).join(' + ')} = ${num(CELL.l1,1)} pixels. Most of it is the top edge: the predicted box starts ${num(l1t[1],1)} pixels higher than ours.`],
- ask:['What does the L1 box loss add?','Which edge contributes most?'],
- expected:['Four absolute differences between predicted and target distances.',`The top edge, ${num(l1t[1],1)} px.`],
- transition:'Is 9 pixels a lot?'});
-S_('loss-iou','dense','A box loss that does not care about size: 1 − IoU',{builds:1,
- body:stack(eq(R`1-\mathrm{IoU}(\qcol{\text{predicted box}},\,\pcol{\text{target box}})=1-${num(CELL.iou,3)}=\lcol{${num(1-CELL.iou,3)}}`),
-  p(`${num(CELL.l1,1)} px is nothing for the dog, and a miss for Part 1’s ${farPed[2]-farPed[0]}-px pedestrian. IoU, a fraction of area, scores both on one scale, as Part 3 argued.`)),
- lines:[`Another choice: one minus the IoU of the two boxes, here ${num(1-CELL.iou,3)}. Small objects then count as much as large ones.`],
- ask:['Why might one prefer 1 − IoU to L1 in pixels?'],
- expected:[`It measures overlap, which is scale-free: ${num(CELL.l1,1)} px is negligible for the dog but large for a small object.`],
- point:'YOLOv8 uses an IoU-based box loss (CIoU), plus a loss on how it spreads each distance (DFL).',
- transition:'A background cell.'});
+S_('loss-box','dense','Box loss: how far off are the four box numbers?',{builds:2,
+ body:sm(eq(R`\mathcal{L}_\text{box}=|\qcol{\hat b_x}-\pcol{b_x}|+|\qcol{\hat b_y}-\pcol{b_y}|+|\qcol{\hat b_w}-\pcol{b_w}|+|\qcol{\hat b_h}-\pcol{b_h}|`),
+  at(2,eq(R`=|${NG.pred[0]}-${NG.dog[0]}|+|${NG.pred[1]}-${NG.dog[1]}|+|${NG.pred[2]}-${NG.dog[2]}|+|${NG.pred[3]}-${NG.dog[3]}|`)),
+  at(2,eq(R`=${NG.l1_terms.join('+')}=\lcol{${NG.l1}}\ \text{cells}`))),
+ lines:['Compare the four predicted box numbers with the target’s and add the absolute differences: the L1 loss of Part 4.',
+  `In cells: ${NG.l1}, most of it from b_h and b_y. The predicted box is a little taller, and its centre a little higher, than ours.`],
+ ask:['What does the box loss add up?','Which number contributes most?'],
+ expected:['Four absolute differences, prediction minus target.',`b_h: ${NG.l1_terms[3]} cells.`],
+ point:'Ng’s YOLO uses squared errors throughout. YOLOv8 uses an IoU-based box loss, which treats small and large objects alike.',
+ transition:'A cell with nothing in it.'});
 S_('loss-background','dense','A background cell: only a class loss, and it is small',{builds:2,
  body:stack(eq(R`\text{cell }(${CELL.bg_row},${CELL.bg_col}):\quad\textstyle\sum_{c=1}^{80}-\log(1-p_c)=\lcol{${num(CELL.bg_bce,4)}}\qquad(\text{largest }p_c=${num(CELL.bg_max,3)},\ \text{potted plant})`),
-  at(2,p(`This grid has ${600-S.counts.positives} background cells and only ${S.counts.positives} positives, so detectors weight the background terms down. YOLOv1 multiplied them by 0.5; RetinaNet’s focal loss shrinks the easy ones (optional slide).`))),
- lines:['A background cell has only class targets, all 0, and no box loss. Every score here is tiny, so its loss is just 0.0038.','The imbalance matters: hundreds of easy background terms against a handful of positives. Without care they dominate the sum and the network learns to say “nothing” everywhere.'],
+  at(2,p(`600 − 2 = 598 empty cells against 2 object cells, so detectors weight the empty-cell terms down. YOLOv1 multiplied them by 0.5; RetinaNet’s focal loss shrinks the easy ones (optional slide).`))),
+ lines:['A background cell has only class targets, all 0, and no box loss. Every score here is tiny, so its loss is just 0.0038.','The imbalance matters: hundreds of easy empty-cell terms against a handful of object cells. Without care they dominate the sum, and the network learns to say “nothing” everywhere.'],
  ask:['Why is there no box loss at a background cell?','What problem do the many background cells cause?'],
  expected:['There is no object, so no box to compare with.','Their many small terms can outweigh the few positive terms.'],
  transition:'Put the pieces together.'});
 S_('loss-total','dense','The loss for the whole photo',{builds:3,
- body:stack(eq(R`\mathcal{L}=\frac{1}{N_\text{pos}}\Big[\underbrace{\sum_{\text{all cells}}\ \sum_{c=1}^{80}\mathrm{BCE}(p_c,y_c)}_{\text{class: every cell}}\;+\;\lambda\underbrace{\sum_{\text{positive cells}}\mathcal{L}_\text{box}}_{\text{box: positives only}}\Big]`),
-  at(2,p(`Here: 600 cells contribute class terms; the 18 positives also contribute box terms; divide by N<sub>pos</sub> = 18.`)),
-  at(3,p('One number for the photo. Backpropagation sends its gradient into the shared head and the CNN; every cell’s weights are the same weights, so every cell learns from every object.'))),
- lines:['Class loss from every cell, box loss only from the positives; λ balances the two parts.','Dividing by the number of positives keeps photos with many objects from dominating.','Gradient descent on this one number trains the shared layers.'],
- ask:['Which cells contribute class terms? Box terms?','What is N_pos here?','Why does dividing by N_pos help?'],
- expected:['All cells; positives only.','18.','Each photo’s loss is then an average per object, whatever the number of objects.'],
- point:'YOLOv8’s real loss sums all three grids (Part 7) and uses its own weights and box loss; the structure is the same.',
- transition:'The same loss in code.'});
-S_('loss-code','dense','The same loss in code',{builds:2,
- body:stack(code(`logits = head_cls(feats)                  # (600, 80): one row per cell
-dist   = head_box(feats)                  # (600, 4): l, t, r, b in cells
-y = torch.zeros(600, 80)
-y[pos, labels] = 1.0                      # positives: 1 for their class
-cls_loss = F.binary_cross_entropy_with_logits(logits, y, reduction='sum')
-box_loss = (dist[pos] - dist_target[pos]).abs().sum()
-loss = (cls_loss + box_loss) / len(pos)`),
-  at(2,small('pos: the indices of the 18 positive cells; labels: their class (16 for dog, 15 for cat); dist_target: their (l, t, r, b) targets.'))),
- lines:['The target is a 600 × 80 table of zeros with a 1 at each positive cell’s class. Class loss over everything, box loss over the positives.','Building pos, labels and dist_target from the annotations is the “assignment” step: the 3 × 3 rule written as code. The notebook does it for this photo.'],
- ask:['What shape is y, and how many 1s does it hold?','Which line uses only the positive cells?'],
- expected:['600 × 80 with 18 ones.','box_loss: dist[pos].'],
- demo:'Notebook part 5 builds pos and the targets for the courtyard photo and evaluates this loss on YOLOv8n’s real outputs.',
+ body:stack(eq(R`\mathcal{L}=\underbrace{\sum_{\text{all 600 cells}}\ \sum_{c=1}^{80}\mathrm{BCE}(p_c,y_c)}_{\text{class: every cell}}\;+\;\underbrace{\sum_{\text{object cells}}\mathcal{L}_\text{box}}_{\text{box: 2 cells here}}`),
+  at(2,`<div class="eq-sm">${eq(R`600\times80=${bt(48000)}\ \text{class terms},\qquad 2\ \text{box terms}`)}</div>`),
+  at(3,p('One number for the photo; gradient descent lowers it.'))),
+ lines:['The loss for the photo: class terms from every cell, box terms only from the cells that hold an object.',
+  'Count them for our photo. The 598 empty cells still matter: they learn to say nothing.',
+  'Every cell uses the same weights, so every cell learns from every object in every photo.'],
+ ask:['Which cells add class terms? Box terms?','How many class terms are there?','Why does every cell learn from the dog?'],
+ expected:['Every cell; only the object cells.','600 × 80 = 48,000.','The weights are shared: the same layers write every cell’s record.'],
+ point:'Real detectors weight the two parts and average over objects: YOLOv1 used 5 for the box terms and 0.5 for empty cells. YOLOv8’s loss has the same structure over its three grids.',
  transition:'At test time there are no annotations: read the boxes out.'});
 chap('5.5');
 const PB=CELL.pred_box;
 S_('decode','dense','At test time: read the box back out of the cell',{builds:3,
- body:cols(grid(cell(10,18,s32,{fill:COL.guess,op:.7})+`<circle cx="${C0[0]}" cy="${C0[1]}" r="9" fill="#fff" stroke="${COL.ink}" stroke-width="3"/>`+ltrbFig(pl,COL.guess,null,1)+gat(2,prBox(PB,'',{w:5}))+gat(3,pill(PB[0],PB[1],`dog ${num(CELL.p_dog,3)}`,{fill:COL.guess,size:30})),'The predicted distances turned back into a box',{view:dogView}),
-  stack(p('No annotation now: only the record.'),
-   at(2,`<div class="eq-sm">${eq(R`x_1=${C0[0]}-${num(pl[0],1)}=${num(PB[0],1)}`)}${eq(R`y_1=${C0[1]}-${num(pl[1],1)}=${num(PB[1],1)}`)}${eq(R`x_2=${C0[0]}+${num(pl[2],1)}=${num(PB[2],1)}`)}${eq(R`y_2=${C0[1]}+${num(pl[3],1)}=${num(PB[3],1)}`)}</div>`),
-   at(3,p(`Score: the largest class score, ${num(CELL.p_dog,3)}, so the label is dog.`))),'1fr 1.15fr'),
- lines:['At test time we know only what the cell wrote: four distances and 80 scores.','Undo the distances: left edge = centre minus l, and so on. A box in pixels.','So each cell gives one box, with a class and a score.'],
- ask:['How do we get x₁ from the record?','Where is this box?','Which score does the box get?'],
- expected:[`x₁ = ${C0[0]} − l.`,`(${PB.map(v=>num(v,1)).join(', ')}): on the dog.`,'The largest of its 80 class scores, 0.871 (dog).'],
+ body:cols(grid(cell(10,18,s32,{fill:COL.guess,op:.7})+gat(2,prBox(PB,'',{w:5}))+gat(3,pill(PB[0],PB[1],`dog ${num(CELL.p_dog,3)}`,{fill:COL.guess,size:30})),'The cell’s box numbers turned back into a box',{view:dogView}),
+  sm(eq(R`c_x=${18*s32}+${NG.pred[0]}\times32=${num(18*s32+NG.pred[0]*32,1)}`),eq(R`c_y=${10*s32}+${NG.pred[1]}\times32=${num(10*s32+NG.pred[1]*32,1)}`),
+   at(2,eq(R`w=${NG.pred[2]}\times32=${num(NG.pred[2]*32,1)}`)),at(2,eq(R`h=${NG.pred[3]}\times32=${num(NG.pred[3]*32,1)}`)),
+   at(3,p(`Best class: dog, ${num(CELL.p_dog,3)}.`))),'1fr 1.15fr'),
+ lines:['At test time there is no annotation, only what the cell wrote. Undo the cell units: the centre is the cell’s corner plus b_x and b_y cells.',
+  'The size is b_w and b_h cells, times 32 pixels. The corners follow as in Part 3: the box sits on the dog.',
+  'Its label is the class with the highest score, and that score is the box’s score.'],
+ ask:['Where is the box’s centre?','How big is the box?','Which score does the box get?'],
+ expected:[`(${num(18*s32+NG.pred[0]*32,1)}, ${num(10*s32+NG.pred[1]*32,1)}).`,`${num(NG.pred[2]*32,1)} × ${num(NG.pred[3]*32,1)} pixels.`,`The largest of its 80 class scores: ${num(CELL.p_dog,3)}, dog.`],
  transition:'Every cell does this. Look at them all.',source:YOLO_SRC});
 S_('cell-inspector','dense','Every cell writes a record: point at one',{builds:1,
  body:widget('cell-inspector','Point at a cell of the 30 by 20 grid to read its class scores and box'),
  lines:['Point at cells: near the dog they say dog and draw nearly the same box; on the wall every class score is tiny.'],
  ask:['What does a cell on the wall write?'],expected:['A box of some kind, but every class score near 0, so its score is tiny and it will be dropped.'],
  point:'Every cell always writes a box. The score decides whether anyone looks at it.',
- transition:'Decode all of them and keep the confident ones.',source:YOLO_SRC});
+ transition:'Where do the confident cells sit?',source:YOLO_SRC});
+const fireMap=(map,col)=>heat(map,s32,{color:col,min:.05});
+S_('fires','dense','About ten cells fire for each animal',{builds:2,
+ body:cols(grid(gtBox(DOG,'',{w:3})+gtBox(CAT,'',{w:3})+fireMap(G.map_dog,COL.guess)+gat(2,fireMap(G.map_cat,COL.amber)),'Dog scores and cat scores of every cell'),
+  stack(p(`Shade: each cell’s dog score. ${G.fire_dog.length} cells score above 0.25, all near the dog’s centre.`),
+   at(2,p(`Cat: again ${G.fire_cat.length} cells.`))),'1.3fr 1fr'),
+ lines:['The trained network’s dog score at every cell: a cluster around the dog’s centre, and nothing elsewhere.',
+  'A second cluster for the cat. Cells next to a centre see almost the same animal, so they are confident too: duplicates, which Part 6 removes.'],
+ ask:['Where are the dog scores high?','Why do about ten cells fire, not one?'],
+ expected:['In a block of cells around the dog’s centre.','Neighbouring cells see nearly the same animal; YOLOv8 is even trained with about ten cells per object.'],
+ point:'YOLOv8 trains its 10 best-fitting cells per object as positives, not only the centre cell, which makes the cluster. Even with Ng’s one-cell rule, neighbours end up confident at test time.',
+ transition:'Every cell’s box, all at once.',source:YOLO_SRC});
+const recs=G.records;
+S_('every-box','dense','Every cell draws a box, even on the wall',{builds:2,
+ body:cols(courtyard(gonly(1,recs.map(x=>rect([x[2],x[3],x[4],x[5]],{stroke:COL.guess,w:1.5,op:.35})).join(''))+gonly(2,recs.filter(x=>x[7]>=.01).map(x=>rect([x[2],x[3],x[4],x[5]],{stroke:COL.guess,w:3,op:Math.min(1,.15+x[7])})).join('')),'All 600 boxes of the grid, then each faded by its cell’s best class score'),
+  stack(only(1,p(`${G.cols*G.rows} cells, ${G.cols*G.rows} boxes.`)),only(2,p('Faded by score: the boxes near the animals and the plants remain.'))),'1.3fr 1fr'),
+ lines:['Decode every cell of the grid and draw its box: 600 boxes, one per cell, including the cells on the wall and the floor.',
+  'Fade each box by its cell’s best class score. Almost all vanish: the score says which boxes to believe.'],
+ ask:['Does a cell on the wall write a box?','What tells us which boxes to keep?'],
+ expected:['Yes: every cell always writes one.','Its score: the highest of its 80 class scores.'],
+ point:'Every cell writes a box whatever it sees; nobody looks at the box of a cell whose scores are all low.',
+ transition:'Keep the confident ones.',source:YOLO_SRC});
 const cand=S.nms_courtyard;
 const candBoxes=(list,op=1)=>list.map(k=>rect(k.box,{stroke:k.name==='potted plant'?COL.amber:COL.guess,w:2.5,op})).join('');
 S_('all-candidates','dense','Decode every cell, keep scores ≥ 0.25: 31 boxes',{builds:3,
  body:cols(courtyard(gat(2,candBoxes(cand.candidates)),'Thirty-one candidate boxes: ten on the dog, ten on the cat, eleven on plants'),
-  stack(p(`Always ${big(S.grid.total)} records for a photo this size.`),
+  stack(p(`YOLOv8n has ${big(G.total)} cells: ours and two finer grids (Part 7).`),
    at(2,p(`Scores ≥ 0.25: ${cand.n_candidates} boxes. ${cand.counts.dog} on the dog, ${cand.counts.cat} on the cat, ${cand.counts['potted plant']} on plants.`)),
-   at(3,p('<b>We want one box per object.</b>'))),'1.25fr 1fr'),
- lines:[`Every photo of this size gets exactly ${big(S.grid.total)} records: the fixed-size output.`,`Throw away the unconfident ones: ${cand.n_candidates} boxes have a score of at least 0.25.`,'The ten cells that fired for the dog each drew a dog box. To get one box per object, remove the duplicates.'],
+   at(3,p('We want one box per object.'))),'1.25fr 1fr'),
+ lines:[`The real YOLOv8n also reads two finer grids, met in Part 7: ${big(G.total)} cells, each writing a box, for any photo this size.`,`Throw away the unconfident ones: ${cand.n_candidates} boxes have a score of at least 0.25.`,'The ten cells that fired for the dog each drew a dog box. To get one box per object, remove the duplicates.'],
  ask:['How many records does the network write?','How many survive the score filter?','Why ten boxes for one dog?'],
  expected:[big(S.grid.total),String(cand.n_candidates),'About ten cells were trained to fire for each object, and they did.'],
  transition:'Part 5 in one slide.',source:YOLO_SRC});
-recap(5,'dense',[`One CNN pass replaces ${big(WN.crops)} sliding windows: a grid of cells.`,'Each cell writes four box distances and 80 class scores.',`Cells near an object’s centre are positives (${S.counts.positives} here); the rest, background.`,
- 'Loss: BCE for every class at every cell; a box loss at the positives.',`Test time: decode every cell, keep scores ≥ 0.25: ${cand.n_candidates} boxes, 4 objects.`],
+recap(5,'dense',[`One CNN pass replaces ${big(WN.crops)} sliding windows: a 30 × 20 grid of cells.`,'Each cell writes a box in cell units and 80 class scores.',
+ 'The cell that holds an object’s centre learns it; every other cell learns “nothing here”.','Loss: BCE for every class at every cell, L1 on the box at the object cells.',`Test time: decode every cell, keep scores ≥ 0.25: ${cand.n_candidates} boxes, 4 objects.`],
  'each object has about ten boxes; keep one.',
- {ask:'Why are there about ten boxes per object at test time?',expected:'Training made several cells near each object positives; after training, all of them fire.',transition:'Part 6.'});
+ {ask:'Why are there about ten boxes per object at test time?',expected:'Cells next to an object’s centre see nearly the same object, so several of them are confident.',transition:'Part 6.'});
 
 // ================================================================================================ Part 6
 partBreak(6,'nms','One box per object: non-maximum suppression','Ten boxes for one dog. Keep the best and delete the ones that overlap it heavily.',[
@@ -906,51 +963,73 @@ S_('nms-play','nms','Try it: thresholds on the street photo',{builds:1,
  lines:['Move the score threshold, then the IoU threshold; try “all classes together” and watch the bicycle; Step runs one round of the loop.'],
  ask:['At which IoU threshold do duplicates start to survive?'],expected:['Near 0.95 for this photo: below that, each object keeps one box.'],
  transition:'NMS in code.',source:YOLO_SRC});
-S_('nms-code','nms','NMS in code',{builds:2,
- body:`<div class="code-sm">`+stack(code(`def nms(boxes, scores, thr=0.7):
-    order = scores.argsort(descending=True)          # step 1
-    keep = []
-    while order.numel() > 0:
-        i = order[0]; keep.append(i)                 # step 2
-        ious = box_iou(boxes[i, None], boxes[order[1:]])[0]
-        order = order[1:][ious <= thr]               # step 3, then repeat
-    return torch.stack(keep)`),
-  at(2,code(`torchvision.ops.nms(boxes, scores, 0.7)              # same indices
-torchvision.ops.batched_nms(boxes, scores, labels, 0.7)  # per class`)))+'</div>',
- lines:['The recipe line by line: sort, keep the first, drop everything that overlaps it more than the threshold, repeat.','torchvision has it built in; batched_nms runs it separately for each class label.'],
- ask:['Which line deletes the duplicates?','How would you make it class-aware by hand?'],
- expected:['order = order[1:][ious <= thr].','Run it once per class, or offset each class’s boxes so different classes never overlap (what batched_nms does).'],
+// NMS in code on the courtyard's 31 boxes, one line per click: round 1 keeps the cat box and drops its twins; the loop does the rest
+const NR=cand.rounds,R1=NR[0],kKey=k=>k.box.join(),gone1=new Set(R1.removed.map(kKey)),short2=n=>n==='potted plant'?'plant':n;
+const cCol=k=>k.name==='potted plant'?COL.amber:COL.guess,thin=k=>rect(k.box,{stroke:cCol(k),w:2.5}),thick=(k,lab)=>rect(k.box,{stroke:cCol(k),w:7})+(lab?pill(k.box[0],k.box[1],`${short2(k.name)} ${num(k.score,3)}`,{fill:cCol(k),size:28,maxX:W}):'');
+const notR1=cand.candidates.filter(k=>kKey(k)!==kKey(R1.keep)),rest1=Math.max(...notR1.filter(k=>!gone1.has(kKey(k))).map(k=>iouParts(R1.keep.box,k.box).iou));
+const r1Lo=Math.min(...R1.removed.map(k=>k.iou)),r1Hi=Math.max(...R1.removed.map(k=>k.iou));
+const nmsFig=b=>courtyard(b<=3?cand.candidates.map(thin).join('')+(b>=2?pill(R1.keep.box[0],R1.keep.box[1],`1st: cat ${num(R1.keep.score,3)}`,{fill:COL.guess,size:28}):''):
+ b<=5?notR1.map(thin).join('')+thick(R1.keep,false)+(b===5?label(R1.keep.box[2]+12,R1.keep.box[3]-40,`${R1.removed.length} twins: IoU ≥ ${num(r1Lo,2)}`,{size:30,fill:COL.ink,weight:700,halo:true}):''):
+ b===6?notR1.filter(k=>!gone1.has(kKey(k))).map(thin).join('')+thick(R1.keep,false):cand.kept.map(k=>thick(k,b===8)).join(''),`NMS on the courtyard’s boxes, step ${b}`);
+S_('nms-code','nms','NMS in code, one line at a time',{builds:8,
+ body:cols(`<div class="code-xs">${codeSteps([[1,'def nms(boxes, scores, thr=0.7):'],[2,'    order = scores.argsort(descending=True)'],[3,'    keep = []'],[3,'    while order.numel() > 0:'],
+   [4,'        i, rest = order[0], order[1:]'],[4,'        keep.append(i)'],[5,'        ious = box_iou(boxes[[i]], boxes[rest])[0]'],[6,'        order = rest[ious <= thr]'],[8,'    return torch.stack(keep)']])}</div>`,
+  `<div class="state-slot">${[1,2,3,4,5,6,7,8].map(b=>`<div data-only="${b}">${nmsFig(b)}</div>`).join('')}</div>`,'1.05fr 1fr'),
+ lines:[`The greedy loop of 6.1 as a function. Its input: the ${cand.n_candidates} boxes that passed the score filter, with their scores.`,
+  `Sort by score, best first. The best of all is a cat box, ${num(R1.keep.score,3)}.`,
+  'keep starts empty. The loop runs while any box is left in order.',
+  'Take the first box in order and keep it. Everything after it is rest.',
+  `IoU of the kept box with every box in rest, all at once: its ${R1.removed.length} twins score ${num(r1Lo,2)} or more, and every other box ${rest1<.005?'about 0':`at most ${num(rest1,2)}`}.`,
+  `Keep only the boxes with IoU ≤ 0.7: the cat’s ${R1.removed.length} twins go, and nothing else is touched.`,
+  `The loop repeats: a plant box drops ${NR[1].removed.length} twins, the dog box ${NR[2].removed.length}, the small plant none. order is now empty.`,
+  `Return the ${cand.kept.length} kept boxes, one per object. torchvision.ops.nms returns the same four.`],
+ ask:['What goes into nms?','Why sort first?','When does the loop stop?','Is the top box ever deleted?','Which boxes overlap the kept cat box heavily?','Which line deletes the duplicates?','How many rounds does the loop run here?','How would you make it class-aware?'],
+ expected:['The boxes that passed the score filter, and their scores.','So that each kept box is the best one left in its neighbourhood.','When no boxes are left in order.','No: it is kept as soon as it is first in line.',`Its ${R1.removed.length} twins, IoU ${num(r1Lo,2)} to ${num(r1Hi,2)}.`,'order = rest[ious <= thr].',`${NR.length}: one per object.`,'Run it once per class, or use torchvision.ops.batched_nms, which does exactly that.'],
+ point:'This nms ignores classes; on these boxes it keeps the same four as class-aware NMS (checked in scripts/science.py). boxes[[i]] keeps a (1, 4) shape for box_iou.',
  demo:'Notebook part 6 runs this function on the courtyard’s 31 candidates and checks it against torchvision.ops.nms.',
- transition:'The dense answer, end to end.'});
-S_('dense-recap','nms','The dense answer, end to end',{builds:2,
- body:stack(flow([
-  {id:'img',x:0,y:60,w:140,h:90,label:'photo',role:'data'},
-  {id:'cnn',x:172,y:60,w:140,h:90,label:'CNN',sub:'+ head',role:'ink'},
-  {id:'rec',x:344,y:60,w:140,h:90,label:'12,600',sub:'records',role:'q'},
-  {id:'dec',x:516,y:60,w:140,h:90,label:'decode',sub:'boxes',role:'q'},
-  {id:'flt',x:688,y:60,w:140,h:90,label:'≥ 0.25',sub:'31 left',role:'q'},
-  {id:'nms',x:860,y:60,w:140,h:90,label:'NMS',sub:'4 left',role:'p'}],
-  [{from:'img',to:'cnn'},{from:'cnn',to:'rec'},{from:'rec',to:'dec'},{from:'dec',to:'flt'},{from:'flt',to:'nms'}],{width:1000,height:200,label:'Photo to detections in the dense detector'}),
-  at(2,p('The network’s output never changes shape. The score filter and NMS decide how many objects come out: here 4, for the crowd 11, for an empty wall 0.'))),
- lines:['Photo, CNN, a fixed 12,600 records, decoded into boxes, filtered by score, cleaned by NMS: four detections.','This is answer A to the lecture’s question: place-based outputs, many per object in training, one per object after NMS.'],
- ask:['Which steps have learned weights?','Where does the number of detections get decided?'],
- expected:['Only the CNN and the head; decoding, filtering and NMS are fixed rules.','In the score filter and NMS, after the network.'],
- transition:'The same pipeline in code.'});
-S_('detect-code','nms','The whole detector at test time, in eight lines',{builds:2,
- body:`<div class="code-sm">`+stack(code(`def detect(photo, net, names, score_thr=0.25, iou_thr=0.7):
-    y, _ = net(photo)                          # (1, 84, 12600): always this shape
-    boxes = cxcywh_to_xyxy(y[0, :4].T)         # (12600, 4), in pixels
-    scores, labels = y[0, 4:].max(0)           # each cell's best class and score
-    keep = scores >= score_thr                 # ${cand.n_candidates} cells left
-    boxes, scores, labels = boxes[keep], scores[keep], labels[keep]
-    keep = batched_nms(boxes, scores, labels, iou_thr)   # ${cand.kept.length} left
-    return [(names[l], s, b) for b, s, l in zip(boxes[keep], scores[keep], labels[keep])]`),
-  at(2,code(`detect(courtyard, net, names)
-# ${cand.kept.map(k=>`${k.name} ${num(k.score,3)}`).join(', ')}, each with its box`)))+'</div>',
- lines:['Parts 5 and 6 as code: run the network once, read every cell’s box and best class, keep the confident cells, run NMS separately for each class.',`On the courtyard photo it returns the ${cand.kept.length} detections of the lecture’s first slide. Nothing in it depends on how many objects there are.`],
- ask:['Which line decides how many objects are returned?','Which lines have learned weights?'],
- expected:['The score filter and batched_nms together.','Only net(photo); the rest are fixed rules.'],
- point:'batched_nms is torchvision.ops.batched_nms; cxcywh_to_xyxy is torchvision.ops.box_convert(boxes, "cxcywh", "xyxy"). Ultralytics’ own post-processing does the same steps (checked in scripts/science.py).',
+ transition:'The dense answer, end to end.',source:YOLO_SRC});
+// the whole dense detector as a strip of real thumbnails: photo, one pass, 12,600 records, a box per cell, the score filter, NMS
+const pipeFig=(()=>{const TW=170,sc=TW/W,TH=H*sc,y0=40,g=[];
+ const th=(x,inner)=>`<g transform="translate(${x},${y0}) scale(${sc})"><image href="figures/cat-dog.jpg" width="${W}" height="${H}" preserveAspectRatio="none"/>${inner}</g>`+rect([x,y0,x+TW,y0+TH],{stroke:'#C9D0D7',w:1.5});
+ const cap=(x,w,a,b,col=COL.ink)=>label(x+w/2,y0+TH+30,a,{size:19,anchor:'middle',fill:col,weight:700})+label(x+w/2,y0+TH+54,b,{size:16,anchor:'middle',fill:MUTED});
+ const arr=x=>arrow(x+4,y0+TH/2,x+28,y0+TH/2,{stroke:COL.ink,w:2.5,head:10});
+ const recs32=G.records;
+ g.push(gat(1,th(0,'')+cap(0,TW,'photo',`${W} × ${H}`)+arr(TW)+`<rect x="200" y="${y0+TH/2-40}" width="100" height="80" rx="10" fill="#fff" stroke="${COL.ink}" stroke-width="2.5"/>`+label(250,y0+TH/2-6,'CNN',{size:20,anchor:'middle',fill:COL.ink,weight:700})+label(250,y0+TH/2+18,'+ head',{size:16,anchor:'middle',fill:MUTED})+cap(200,100,'one pass','learned')+arr(300)+
+  th(330,gridLines(W,H,32,{stroke:'#fff',w:4,op:.75}))+cap(330,TW,`${big(G.total)} records`,'same shape for any photo')));
+ g.push(gat(2,arr(330+TW)+th(530,recs32.map(x=>rect([x[2],x[3],x[4],x[5]],{stroke:COL.guess,w:5,op:.35})).join(''))+cap(530,TW,'a box per cell','decode')+arr(530+TW)+
+  th(730,cand.candidates.map(k=>rect(k.box,{stroke:cCol(k),w:10})).join(''))+cap(730,TW,`${cand.n_candidates} boxes`,'score ≥ 0.25')+arr(730+TW)+
+  th(930,cand.kept.map(k=>rect(k.box,{stroke:cCol(k),w:16})).join(''))+cap(930,TW,`${cand.kept.length} objects`,'NMS',COL.target)));
+ g.push(gat(3,line(200,y0-14,300,y0-14,{stroke:COL.target,w:4})+label(250,y0-22,'learned',{size:17,anchor:'middle',fill:COL.target,weight:700})+line(530,y0-14,930+TW,y0-14,{stroke:MUTED,w:4})+label((530+930+TW)/2,y0-22,'fixed rules, no weights',{size:17,anchor:'middle',fill:MUTED,weight:700})));
+ return `<div class="diagram-scroll"><svg class="plot wsvg" viewBox="0 0 1104 ${Math.ceil(y0+TH+64)}" style="overflow:hidden" role="img" aria-label="Photo, one pass of the CNN, 12,600 records, a box per cell, 31 boxes after the score filter, 4 objects after NMS">${g.join('')}</svg></div>`;})();
+S_('dense-recap','nms','The dense answer, end to end',{builds:3,
+ body:stack(pipeFig,at(3,p(`The output never changes shape. The score filter and NMS decide how many objects come out: here ${cand.kept.length}, for the crowd 11, for an empty wall 0.`))),
+ lines:[`Photo in, one pass of the CNN and its head, and out come ${big(G.total)} records, the same number for every photo this size.`,
+  'Fixed rules turn them into detections: decode every record into a box, drop the low scores, and remove duplicates with NMS.',
+  'Only the CNN and head have learned weights. This is answer A to the lecture’s question: outputs tied to places, then one box per object.'],
+ ask:['What comes out of the network for any photo?','Which steps cut the boxes down?','Which steps have learned weights?'],
+ expected:[`${big(G.total)} records, one per cell, always.`,`The score filter (${cand.n_candidates} left), then NMS (${cand.kept.length} left).`,'Only the CNN and the head; decoding, filtering and NMS are fixed rules.'],
+ transition:'The same pipeline in code.',source:YOLO_SRC});
+// the whole detector in code, one line per click, with what each line does to the courtyard photo
+const bestMap=(()=>{const m=Array.from({length:G.rows},()=>Array(G.cols).fill(0));for(const x of G.records)m[x[0]][x[1]]=x[7];return m;})();
+const lCol=k=>k.name==='potted plant'?COL.amber:k.name==='cat'?COL.data:COL.guess;
+const detFig=b=>courtyard(b===2?gridLines(W,H,32,{op:.6}):b===3?G.records.map(x=>rect([x[2],x[3],x[4],x[5]],{stroke:COL.guess,w:1.5,op:.35})).join(''):b===4?gridLines(W,H,32,{op:.35})+heat(bestMap,s32,{color:COL.guess,min:.02}):
+ b===5?cand.candidates.map(k=>rect(k.box,{stroke:COL.guess,w:2.5})).join(''):b===6?cand.candidates.map(k=>rect(k.box,{stroke:lCol(k),w:2.5})).join(''):b>=7?cand.kept.map(k=>rect(k.box,{stroke:lCol(k),w:7})+(b===8?pill(k.box[0],k.box[1],`${short2(k.name)} ${num(k.score,3)}`,{fill:lCol(k),size:28,maxX:W}):'')).join(''):'',`What the detector holds after line ${b}`);
+S_('detect-code','nms','The whole detector at test time, one line at a time',{builds:8,
+ body:cols(`<div class="code-xs">${codeSteps([[1,'def detect(x, net):'],[2,'    y = net(x)[0][0]              # (84, 12600)'],[3,'    box = xyxy(y[:4].T)           # (12600, 4)'],
+   [4,'    score, label = y[4:].max(0)   # (12600,)'],[5,`    k = score >= 0.25             # ${cand.n_candidates} True`],[6,'    box, score, label = box[k], score[k], label[k]'],
+   [7,`    k = batched_nms(box, score, label, 0.7)  # ${cand.kept.length}`],[8,'    return box[k], score[k], label[k]']])}</div>`,
+  `<div class="state-slot">${[1,2,3,4,5,6,7,8].map(b=>`<div data-only="${b}">${detFig(b)}</div>`).join('')}</div>`,'1.1fr 1fr'),
+ lines:['Parts 5 and 6 in one function. x is the photo as a tensor, and net is the trained YOLOv8n.',
+  `One pass of the network: 84 numbers for each of the ${big(G.total)} cells, whatever the photo shows.`,
+  `Turn each cell’s centre and size into corners: ${big(G.total)} boxes, one per cell. Our grid’s 600 are drawn.`,
+  'For each cell, its best class and that class’s score. The scores are high only near the animals and the plants.',
+  `A mask of the cells whose best score is at least 0.25: ${cand.n_candidates} of ${big(G.total)}.`,
+  `Keep those rows only: ${cand.n_candidates} boxes, each with its score and its class.`,
+  `NMS within each class: ${cand.kept.length} boxes remain, one per object.`,
+  'Return them: the four detections of the lecture’s first slide. No line depends on how many objects there are.'],
+ ask:['What are the inputs?','What shape is y?','What does xyxy do?','What does max(0) return?','How many cells pass the mask?','Why index box, score and label with the same mask?','Why batched_nms rather than nms?','Which lines decide how many objects come back?'],
+ expected:['The photo tensor and the trained network.',`(84, ${big(G.total)}): 84 numbers per cell.`,'It turns (c_x, c_y, w, h) into corners (x₁, y₁, x₂, y₂).','For each cell, its largest class score and the index of that class.',String(cand.n_candidates),'So each kept box keeps its own score and class.','It runs NMS separately for each class, so a person never removes their bicycle.','The score mask and batched_nms.'],
+ point:'xyxy is torchvision.ops.box_convert(b, "cxcywh", "xyxy"); batched_nms is torchvision.ops.batched_nms. Ultralytics’ own post-processing does the same steps (checked in scripts/science.py).',
  demo:'Notebook part 6 runs this function on the courtyard photo.',
  transition:'Why does YOLOv8 have three grids?',source:YOLO_SRC});
 // ================================================================================================ Part 7
@@ -1318,6 +1397,19 @@ O('opt-yolov1','YOLOv1 (2016): one responsible cell per object',{builds:1,
 O('opt-anchors','Anchors: predict offsets from template boxes',{builds:1,
  body:stack(eq(R`b_x=\sigma(t_x)+c_x,\quad b_y=\sigma(t_y)+c_y,\quad b_w=p_w\,e^{t_w},\quad b_h=p_h\,e^{t_h}`),p('Faster R-CNN, SSD and YOLOv2 to v5 place several template boxes (anchors) of chosen sizes and shapes at every cell, and predict small corrections to each. Positives are anchors with high IoU to an object.'),small('Anchor-free detectors (FCOS, YOLOv8) predict distances from the cell centre instead, as in Part 5.')),
  ask:['What must be chosen by hand for an anchor-based detector?'],expected:['The anchor sizes and aspect ratios, and the IoU thresholds for positives.']});
+const C0=CELL.centre,T0=CELL.target_ltrb;
+const ltrbFig=(vals,stroke,b,from=1)=>{const [l,t,r,bb]=vals,[cx,cy]=C0;const f=fsz(dogView,21,420);
+ const A=(k,x2,y2,txt,tx,ty,anchor)=>`<g data-at="${from+k}">${arrow(cx,cy,x2,y2,{stroke,w:5,head:18})}${label(tx,ty,txt,{size:f,fill:stroke,weight:700,anchor,halo:true})}</g>`;
+ return A(0,cx-l,cy,`l = ${num(l,1).replace('.0','')}`,cx-l/2,cy-14,'middle')+A(1,cx,cy-t,`t = ${num(t,1).replace('.0','')}`,cx+12,cy-t/2,'start')+A(2,cx+r,cy,`r = ${num(r,1).replace('.0','')}`,cx+r/2,cy+38,'middle')+A(3,cx,cy+bb,`b = ${num(bb,1).replace('.0','')}`,cx+12,cy+bb/2+30,'start');};
+O('opt-ltrb','YOLOv8’s box: four distances from the cell centre',{builds:5,
+ body:cols(grid(gtBox(DOG,'',{w:4})+cell(10,18,s32,{fill:COL.guess,op:.7})+`<circle cx="${C0[0]}" cy="${C0[1]}" r="9" fill="#fff" stroke="${COL.ink}" stroke-width="3"/>`+ltrbFig(T0,COL.target,null,2),'Arrows from the cell centre to the four sides of the dog’s box',{view:dogView}),
+  sm(eq(R`\text{centre}=(18.5\times32,\ 10.5\times32)=(${C0[0]},\,${C0[1]})`),
+   at(2,eq(R`l=${C0[0]}-${DOG[0]}=${T0[0]}`)),at(3,eq(R`t=${C0[1]}-${DOG[1]}=${T0[1]}`)),at(4,eq(R`r=${DOG[2]}-${C0[0]}=${T0[2]}`)),at(5,eq(R`b=${DOG[3]}-${C0[1]}=${T0[3]}`))),'1fr 1.1fr'),
+ lines:['Stand at the centre of cell (10, 18): column 18 and row 10, plus a half, times 32 pixels.',`Left: how far to the box’s left edge. ${C0[0]} − ${DOG[0]} = ${T0[0]} pixels.`,`Top: ${C0[1]} − ${DOG[1]} = ${T0[1]}.`,`Right: ${DOG[2]} − ${C0[0]} = ${T0[2]}.`,`Bottom: ${DOG[3]} − ${C0[1]} = ${T0[3]}. Like standing in a room and measuring the distance to each wall: four numbers fix the box.`],
+ ask:['Where is the centre of cell (10, 18)?','What is l?','What is t?','What is r?','How would you get the box back from (l, t, r, b)?'],
+ expected:[`(${C0.join(', ')}).`,String(T0[0]),String(T0[1]),String(T0[2]),`x₁ = ${C0[0]} − l, y₁ = ${C0[1]} − t, x₂ = ${C0[0]} + r, y₂ = ${C0[1]} + b.`],
+ point:'This is the anchor-free form of FCOS (2019) and YOLOv8 (2023). YOLOv1 (2016) instead predicted the centre’s offset inside the cell and the box’s width and height: optional slide.',
+ source:PHOTO_SRC});
 O('opt-two-stage','Two-stage detectors: propose, then classify',{builds:1,
  body:stack(p('<b>Stage 1</b>, a region proposal network: about 2,000 boxes that might contain something. <b>Stage 2</b>: crop features for each proposal (RoI pooling), classify it and refine its box.'),p('R-CNN (2014) ran a CNN per proposal; Fast R-CNN (2015) shared one CNN pass; Faster R-CNN (2015) learned the proposals too. Mask R-CNN adds a mask per proposal: Lecture 23.'),small('torchvision’s fasterrcnn_resnet50_fpn returns post-processed detections: its NMS is already inside.')),
  ask:['What does the first stage output?'],expected:['Class-agnostic candidate boxes (proposals), to be classified by the second stage.']});

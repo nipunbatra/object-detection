@@ -72,11 +72,14 @@ function iouPlay(el,ctx,S){
  const {W,H}=S.photo,gt=S.dog.xyxy,start=[...S.iou_practice.guess];
  const draw=b=>{const p=iouParts(gt,b);return `${rect(gt,{stroke:COL.target,w:5})}${p.I>0?rect(p.i,{stroke:'none',w:0,fill:COL.guess,op:.28}):''}${rect(b,{stroke:COL.guess,w:5,extra:'data-drag="move" style="cursor:move" fill="#8B2CDE" fill-opacity=".04"'})}<circle cx="${b[2]}" cy="${b[3]}" r="14" fill="${COL.guess}" stroke="#fff" stroke-width="3" data-drag="size" style="cursor:nwse-resize"/>`;};
  const readout=b=>{const p=iouParts(gt,b);return `<div class="kv"><dt>overlap</dt><dd>${big(Math.round(p.I))} px²</dd><dt>union</dt><dd>${big(Math.round(p.U))} px²</dd><dt>IoU</dt><dd><b class="q">${num(p.iou,3)}</b></dd></div>`;};
- if(ctx.printing){el.innerHTML=`<div class="columns" style="grid-template-columns:1.6fr 1fr">${photo('cat-dog',W,H,draw(start),'The dog box and a guess')}<div class="w-panel">${readout(start)}</div></div>`;return;}
- el.innerHTML=`<div class="columns" style="grid-template-columns:1.6fr 1fr"><div class="w-fig">${photo('cat-dog',W,H,'<g class="live"></g>','Drag the purple box; its IoU with the teal box updates')}</div><div class="w-panel"><div class="w-out"></div><p class="w-hint" style="margin-top:14px">Drag the purple box, or its corner dot. Teal is our box for the dog.</p><div class="w-controls" style="margin-top:12px"><button type="button" class="w-reset">Reset</button><button type="button" class="w-snap">Snap onto the dog</button></div></div></div>`;
- const svgEl=el.querySelector('svg'),g=el.querySelector('.live'),out=el.querySelector('.w-out');
+ // the two answers to the slide's question, each with the reason its IoU comes out as it does
+ const A=S.iou_answers,kept=gt[3]-A.headless.box[1],why={loose:`Loose, but the whole dog is inside. The box covers ${big(area(A.loose.box))} px², twice the dog box’s ${big(area(gt))} px², so IoU = 1/2.`,
+  headless:`Snug on the body, but the whole head is cut off. The box lies inside the dog’s box and keeps ${kept} of its ${gt[3]-gt[1]} px of height, so IoU = ${kept}/${gt[3]-gt[1]} = ${num(A.headless.iou,2)}.`};
+ if(ctx.printing){el.innerHTML=`<div class="columns" style="grid-template-columns:1.6fr 1fr">${photo('cat-dog',W,H,draw(start),'The dog box and a guess')}<div class="w-panel">${readout(start)}<p class="w-hint" style="margin-top:14px">IoU ${num(A.loose.iou,2)} that looks fine. ${why.loose}</p><p class="w-hint" style="margin-top:8px">IoU ${num(A.headless.iou,2)} that looks wrong. ${why.headless}</p></div></div>`;return;}
+ el.innerHTML=`<div class="columns" style="grid-template-columns:1.6fr 1fr"><div class="w-fig">${photo('cat-dog',W,H,'<g class="live"></g>','Drag the purple box; its IoU with the teal box updates')}</div><div class="w-panel"><div class="w-out"></div><p class="w-hint" style="margin-top:14px">Drag the purple box, or its corner dot. Teal is our box for the dog.</p><div class="w-controls" style="margin-top:12px"><button type="button" class="w-reset">Reset</button><button type="button" class="w-snap">Snap onto the dog</button></div><div class="w-controls" style="margin-top:8px"><button type="button" class="w-ans" data-k="loose">IoU 0.5 that looks fine</button><button type="button" class="w-ans" data-k="headless">IoU 0.7 that looks wrong</button></div><p class="w-hint w-why" style="margin-top:10px"></p></div></div>`;
+ const svgEl=el.querySelector('svg'),g=el.querySelector('.live'),out=el.querySelector('.w-out'),note=el.querySelector('.w-why');
  let b=[...start],drag=null;
- const show=()=>{g.innerHTML=draw(b);out.innerHTML=readout(b);};
+ const show=(k='')=>{g.innerHTML=draw(b);out.innerHTML=readout(b);note.textContent=why[k]||'';};
  svgEl.addEventListener('pointerdown',e=>{const t=e.target.closest('[data-drag]');if(!t)return;e.preventDefault();svgEl.setPointerCapture(e.pointerId);drag={kind:t.dataset.drag,p:svgPoint(svgEl,e),b:[...b]};});
  svgEl.addEventListener('pointermove',e=>{if(!drag)return;const p=svgPoint(svgEl,e),dx=p.x-drag.p.x,dy=p.y-drag.p.y,o=drag.b;
   if(drag.kind==='move'){const w=o[2]-o[0],h=o[3]-o[1],x=Math.max(0,Math.min(W-w,o[0]+dx)),y=Math.max(0,Math.min(H-h,o[1]+dy));b=[x,y,x+w,y+h];}
@@ -85,6 +88,7 @@ function iouPlay(el,ctx,S){
  const end=()=>{drag=null;};svgEl.addEventListener('pointerup',end);svgEl.addEventListener('pointercancel',end);
  el.querySelector('.w-reset').addEventListener('click',()=>{b=[...start];show();});
  el.querySelector('.w-snap').addEventListener('click',()=>{b=[...gt];show();});
+ for(const btn of el.querySelectorAll('.w-ans'))btn.addEventListener('click',()=>{b=[...A[btn.dataset.k].box];show(btn.dataset.k);});
  show();
 }
 

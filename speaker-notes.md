@@ -1,6 +1,6 @@
 # Object detection: speaker notes
 
-Planned main route: 110 minutes, including student responses. Optional slides are outside this budget.
+Planned main route: 118 minutes, including student responses. Optional slides are outside this budget.
 
 ## Pacing
 
@@ -9,10 +9,10 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 | Lecture map | 1 |
 | Part 1 · Why detect objects? | 12 |
 | Part 2 · From one label to a list | 9 |
-| Part 3 · Boxes and IoU | 14 |
-| Part 4 · One box, then many | 10 |
+| Part 3 · Boxes and IoU | 16 |
+| Part 4 · One box, then many | 13 |
 | Part 5 · A candidate at every place | 26 |
-| Part 6 · One box per object: NMS | 13 |
+| Part 6 · One box per object: NMS | 16 |
 | Part 7 · Three grids for three sizes | 6 |
 | Part 8 · Measuring a detector | 14 |
 | Wrap-up | 5 |
@@ -617,15 +617,31 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: What is the top of the overlap?
 - Expected: 123
 
-**Build 3:** It ends where the first box ends: the smaller right edge and the smaller bottom edge.
+**Build 3:** It ends where the first box ends: the smaller right edge and the smaller bottom edge. The shaded rectangle is the overlap.
 
 - Ask: Why the smaller right edge?
 - Expected: A point must be left of both right edges.
 
-**Build 4:** Its area: 301 × 465 = 139,965 square pixels. (If a width came out negative, the boxes would not touch: area 0.)
+**Transition:** Next, its width, height and area.
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## iou-overlap-area: IoU, step 2: the overlap’s area
+
+**Build 1:** Measure the overlap the way we measured the dog’s box. Width first: its right edge minus its left edge.
+
+- Ask: How wide is the overlap?
+- Expected: 768 − 467 = 301 pixels.
+
+**Build 2:** Then the height: bottom minus top. A negative width or height would mean the boxes do not touch, and the overlap is 0.
+
+- Ask: How tall is the overlap?
+- Expected: 588 − 123 = 465 pixels.
+
+**Build 3:** So the two boxes share 139,965 square pixels. This is the top of the IoU fraction.
 
 - Ask: What is the overlap’s area?
-- Expected: 139,965 px².
+- Expected: 301 × 465 = 139,965 px².
 
 **Common misconception:** Clamp the width and height at zero: two boxes far apart would otherwise give a “negative overlap” whose product can be positive.
 
@@ -633,7 +649,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## iou-union: IoU, step 2: the union, then the ratio
+## iou-union: IoU, step 3: the union, then the ratio
 
 **Build 1:** Each box’s own area. The guess has the same size as our box; it is only moved.
 
@@ -672,30 +688,64 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## iou-play: Try it: drag a box over the dog
 
-**Build 1:** Drag the purple box. Can you find a box with IoU 0.5 that looks good? One with IoU 0.7 that looks bad?
+**Build 1:** Drag the purple box. Can you find a box with IoU 0.5 that looks good? One with IoU 0.7 that looks bad? The two lower buttons show one of each.
 
-- Ask: Where must the box be for IoU to be 1?
-- Expected: Exactly on the teal box: “Snap onto the dog”.
+- Ask: Which box scores about 0.5 yet looks fine, and which scores 0.7 yet looks wrong?
+- Expected: A loose box round the whole dog, twice its area: IoU 0.50. A snug box with the head cut off: IoU 0.70. IoU counts pixels; it does not know the head matters.
 
-**Point here:** Shrink the box inside the dog: IoU falls even though every purple pixel is on the dog. IoU punishes too small as much as too big.
+**Point here:** Shrink the box inside the dog: IoU falls even though every purple pixel is on the dog. IoU punishes too small as much as too big. “Snap onto the dog” gives IoU 1.
 
 **Transition:** In code, IoU is computed for many pairs at once.
 
 ## iou-code: IoU in code: every pair at once
 
-**Build 1:** The same three steps, for N boxes against M boxes at once: max of the starts, min of the ends, clamp at zero, divide.
+**Build 1:** IoU for two lists of boxes in corner format: N boxes in a, M in b. We try it on one pair, our box and the guess.
+
+- Ask: What shapes do a and b have?
+- Expected: (N, 4) and (M, 4): one row of corners per box.
+
+**Build 2:** Line 2 is step 1’s max: the larger of the two top-left corners. The None in a[:, None] lets every box in a meet every box in b.
+
+- Ask: Why max for the top-left corner?
+- Expected: A point in both boxes is right of both left edges and below both tops.
+
+**Build 3:** Line 3 takes the smaller of the two bottom-right corners.
+
+- Ask: Why min for the bottom-right?
+- Expected: It must also be left of both right edges and above both bottoms.
+
+**Build 4:** Subtract the corners for the width and height, set a negative one to 0, and multiply: the overlap.
+
+- Ask: What does clamp(min=0) do?
+- Expected: It sets a negative width or height to 0, so boxes that do not touch have overlap 0.
+
+**Build 5:** Each box’s own area, the same way: bottom-right minus top-left, multiplied.
+
+- Ask: What are the two areas here?
+- Expected: 182,305 px² each: 361 × 505.
+
+**Build 6:** The union, as in step 3: both areas added, minus the overlap they both contain.
+
+- Ask: Why subtract inter?
+- Expected: The overlap lies inside both boxes, so adding the two areas counts it twice.
+
+**Build 7:** Divide: 139,965 / 224,645 = 0.623.
+
+- Ask: What does it return for our pair?
+- Expected: 0.623
+
+**Build 8:** Run it on our pair: 0.6230, as by hand. With 31 boxes in a and 2 in b, it returns a 31 × 2 matrix: every pair at once.
 
 - Ask: What shape does box_iou return for 31 boxes against 2?
 - Expected: (31, 2): every pair.
 
-**Build 2:** On our two boxes: 0.6230. torchvision.ops.box_iou returns the same N × M matrix.
+**Point here:** torchvision.ops.box_iou does the same, down to its union line, area1[:, None] + area2 - inter. Broadcasting does the pairing: (N, 1, 2) against (M, 2) gives (N, M, 2).
 
-- Ask: What does clamp(min=0) do?
-- Expected: Sets the width or height of a non-overlap to 0, so its area is 0.
-
-**Notebook:** Notebook part 3 runs this on the two boxes and checks it against torchvision.ops.box_iou.
+**Notebook:** Notebook part 3 runs box_iou on the two boxes and checks it against torchvision.ops.box_iou.
 
 **Transition:** Part 3 in one slide.
+
+**Source:** The two boxes from step 1: our annotation of the dog and the guess moved 60 px right and 40 px down.
 
 ## recap-3: Part 3 in one slide
 
@@ -803,22 +853,65 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## k-slots: Give the head K slots
 
-**Build 1:** Give the head K slots instead of one. Each slot writes a class and a box. Two animals: two slots used.
+**Build 1:** Give the head K slots instead of one. Each slot holds a record like the one-object target: a class and four box numbers. Here K = 5.
 
-- Ask: How many numbers does the head output for K = 5 and C = 80?
+- Ask: What does each slot write?
+- Expected: A class and four box numbers, like the one-object head.
+
+**Build 2:** The target for our photo puts the dog in one slot and the cat in another, with their boxes in normalised units.
+
+- Ask: Why the dog in slot 1 and not slot 4?
+- Expected: No reason: the slots have no order. That choice comes back as Problem 2.
+
+**Build 3:** The three spare slots need a way to say “nothing here”: one more class, no object. Their boxes have no right answer, so they are “?”.
+
+- Ask: What should a spare slot predict?
+- Expected: The class “no object”. Its box is left out of the loss.
+
+**Build 4:** However many objects a photo has, the output keeps one size: K slots, each with C class scores, a no-object score and four box numbers.
+
+- Ask: How many numbers for K = 5 and C = 80?
 - Expected: 5 × (80 + 1 + 4) = 425.
 
-**Build 2:** The other slots must be able to say “nothing here”: add a no-object class. Output size: K × (C + 1 + 4), fixed.
+**Transition:** A real detector built with slots.
 
-- Ask: What do unused slots predict?
-- Expected: A “no object” class.
+**Source:** Our annotation of the courtyard photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-**Build 3:** So choose K larger than any photo needs: DETR (Appendix A) uses K = 100.
+## slots-real: A real detector with K = 100: DETR’s slots on our photo
 
-- Ask: How do we avoid running out of slots?
-- Expected: Make K bigger than any photo needs, e.g. 100.
+**Build 1:** DETR is a real detector built this way, with K = 100. Its 100 slots for our photo, each shaded by how sure it is of an object.
+
+- Ask: How many slots does DETR have?
+- Expected: 100, whatever the photo.
+
+**Build 2:** Above 0.9, 5 slots are sure: the dog, the cat and 3 potted plants, a COCO class we did not annotate. 93 of the 100 say no object.
+
+- Ask: What do most of the slots say?
+- Expected: No object: 93 of the 100.
+
+**Point here:** The shade is 1 − p(no object). The numbers are DETR’s query indices. Two more slots are unsure: a potted plant at 0.84 and one at 0.55.
+
+**Transition:** What if a photo has more objects than slots?
+
+**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py.
+
+## slots-crowd: Problem 1: more objects than slots
+
+**Build 1:** Problem 1: the crowd photo has 11 people. A head with K = 5 slots can report at most 5 of them, however well it is trained.
+
+- Ask: How many of the 11 people can a 5-slot head report?
+- Expected: At most 5.
+
+**Build 2:** So make K larger than any photo needs. DETR’s K = 100 leaves room: here 16 of its slots are sure of an object, 10 people and 6 bags.
+
+- Ask: How large should K be?
+- Expected: Larger than the number of objects in any photo you expect. DETR uses 100.
+
+**Point here:** Sure means a score of 0.9 or more. At that level DETR finds 10 of the 11 people; the bags are dashed. The DETR paper sets K well above the usual number of objects in an image (Carion et al., 2020).
 
 **Transition:** Problem 2 is harder: which object goes in which slot?
+
+**Source:** DETR (facebook/detr-resnet-50, Hugging Face) run on this photo by scripts/run_models.py. The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
 ## slot-order: Problem 2: which dog belongs in slot 1?
 
@@ -900,22 +993,22 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## sliding: Slide the classifier over the photo
 
-**Build 1:** Put a window on the photo, crop it, classify it. This window says “dog”.
+**Build 1:** Put a 224-pixel window on the photo, crop it and classify it. This one says “dog”.
 
 - Ask: What does the classifier say about this window?
 - Expected: Dog.
 
-**Build 2:** Move the window every 32 pixels: 30 positions across, 20 down, 600 windows.
+**Build 2:** Move the window 32 pixels at a time, across and down: 30 places across, 20 down.
 
-- Ask: How many positions are there?
-- Expected: 30 × 20 = 600.
+- Ask: How many places are there?
+- Expected: 960 ÷ 32 = 30 across, 640 ÷ 32 = 20 down: 600.
 
-**Build 3:** At each position try 3 sizes and 3 shapes. It works, but every crop is a full run of the classifier, so it is slow.
+**Build 3:** Objects come in many sizes and shapes, so try 3 sizes and 3 shapes at every place. Each crop is a full run of the classifier.
 
 - Ask: How many classifier runs per photo?
 - Expected: 600 × 3 × 3 = 5,400.
 
-**Point here:** Detectors around 2013 worked like this (OverFeat). R-CNN (2014) classified about 2,000 proposed crops per image and needed about 47 seconds per image at test time (CS231n, 2017): Appendix B, two-stage detectors.
+**Point here:** Detectors around 2013 worked like this (OverFeat). R-CNN (2014) classified about 2,000 proposed crops per image and needed about 47 seconds per image at test time (CS231n, 2017): Appendix B, two-stage detectors. The sizes and shapes drawn are examples.
 
 **Transition:** Look at two neighbouring windows.
 
@@ -923,49 +1016,72 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## shared-work: Neighbouring windows see almost the same pixels
 
-**Build 1:** Classify neighbouring windows separately and most of their features are computed twice.
+**Build 1:** Classify neighbouring windows separately and the features of their shared pixels are computed again and again.
 
 - Ask: How much do neighbouring windows overlap?
-- Expected: 86%: 192 of every 224 columns.
+- Expected: 192 of every 224 columns: 86%.
 
-**Build 2:** Run the CNN once on the whole photo and read one output per position: every window at once, the shared work done once.
+**Build 2:** If that shared work were done once, all the runs could collapse into one. A small example shows how a CNN does it.
 
-- Ask: How can the shared work be done only once?
-- Expected: Run the CNN on the whole photo once; each position of its output plays the role of one window.
+- Ask: Where is the waste?
+- Expected: The features of the shared pixels are computed once for every window that contains them.
 
-**Point here:** Ng calls this the convolutional implementation of sliding windows (after OverFeat, Sermanet et al., 2014): turn the classifier’s fully connected layers into convolutions and the whole photo is classified at every position in one pass.
+**Point here:** Ng calls the fix the convolutional implementation of sliding windows (after OverFeat, Sermanet et al., 2014): build the classifier from convolutions only, and the whole photo is classified at every position in one pass.
 
-**Transition:** One pass of a CNN.
+**Transition:** A small example.
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## one-pass: One pass of a CNN: a 30 × 20 grid of feature vectors
+## conv-windows: A small example: the same classifier on a bigger image
 
-**Build 1:** The photo goes through a CNN that halves the resolution five times: 960 × 640 becomes 30 × 20, with 256 numbers at each position.
+**Build 1:** A classifier built only from convolutions and pooling turns a 14 × 14 crop into one answer. Each 5 × 5 convolution trims 4 from the size.
 
-- Ask: What size is the feature map?
-- Expected: 30 × 20 positions, 256 numbers each.
+- Ask: What does a 5 × 5 convolution do to a 14 × 14 input?
+- Expected: It gives 10 × 10: 14 − 5 + 1 = 10.
 
-**Build 2:** Lay that 30 × 20 grid over the photo. Each square, a cell, stands for one position of the feature map: 600 cells, 600 “windows”.
+**Build 2:** Feed the same layers a 16 × 16 image. Nothing in the network changes, yet the output grows to 2 × 2: four answers.
+
+- Ask: How many answers does a 16 × 16 image give?
+- Expected: 2 × 2 = 4: 16 − 5 + 1 = 12, halved to 6, and 6 − 5 + 1 = 2.
+
+**Build 3:** Each answer is the classifier on one 14 × 14 window, the windows 2 pixels apart. The pixels they share are processed once.
+
+- Ask: Which window does the top-right answer belong to?
+- Expected: The window 2 pixels to the right of the first: columns 2 to 15, rows 0 to 13.
+
+**Point here:** Andrew Ng’s example (Deep Learning Specialization, Course 4, Week 3: convolutional implementation of sliding windows); the last layers are convolutions, so they accept any input size. The sizes are his, not YOLOv8’s.
+
+**Transition:** Now our photo and our CNN.
+
+## one-pass: The same trick on our photo: a 30 × 20 grid of cells
+
+**Build 1:** The same trick on our photo: one pass of a CNN gives one output for every place on a grid, 32 pixels apart. Each place is a cell.
 
 - Ask: How many cells are there?
-- Expected: 600.
+- Expected: 960 ÷ 32 = 30 across, 640 ÷ 32 = 20 down: 600.
 
-**Point here:** For YOLOv8n this is the stride-32 output of the neck: one step of the map is 32 pixels of photo.
+**Build 2:** Each cell takes the place of one window of the sliding search, and all 600 come out of the same single pass.
+
+- Ask: What does one cell replace?
+- Expected: One window position of the sliding search, without a CNN run of its own.
+
+**Point here:** For YOLOv8n this is the output of its neck after the photo has been halved five times (2⁵ = 32), 256 numbers per cell.
 
 **Transition:** Zoom in on one cell.
 
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
 ## cell-window: One cell: an address on the photo, with a wide view
 
-**Build 1:** Zoom in on one cell, (10, 18), in the middle of the dog. Rows and columns count from 0.
+**Build 1:** Zoom in on cell (10, 18): row 10 and column 18, counting from 0. Multiply by 32 to find its square of pixels.
 
-- Ask: Which block of pixels does cell (10, 18) cover?
+- Ask: Which pixels does cell (10, 18) cover?
 - Expected: x from 576 to 608, y from 320 to 352.
 
-**Build 2:** Each CNN layer mixes in neighbouring positions, so one cell can describe a box much larger than itself.
+**Build 2:** Each CNN layer mixes in neighbouring positions, so the cell’s numbers describe a region wide enough to take in the whole dog.
 
-- Ask: Can a cell describe an object larger than its block?
-- Expected: Yes: its vector is computed from a large region of the photo (its receptive field).
+- Ask: Can a cell describe an object larger than its square?
+- Expected: Yes: its numbers are computed from a large region of the photo, its receptive field.
 
 **Common misconception:** A cell is not a 32-pixel crop that knows only its own pixels.
 
@@ -973,201 +1089,101 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## cell-record: Every cell writes a record: 4 box numbers, 80 class scores
+## cell-vector: Every cell writes the same kind of record
 
-**Build 1:** Cell (10, 18) writes four numbers that place a box: its distances to the box’s left, top, right and bottom edges.
+**Build 1:** Each cell writes one record, like Part 4’s one-object target: four numbers for a box, and a score for each of the 80 COCO classes.
 
-- Ask: What do the four box numbers mean?
-- Expected: Distances from the cell’s centre to the four sides of a box.
+- Ask: What does each cell write?
+- Expected: A box (four numbers) and 80 class scores.
 
-**Build 2:** And 80 scores, one per COCO class, each between 0 and 1. Here dog is 0.871; the other 79 are near zero.
+**Build 2:** All the cells together give a 30 × 20 × 84 block of numbers. Its size never depends on what the photo shows.
 
-- Ask: Why does every class get its own score?
-- Expected: A cell answers 80 yes/no questions: is there a person? a dog? … All can be “no”.
+- Ask: How many numbers does the whole grid write?
+- Expected: 30 × 20 × 84 = 50,400.
 
-**Build 3:** Part 4’s localiser had an “object?” number. YOLOv8 does without one.
+**Build 3:** Part 4’s record began with “object?”. YOLOv8 drops it: a cell says “nothing here” by giving every class a low score.
 
-- Ask: How does a cell say “there is nothing here”?
-- Expected: By giving every class a low score.
+- Ask: How does a cell say “nothing here”?
+- Expected: By giving all 80 classes a low score.
 
-**Point here:** These are the real numbers YOLOv8n wrote at this cell. The head writes distances in cells; we show them ×32, in pixels. YOLOv1 to YOLOv5 did have a separate objectness score.
+**Point here:** Ng’s version for a 3 × 3 grid and three classes is a 3 × 3 × 8 block, with an “object?” number p_c first. YOLOv1 to YOLOv5 kept such an object score; YOLOv8 folds it into the class scores.
 
-**Transition:** What the network actually returns.
-
-**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
-
-## raw-output: What actually comes out: one tensor of fixed shape
-
-**Build 1:** Run the real network on the courtyard photo and print the shape: 84 rows and 12,600 columns.
-
-- Ask: What shape does YOLOv8n output for this photo?
-- Expected: (1, 84, 12,600).
-
-**Build 2:** One column per cell: 600 from our 30 × 20 grid, the rest from two finer grids (Part 7).
-
-- Ask: Where do the 12,600 columns come from?
-- Expected: One per cell: 600 from the 30 × 20 grid, 12,000 from two finer grids.
-
-**Point here:** Print shapes before anything else, as Karpathy does in every Zero to Hero lecture: most bugs show up as a wrong shape. The code is from scripts/run_models.py.
-
-**Notebook:** Notebook part 5 runs YOLOv8n on the photo, prints this shape and reads the column of cell (10, 18).
-
-**Transition:** Read one column.
-
-**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
-
-## raw-column: One column is one cell’s record
-
-**Build 1:** Column k is cell k’s record. Its first 4 rows place the box: the head has already turned l, t, r, b into a centre and a size.
-
-- Ask: What do the first four rows of a column hold?
-- Expected: The cell’s box, as a centre and a size in pixels.
-
-**Build 2:** The other 80 rows are its class scores: 84 = 4 + 80, whatever the photo shows.
-
-- Ask: Does the shape depend on how many objects are in the photo?
-- Expected: No, only on the photo’s size. A photo of an empty wall gives the same shape.
-
-**Point here:** One small layer, with the same weights, writes the record at every cell: a 1 × 1 convolution over the feature map.
-
-**Transition:** Back to the four box numbers.
-
-**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
-
-## ltrb: How a cell describes a box: its distances to the four sides
-
-**Build 1:** Stand at the centre of cell (10, 18): column 18 and row 10, plus a half, times 32 pixels.
-
-- Ask: Where is the centre of cell (10, 18)?
-- Expected: (592, 336).
-
-**Build 2:** Left: how far to the box’s left edge. 592 − 407 = 185 pixels.
-
-- Ask: What is l?
-- Expected: 185
-
-**Build 3:** Top: 336 − 83 = 253.
-
-- Ask: What is t?
-- Expected: 253
-
-**Build 4:** Right: 768 − 592 = 176.
-
-- Ask: What is r?
-- Expected: 176
-
-**Build 5:** Bottom: 588 − 336 = 252. Like standing in a room and measuring the distance to each wall: four numbers fix the box.
-
-- Ask: How would you get the box back from (l, t, r, b)?
-- Expected: x₁ = 592 − l, y₁ = 336 − t, x₂ = 592 + r, y₂ = 336 + b.
-
-**Point here:** This is the anchor-free form of FCOS (2019) and YOLOv8 (2023). YOLOv1 (2016) instead predicted the centre’s offset inside the cell and the box’s width and height: optional slide.
-
-**Transition:** Which cells should be asked to do this for the dog?
+**Transition:** Which cell should describe the dog?
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## centre-cell: The simplest rule: the cell that holds the centre
+## centre-cell: Which cell answers for the dog? The one that holds its centre
 
-**Build 1:** One rule: the cell that contains the box’s centre answers for the object. For the dog, that is our cell.
+**Build 1:** The rule Andrew Ng teaches: the cell that holds an object’s centre answers for it. Divide the dog’s centre by 32 and round down: cell (10, 18).
 
 - Ask: Which cell holds the dog’s centre?
-- Expected: (10, 18).
+- Expected: (10, 18): row 10, column 18.
 
-**Build 2:** Every object now has exactly one cell, decided by where it is, so there is no slot order to argue about.
+**Build 2:** The cat’s centre falls in cell (14, 6). Each object gets exactly one cell, fixed by where it is, so the list order no longer matters.
 
 - Ask: Why does this rule solve Part 4’s order problem?
-- Expected: Each object’s cell is fixed by where the object is, not by its position in the annotation list.
+- Expected: Each object’s cell is fixed by where the object is, not by its place in the annotation list.
 
-**Point here:** This is YOLOv1’s rule (Redmon et al., 2016), and the one Andrew Ng teaches: the object is assigned to the grid cell that contains its midpoint.
+**Point here:** This is YOLOv1’s rule (Redmon et al., 2016), as Ng teaches it. YOLOv8 trains about ten cells near each centre instead of one; the idea is the same: the place decides which outputs answer.
 
-**Transition:** Is one cell per object enough?
-
-**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
-
-## which-cells: More cells per object: every cell inside the box?
-
-**Build 1:** One positive cell per object is a weak training signal. Using every cell in the box adds edge cells that see mostly floor, a noisy target.
-
-- Ask: How many cells are inside the dog’s box, and why not train them all?
-- Expected: 165; the cells near its edges see mostly floor, so their target is noisy.
-
-**Transition:** A middle way.
+**Transition:** Write the dog’s box from that cell’s point of view.
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## centre-block: A middle way: a block of cells around the centre
+## cell-box: The dog’s box, measured in cells
 
-**Build 1:** The cells within 1.5 cells of the centre: a 3 × 3 block around cell (10, 18).
+**Build 1:** b_x and b_y say where the dog’s centre sits inside its cell: 0 at the cell’s left or top edge, 1 at its right or bottom edge.
 
-- Ask: Which cells does centre sampling pick for the dog?
-- Expected: The nine cells in rows 9 to 11, columns 17 to 19.
+- Ask: Where is the dog’s centre inside cell (10, 18)?
+- Expected: b_x = 11.5 ÷ 32 = 0.359 across, b_y = 15.5 ÷ 32 = 0.484 down: near the middle.
 
-**Build 2:** Do the same for the cat. Every other cell learns “no object of any class”.
+**Build 2:** b_w and b_h give the size, counted in cells. The dog is about 11 cells wide and 16 tall, so both are larger than 1.
 
-- Ask: What do all the other cells learn?
-- Expected: To give every class a low score: background.
+- Ask: Why can b_w be larger than 1?
+- Expected: It counts cells, and the dog spans about 11 of them.
 
-**Point here:** Rules differ between detectors: YOLOv1 used only the centre cell; FCOS the cells near the centre; YOLOv8 picks the 10 cells whose current predictions fit the object best. All put the positives near the object.
+**Point here:** Andrew Ng’s YOLO encoding: b_x and b_y between 0 and 1 inside the cell, b_w and b_h as multiples of the cell. YOLOv8 writes the same box as four distances from the cell centre to the sides (Appendix B).
 
-**Transition:** What does the trained network actually do?
+**Transition:** The target for the whole photo.
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## fires: The trained YOLOv8n: about ten cells fire per object
+## target-photo: The target for the whole photo, cell by cell
 
-**Build 1:** The real network’s dog score at every cell: a small cluster near the dog’s centre, and nothing elsewhere.
+**Build 1:** The target for our photo, one cell at a time. Cell (10, 18) holds the dog’s centre: the box in cell units, 1 for dog, 0 for every other class.
 
-- Ask: Where are the dog scores high?
-- Expected: In a block of cells around the dog’s centre.
+- Ask: What is the target at cell (10, 18)?
+- Expected: Box (0.359, 0.484, 11.281, 15.781), dog 1, every other class 0.
 
-**Build 2:** A second cluster for the cat. About ten cells per object, as training asked: the source of the duplicates we remove later.
+**Build 2:** Cell (14, 6) holds the cat’s centre: its box, 1 for cat, 0 for the rest.
 
-- Ask: How many cells fire for each animal, and why that many?
-- Expected: About 10: YOLOv8 trains its 10 best-fitting cells per object as positives.
+- Ask: And at the cat’s cell?
+- Expected: Box (0.766, 0.109, 6.531, 9.719), cat 1, every other class 0.
 
-**Point here:** The firing block is shifted one cell up and right of the 3 × 3 rule: YOLOv8 chooses its positives by how well each cell’s current prediction fits, not by distance alone.
+**Build 3:** The other 598 cells hold no centre: 0 for every class. Their box is “?”, left out of the loss, like Part 4’s empty floor.
 
-**Transition:** Write the target of one positive cell.
+- Ask: What do the other cells learn?
+- Expected: To give every class a low score; their box is not trained.
 
-**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+**Point here:** Ng writes this target as a 3 × 3 × 8 block for a 3 × 3 grid and three classes. Ours is 30 × 20 × 84, almost all of it zeros.
 
-## target-positive: The target at a positive cell, (10, 18)
+**Transition:** Now what the trained network wrote at the dog’s cell.
 
-**Build 1:** A positive cell learns to say yes to “dog” and no to every other class.
+**Source:** Our annotation of the courtyard photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-- Ask: What are the class targets of a positive dog cell?
-- Expected: 1 for dog, 0 for the other 79.
-
-**Build 2:** Its box target is the four distances we just measured. A box much larger than a cell is fine.
-
-- Ask: What is its box target?
-- Expected: (185, 253, 176, 252) pixels.
-
-**Transition:** And a cell where nothing is.
-
-## target-background: The target at a background cell: all zeros, and “?”
-
-**Build 1:** A background cell, (3, 3) on the wall: every class target is 0; its box target is “?”, left out of the loss, as for Part 4’s empty floor.
-
-- Ask: What does a background cell learn?
-- Expected: To give every class a low score; nothing about boxes.
-
-**Point here:** Of the 600 cells on this grid, 582 have this target. Part 4’s “object? = 0” is here “all 80 classes 0”.
-
-**Transition:** Now what the network wrote at the positive cell.
-
-## prediction-record: What the network wrote at cell (10, 18)
+## prediction-record: What the trained network wrote at cell (10, 18)
 
 **Build 1:** The real network’s scores at this cell: dog a little below its target of 1, every other class near its target of 0.
 
 - Ask: How far is each class score from its target?
-- Expected: Dog: 1 − 0.871 = 0.129 too low; the others are near their target 0.
+- Expected: Dog: 1 − 0.871 = 0.129 too low; the others are near 0, their target.
 
-**Build 2:** The loss turns all these differences, class and box, into one number to reduce.
+**Build 2:** Its box, in cell units, is close to the target too. The loss turns all these differences into one number to reduce.
 
-- Ask: Which distance is furthest off?
-- Expected: The top, t: 7.4 px too large.
+- Ask: Which box number is furthest off?
+- Expected: b_h: 16.015 against 15.781, 0.234 cells.
+
+**Point here:** YOLOv8n’s box at this cell is (588.42, 331.88, 362.35, 512.49) in pixels, centre and size; divided into cell units as on the previous slides.
 
 **Transition:** The class part of the loss.
 
@@ -1210,30 +1226,21 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 **Transition:** The box part of the loss.
 
-## loss-box: Box loss: how far off are the four distances?
+## loss-box: Box loss: how far off are the four box numbers?
 
-**Build 1:** Compare the four predicted distances with the four target distances, and add the absolute differences: the L1 loss of Part 4.
+**Build 1:** Compare the four predicted box numbers with the target’s and add the absolute differences: the L1 loss of Part 4.
 
-- Ask: What does the L1 box loss add?
-- Expected: Four absolute differences between predicted and target distances.
+- Ask: What does the box loss add up?
+- Expected: Four absolute differences, prediction minus target.
 
-**Build 2:** 0.2 + 7.4 + 1.6 + 0.1 = 9.3 pixels. Most of it is the top edge: the predicted box starts 7.4 pixels higher than ours.
+**Build 2:** In cells: 0.418, most of it from b_h and b_y. The predicted box is a little taller, and its centre a little higher, than ours.
 
-- Ask: Which edge contributes most?
-- Expected: The top edge, 7.4 px.
+- Ask: Which number contributes most?
+- Expected: b_h: 0.234 cells.
 
-**Transition:** Is 9 pixels a lot?
+**Point here:** Ng’s YOLO uses squared errors throughout. YOLOv8 uses an IoU-based box loss, which treats small and large objects alike.
 
-## loss-iou: A box loss that does not care about size: 1 − IoU
-
-**Build 1:** Another choice: one minus the IoU of the two boxes, here 0.020. Small objects then count as much as large ones.
-
-- Ask: Why might one prefer 1 − IoU to L1 in pixels?
-- Expected: It measures overlap, which is scale-free: 9.3 px is negligible for the dog but large for a small object.
-
-**Point here:** YOLOv8 uses an IoU-based box loss (CIoU), plus a loss on how it spreads each distance (DFL).
-
-**Transition:** A background cell.
+**Transition:** A cell with nothing in it.
 
 ## loss-background: A background cell: only a class loss, and it is small
 
@@ -1242,7 +1249,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 - Ask: Why is there no box loss at a background cell?
 - Expected: There is no object, so no box to compare with.
 
-**Build 2:** The imbalance matters: hundreds of easy background terms against a handful of positives. Without care they dominate the sum and the network learns to say “nothing” everywhere.
+**Build 2:** The imbalance matters: hundreds of easy empty-cell terms against a handful of object cells. Without care they dominate the sum, and the network learns to say “nothing” everywhere.
 
 - Ask: What problem do the many background cells cause?
 - Expected: Their many small terms can outweigh the few positive terms.
@@ -1251,57 +1258,41 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 ## loss-total: The loss for the whole photo
 
-**Build 1:** Class loss from every cell, box loss only from the positives; λ balances the two parts.
+**Build 1:** The loss for the photo: class terms from every cell, box terms only from the cells that hold an object.
 
-- Ask: Which cells contribute class terms? Box terms?
-- Expected: All cells; positives only.
+- Ask: Which cells add class terms? Box terms?
+- Expected: Every cell; only the object cells.
 
-**Build 2:** Dividing by the number of positives keeps photos with many objects from dominating.
+**Build 2:** Count them for our photo. The 598 empty cells still matter: they learn to say nothing.
 
-- Ask: What is N_pos here?
-- Expected: 18.
+- Ask: How many class terms are there?
+- Expected: 600 × 80 = 48,000.
 
-**Build 3:** Gradient descent on this one number trains the shared layers.
+**Build 3:** Every cell uses the same weights, so every cell learns from every object in every photo.
 
-- Ask: Why does dividing by N_pos help?
-- Expected: Each photo’s loss is then an average per object, whatever the number of objects.
+- Ask: Why does every cell learn from the dog?
+- Expected: The weights are shared: the same layers write every cell’s record.
 
-**Point here:** YOLOv8’s real loss sums all three grids (Part 7) and uses its own weights and box loss; the structure is the same.
-
-**Transition:** The same loss in code.
-
-## loss-code: The same loss in code
-
-**Build 1:** The target is a 600 × 80 table of zeros with a 1 at each positive cell’s class. Class loss over everything, box loss over the positives.
-
-- Ask: What shape is y, and how many 1s does it hold?
-- Expected: 600 × 80 with 18 ones.
-
-**Build 2:** Building pos, labels and dist_target from the annotations is the “assignment” step: the 3 × 3 rule written as code. The notebook does it for this photo.
-
-- Ask: Which line uses only the positive cells?
-- Expected: box_loss: dist[pos].
-
-**Notebook:** Notebook part 5 builds pos and the targets for the courtyard photo and evaluates this loss on YOLOv8n’s real outputs.
+**Point here:** Real detectors weight the two parts and average over objects: YOLOv1 used 5 for the box terms and 0.5 for empty cells. YOLOv8’s loss has the same structure over its three grids.
 
 **Transition:** At test time there are no annotations: read the boxes out.
 
 ## decode: At test time: read the box back out of the cell
 
-**Build 1:** At test time we know only what the cell wrote: four distances and 80 scores.
+**Build 1:** At test time there is no annotation, only what the cell wrote. Undo the cell units: the centre is the cell’s corner plus b_x and b_y cells.
 
-- Ask: How do we get x₁ from the record?
-- Expected: x₁ = 592 − l.
+- Ask: Where is the box’s centre?
+- Expected: (588.4, 331.9).
 
-**Build 2:** Undo the distances: left edge = centre minus l, and so on. A box in pixels.
+**Build 2:** The size is b_w and b_h cells, times 32 pixels. The corners follow as in Part 3: the box sits on the dog.
 
-- Ask: Where is this box?
-- Expected: (407.2, 75.6, 769.6, 588.1): on the dog.
+- Ask: How big is the box?
+- Expected: 362.3 × 512.5 pixels.
 
-**Build 3:** So each cell gives one box, with a class and a score.
+**Build 3:** Its label is the class with the highest score, and that score is the box’s score.
 
 - Ask: Which score does the box get?
-- Expected: The largest of its 80 class scores, 0.871 (dog).
+- Expected: The largest of its 80 class scores: 0.871, dog.
 
 **Transition:** Every cell does this. Look at them all.
 
@@ -1316,13 +1307,49 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 **Point here:** Every cell always writes a box. The score decides whether anyone looks at it.
 
-**Transition:** Decode all of them and keep the confident ones.
+**Transition:** Where do the confident cells sit?
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## fires: About ten cells fire for each animal
+
+**Build 1:** The trained network’s dog score at every cell: a cluster around the dog’s centre, and nothing elsewhere.
+
+- Ask: Where are the dog scores high?
+- Expected: In a block of cells around the dog’s centre.
+
+**Build 2:** A second cluster for the cat. Cells next to a centre see almost the same animal, so they are confident too: duplicates, which Part 6 removes.
+
+- Ask: Why do about ten cells fire, not one?
+- Expected: Neighbouring cells see nearly the same animal; YOLOv8 is even trained with about ten cells per object.
+
+**Point here:** YOLOv8 trains its 10 best-fitting cells per object as positives, not only the centre cell, which makes the cluster. Even with Ng’s one-cell rule, neighbours end up confident at test time.
+
+**Transition:** Every cell’s box, all at once.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## every-box: Every cell draws a box, even on the wall
+
+**Build 1:** Decode every cell of the grid and draw its box: 600 boxes, one per cell, including the cells on the wall and the floor.
+
+- Ask: Does a cell on the wall write a box?
+- Expected: Yes: every cell always writes one.
+
+**Build 2:** Fade each box by its cell’s best class score. Almost all vanish: the score says which boxes to believe.
+
+- Ask: What tells us which boxes to keep?
+- Expected: Its score: the highest of its 80 class scores.
+
+**Point here:** Every cell writes a box whatever it sees; nobody looks at the box of a cell whose scores are all low.
+
+**Transition:** Keep the confident ones.
 
 **Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
 
 ## all-candidates: Decode every cell, keep scores ≥ 0.25: 31 boxes
 
-**Build 1:** Every photo of this size gets exactly 12,600 records: the fixed-size output.
+**Build 1:** The real YOLOv8n also reads two finer grids, met in Part 7: 12,600 cells, each writing a box, for any photo this size.
 
 - Ask: How many records does the network write?
 - Expected: 12,600
@@ -1346,7 +1373,7 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 **Build 1:** Next: each object has about ten boxes; keep one.
 
 - Ask: Why are there about ten boxes per object at test time?
-- Expected: Training made several cells near each object positives; after training, all of them fire.
+- Expected: Cells next to an object’s centre see nearly the same object, so several of them are confident.
 
 **Transition:** Part 6.
 
@@ -1519,49 +1546,120 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 **Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
 
-## nms-code: NMS in code
+## nms-code: NMS in code, one line at a time
 
-**Build 1:** The recipe line by line: sort, keep the first, drop everything that overlaps it more than the threshold, repeat.
+**Build 1:** The greedy loop of 6.1 as a function. Its input: the 31 boxes that passed the score filter, with their scores.
+
+- Ask: What goes into nms?
+- Expected: The boxes that passed the score filter, and their scores.
+
+**Build 2:** Sort by score, best first. The best of all is a cat box, 0.921.
+
+- Ask: Why sort first?
+- Expected: So that each kept box is the best one left in its neighbourhood.
+
+**Build 3:** keep starts empty. The loop runs while any box is left in order.
+
+- Ask: When does the loop stop?
+- Expected: When no boxes are left in order.
+
+**Build 4:** Take the first box in order and keep it. Everything after it is rest.
+
+- Ask: Is the top box ever deleted?
+- Expected: No: it is kept as soon as it is first in line.
+
+**Build 5:** IoU of the kept box with every box in rest, all at once: its 9 twins score 0.98 or more, and every other box about 0.
+
+- Ask: Which boxes overlap the kept cat box heavily?
+- Expected: Its 9 twins, IoU 0.98 to 1.00.
+
+**Build 6:** Keep only the boxes with IoU ≤ 0.7: the cat’s 9 twins go, and nothing else is touched.
 
 - Ask: Which line deletes the duplicates?
-- Expected: order = order[1:][ious <= thr].
+- Expected: order = rest[ious <= thr].
 
-**Build 2:** torchvision has it built in; batched_nms runs it separately for each class label.
+**Build 7:** The loop repeats: a plant box drops 9 twins, the dog box 9, the small plant none. order is now empty.
 
-- Ask: How would you make it class-aware by hand?
-- Expected: Run it once per class, or offset each class’s boxes so different classes never overlap (what batched_nms does).
+- Ask: How many rounds does the loop run here?
+- Expected: 4: one per object.
+
+**Build 8:** Return the 4 kept boxes, one per object. torchvision.ops.nms returns the same four.
+
+- Ask: How would you make it class-aware?
+- Expected: Run it once per class, or use torchvision.ops.batched_nms, which does exactly that.
+
+**Point here:** This nms ignores classes; on these boxes it keeps the same four as class-aware NMS (checked in scripts/science.py). boxes[[i]] keeps a (1, 4) shape for box_iou.
 
 **Notebook:** Notebook part 6 runs this function on the courtyard’s 31 candidates and checks it against torchvision.ops.nms.
 
 **Transition:** The dense answer, end to end.
 
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
 ## dense-recap: The dense answer, end to end
 
-**Build 1:** Photo, CNN, a fixed 12,600 records, decoded into boxes, filtered by score, cleaned by NMS: four detections.
+**Build 1:** Photo in, one pass of the CNN and its head, and out come 12,600 records, the same number for every photo this size.
+
+- Ask: What comes out of the network for any photo?
+- Expected: 12,600 records, one per cell, always.
+
+**Build 2:** Fixed rules turn them into detections: decode every record into a box, drop the low scores, and remove duplicates with NMS.
+
+- Ask: Which steps cut the boxes down?
+- Expected: The score filter (31 left), then NMS (4 left).
+
+**Build 3:** Only the CNN and head have learned weights. This is answer A to the lecture’s question: outputs tied to places, then one box per object.
 
 - Ask: Which steps have learned weights?
 - Expected: Only the CNN and the head; decoding, filtering and NMS are fixed rules.
 
-**Build 2:** This is answer A to the lecture’s question: place-based outputs, many per object in training, one per object after NMS.
-
-- Ask: Where does the number of detections get decided?
-- Expected: In the score filter and NMS, after the network.
-
 **Transition:** The same pipeline in code.
 
-## detect-code: The whole detector at test time, in eight lines
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
 
-**Build 1:** Parts 5 and 6 as code: run the network once, read every cell’s box and best class, keep the confident cells, run NMS separately for each class.
+## detect-code: The whole detector at test time, one line at a time
 
-- Ask: Which line decides how many objects are returned?
-- Expected: The score filter and batched_nms together.
+**Build 1:** Parts 5 and 6 in one function. x is the photo as a tensor, and net is the trained YOLOv8n.
 
-**Build 2:** On the courtyard photo it returns the 4 detections of the lecture’s first slide. Nothing in it depends on how many objects there are.
+- Ask: What are the inputs?
+- Expected: The photo tensor and the trained network.
 
-- Ask: Which lines have learned weights?
-- Expected: Only net(photo); the rest are fixed rules.
+**Build 2:** One pass of the network: 84 numbers for each of the 12,600 cells, whatever the photo shows.
 
-**Point here:** batched_nms is torchvision.ops.batched_nms; cxcywh_to_xyxy is torchvision.ops.box_convert(boxes, "cxcywh", "xyxy"). Ultralytics’ own post-processing does the same steps (checked in scripts/science.py).
+- Ask: What shape is y?
+- Expected: (84, 12,600): 84 numbers per cell.
+
+**Build 3:** Turn each cell’s centre and size into corners: 12,600 boxes, one per cell. Our grid’s 600 are drawn.
+
+- Ask: What does xyxy do?
+- Expected: It turns (c_x, c_y, w, h) into corners (x₁, y₁, x₂, y₂).
+
+**Build 4:** For each cell, its best class and that class’s score. The scores are high only near the animals and the plants.
+
+- Ask: What does max(0) return?
+- Expected: For each cell, its largest class score and the index of that class.
+
+**Build 5:** A mask of the cells whose best score is at least 0.25: 31 of 12,600.
+
+- Ask: How many cells pass the mask?
+- Expected: 31
+
+**Build 6:** Keep those rows only: 31 boxes, each with its score and its class.
+
+- Ask: Why index box, score and label with the same mask?
+- Expected: So each kept box keeps its own score and class.
+
+**Build 7:** NMS within each class: 4 boxes remain, one per object.
+
+- Ask: Why batched_nms rather than nms?
+- Expected: It runs NMS separately for each class, so a person never removes their bicycle.
+
+**Build 8:** Return them: the four detections of the lecture’s first slide. No line depends on how many objects there are.
+
+- Ask: Which lines decide how many objects come back?
+- Expected: The score mask and batched_nms.
+
+**Point here:** xyxy is torchvision.ops.box_convert(b, "cxcywh", "xyxy"); batched_nms is torchvision.ops.batched_nms. Ultralytics’ own post-processing does the same steps (checked in scripts/science.py).
 
 **Notebook:** Notebook part 6 runs this function on the courtyard photo.
 
@@ -2236,6 +2334,37 @@ Planned main route: 110 minutes, including student responses. Optional slides ar
 
 - Ask: What must be chosen by hand for an anchor-based detector?
 - Expected: The anchor sizes and aspect ratios, and the IoU thresholds for positives.
+
+## opt-ltrb: YOLOv8’s box: four distances from the cell centre (optional)
+
+**Build 1:** Stand at the centre of cell (10, 18): column 18 and row 10, plus a half, times 32 pixels.
+
+- Ask: Where is the centre of cell (10, 18)?
+- Expected: (592, 336).
+
+**Build 2:** Left: how far to the box’s left edge. 592 − 407 = 185 pixels.
+
+- Ask: What is l?
+- Expected: 185
+
+**Build 3:** Top: 336 − 83 = 253.
+
+- Ask: What is t?
+- Expected: 253
+
+**Build 4:** Right: 768 − 592 = 176.
+
+- Ask: What is r?
+- Expected: 176
+
+**Build 5:** Bottom: 588 − 336 = 252. Like standing in a room and measuring the distance to each wall: four numbers fix the box.
+
+- Ask: How would you get the box back from (l, t, r, b)?
+- Expected: x₁ = 592 − l, y₁ = 336 − t, x₂ = 592 + r, y₂ = 336 + b.
+
+**Point here:** This is the anchor-free form of FCOS (2019) and YOLOv8 (2023). YOLOv1 (2016) instead predicted the centre’s offset inside the cell and the box’s width and height: optional slide.
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
 ## opt-two-stage: Two-stage detectors: propose, then classify (optional)
 
