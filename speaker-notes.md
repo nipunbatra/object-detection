@@ -1,6 +1,6 @@
 # Object detection: speaker notes
 
-Planned main route: 120 minutes, including student responses. Optional slides are outside this budget.
+Planned main route: 130 minutes, including student responses. Optional slides are outside this budget.
 
 ## Pacing
 
@@ -11,11 +11,11 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 | Part 2 · From one label to a list | 9 |
 | Part 3 · Boxes and IoU | 16 |
 | Part 4 · One box, then many | 7 |
-| Part 5 · A candidate at every place | 25 |
+| Part 5 · A candidate at every place | 32 |
 | Part 6 · One box per object: NMS | 16 |
-| Part 7 · Three grids for three sizes | 6 |
-| Part 8 · Measuring a detector | 20 |
-| Wrap-up | 8 |
+| Part 7 · Three grids for three sizes | 9 |
+| Part 8 · Measuring a detector | 24 |
+| Wrap-up | 4 |
 
 ## title: Object detection: from one label to a set of objects
 
@@ -791,7 +791,7 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 - Ask: What are the seven target numbers for the cat photo?
 - Expected: 1; then about (0.67, 0.53, 0.32, 0.64); then cat 1, dog 0.
 
-**Build 2:** A photo of empty floor: object? is 0. The box and the class have no right answer, so Ng writes “?”: don’t care.
+**Build 2:** A photo of empty floor: object? is 0. The box and the class have no right answer, so we write “?”: don’t care.
 
 - Ask: What should the box be for a photo with no object?
 - Expected: Nothing: there is no box, so we do not care what the network writes there.
@@ -809,7 +809,7 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 ## loss-y: The loss: compare only where it counts
 
-**Build 1:** When there is an object, all seven outputs are compared with the target. Ng adds up the squared differences.
+**Build 1:** When there is an object, all seven outputs are compared with the target. The loss adds up the squared differences.
 
 - Ask: Which entries count for the cat photo?
 - Expected: All seven.
@@ -948,78 +948,78 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 **Source:** VGG16 (torchvision, ImageNet) run on this photo by scripts/run_models.py; timed on a laptop CPU. The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## grid-3x2: YOLO: grid the photo, and let every cell predict a record
+## grid-3x2: YOLO, “You Only Look Once”: cut the photo into cells
 
-**Build 1:** YOLO’s idea: cut the photo into a grid and let every cell predict. Ours has 3 × 2 cells of 320 pixels; rows and columns count from 0.
+**Build 1:** YOLO, “You Only Look Once”: look at the whole photo once, not 336 times. Cut it into cells of 320 × 320 pixels: the photo becomes 3 × 2 cells.
 
-- Ask: How big is each cell?
-- Expected: 960 ÷ 3 = 320 wide and 640 ÷ 2 = 320 tall.
+- Ask: What does the name YOLO say?
+- Expected: One look: a single pass of one network over the whole photo, instead of a classifier run on 336 crops.
 
-**Build 2:** Each cell predicts Part 4’s record, a vector of 7 numbers about that cell: object?, the box b_x, b_y, b_w, b_h, and a cat and a dog score.
+**Build 2:** Each cell gets Part 4’s record, a vector of 7 numbers about that cell: object?, the box b_x, b_y, b_w, b_h, and a cat and a dog score.
 
-- Ask: What does a cell predict?
-- Expected: Part 4’s 7-number record: object?, b_x, b_y, b_w, b_h, cat, dog.
+- Ask: What does a cell’s record hold?
+- Expected: Part 4’s 7 numbers: object?, b_x, b_y, b_w, b_h, cat, dog.
 
-**Build 3:** Six cells with seven numbers each: 42 numbers describe the whole photo.
+**Build 3:** We fill this 2 × 3 × 7 table twice: from a person’s boxes, the ground truth, and from the network, the prediction. Training makes the two agree.
 
-- Ask: How many numbers make the whole answer?
-- Expected: 6 × 7 = 42.
+- Ask: Which two tables will we compare?
+- Expected: The ground truth, built from a person’s boxes, and the network’s prediction.
 
-**Point here:** Ng (“Bounding Box Predictions”): put a 3 × 3 grid on the image and apply the localisation algorithm of the first video to each of the nine cells; 19 × 19 in practice. We draw 3 × 2 so that the cells of our 960 × 640 photo are square.
+**Point here:** Redmon et al., “You Only Look Once: Unified, Real-Time Object Detection” (2016). The cell size is our choice: 320-pixel cells give a coarse 3 × 2 grid that is easy to draw; YOLOv8 uses 32-pixel cells, 30 × 20 of them on this photo (5.4). Ng draws a 3 × 3 grid and uses 19 × 19 in practice.
 
-**Transition:** Where do six records come from? One network.
-
-**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
-
-## grid-structure: The structure: one CNN pass writes all six records
-
-**Build 1:** One CNN reads the whole photo once. Its output is a 2 × 3 block with 7 numbers at each position: one record per cell. You Only Look Once.
-
-- Ask: What shape is the network’s output?
-- Expected: 2 × 3 × 7: a 7-number record for each of the 6 cells.
-
-**Build 2:** Convolutions keep the photo’s layout, so each output position belongs to one cell: top-left to top-left, and so on. The colours show the six pairs.
-
-- Ask: Which output position describes the bottom-left cell?
-- Expected: The bottom-left one, (1, 0): convolutions keep the layout.
-
-**Build 3:** Each position sees much more than its own cell, so a cell can describe an object bigger than itself, like the dog.
-
-- Ask: Why can a cell describe a dog bigger than itself?
-- Expected: Its numbers are computed from a large part of the photo around the cell, not from the cell alone.
-
-**Point here:** Ng: input 100 × 100 × 3, a ConvNet, output 3 × 3 × 8; one pass, fast enough for video. Real YOLOs shrink the photo 32 times, so our 960 × 640 photo gives 30 × 20 positions (5.3). The region a position sees is its receptive field; the dashed box only sketches it.
-
-**Transition:** Which cell should describe the dog?
+**Transition:** Part 1: the ground truth, step by step.
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## centre-cell: Which cell answers for an animal? The one that holds its centre
+## gt-annotate: Step 1: a person draws a box around each animal
 
-**Build 1:** Which cell answers for the cat? Ng’s rule: the one that holds the centre of its box. The cat’s centre (217, 452) is in row 1, column 0.
+**Build 1:** The ground truth starts with people, not with the network. A person looks at the photo and marks every object we want found.
 
-- Ask: Which cell holds the cat’s centre?
-- Expected: (1, 0): x = 217 is in the first column, y = 452 in the second row.
+- Ask: Who makes the ground truth?
+- Expected: People: annotators drawing boxes, before any training.
 
-**Build 2:** The dog’s centre (588, 336) is just 16 pixels below the line between the rows, so cell (1, 1) answers for the dog.
+**Build 2:** First the dog: a tight box around it, (407, 83, 768, 588) in pixels, and its class.
 
-- Ask: Which cell holds the dog’s centre?
-- Expected: (1, 1): x = 588 is in the middle column, and y = 336 is just past 320.
+- Ask: What exactly does the person record for the dog?
+- Expected: A class, dog, and four numbers: the box’s left, top, right and bottom edges.
 
-**Build 3:** Cell (0, 1) holds the dog’s head but not its centre, so it answers “no object”. Each animal has exactly one cell.
+**Build 3:** Then the cat: (112, 296, 321, 607). These two boxes and two names are all the person provides.
 
-- Ask: What should cell (0, 1) say, although part of the dog is in it?
-- Expected: Object? = 0: only the cell with the centre answers for the dog.
+- Ask: What does the person not have to think about?
+- Expected: The grid, the cells and the records: those follow from these boxes by a fixed rule.
 
-**Point here:** Ng: “assign the object to the grid cell containing its midpoint”; a cell that holds parts of both cars but neither midpoint is treated as having no object. This is YOLOv1’s rule (Redmon et al., 2016). It also settles Part 4’s problem: each animal’s record has a place fixed by where the animal is.
+**Point here:** These are our own hand-checked boxes for this photo (data/annotations.json). Data sets such as COCO were labelled the same way, by people drawing boxes; Part 3 showed a label file.
 
-**Transition:** Write the cat’s box from its cell’s point of view.
+**Transition:** Step 2: lay the grid over the boxes.
 
-**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+**Source:** Our annotation of the courtyard photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## cell-box: The cat’s box, measured in its cell
+## centre-cell: Step 2: the grid over the boxes, and each box’s centre
 
-**Build 1:** Ng measures the box inside its cell. The cat’s cell gets its own coordinates: (0, 0) at its top-left corner and (1, 1) at its bottom-right.
+**Build 1:** Step 2: lay the grid over the boxes. The dog’s centre, where its box’s diagonals cross, lies in cell (1, 1). That cell will carry the dog’s record.
+
+- Ask: How do we find the dog’s cell?
+- Expected: Take the box’s centre, then row ⌊336/320⌋ = 1 and column ⌊588/320⌋ = 1: cell (1, 1).
+
+**Build 2:** Cells (0, 1), (0, 2) and (1, 2) show parts of the dog but not its centre. They will say “no object”, so the dog is written down only once.
+
+- Ask: Why do the other cells showing the dog get “no object”?
+- Expected: So that each object is written down exactly once, in one place fixed by where it is.
+
+**Build 3:** The cat’s centre lies in cell (1, 0), which will carry the cat’s record. The other four cells hold no centre.
+
+- Ask: How many cells hold a centre?
+- Expected: Two: (1, 1) for the dog and (1, 0) for the cat.
+
+**Point here:** Ng: “assign the object to the grid cell containing its midpoint”; a cell holding parts of both cars but neither midpoint gets p_c = 0. The centre is where the box’s diagonals cross. This is YOLOv1’s rule (Redmon et al., 2016).
+
+**Transition:** Step 3: write each box in its cell’s units.
+
+**Source:** Our annotation of the courtyard photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## cell-box: Step 3: the cat’s box, in its cell’s units
+
+**Build 1:** Measure the box inside its cell. The cat’s cell gets its own coordinates: (0, 0) at its top-left corner and (1, 1) at its bottom-right.
 
 - Ask: Where is (0, 0) for this cell, in pixels?
 - Expected: At the cell’s top-left corner, pixel (0, 320).
@@ -1034,7 +1034,7 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 - Ask: How big is the cat, in cells?
 - Expected: 0.65 of a cell wide, 0.97 tall.
 
-**Build 4:** So the cat’s cell writes object? 1, the box (0.68, 0.41, 0.65, 0.97), cat 1 and dog 0.
+**Build 4:** So the ground truth for cell (1, 0) is object? 1, the box (0.68, 0.41, 0.65, 0.97), cat 1 and dog 0.
 
 - Ask: What is the whole record of the cat’s cell?
 - Expected: (1, 0.68, 0.41, 0.65, 0.97, 1, 0).
@@ -1045,7 +1045,7 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## dog-box: The dog’s box is bigger than its cell
+## dog-box: Step 3: the dog’s box, bigger than its cell
 
 **Build 1:** The dog’s centre is 268 pixels from its cell’s left edge and only 16 below its top: b_x ≈ 0.84 and b_y ≈ 0.05.
 
@@ -1057,33 +1057,20 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 - Ask: Can b_w be bigger than 1? Can b_x?
 - Expected: b_w, yes: the dog is wider than a cell. b_x, no: the centre always lies inside its own cell.
 
-**Build 3:** So the dog’s cell writes object? 1, the box (0.84, 0.05, 1.13, 1.58), cat 0 and dog 1.
+**Build 3:** So the ground truth for cell (1, 1) is object? 1, the box (0.84, 0.05, 1.13, 1.58), cat 0 and dog 1.
 
 - Ask: What is the whole record of the dog’s cell?
 - Expected: (1, 0.84, 0.05, 1.13, 1.58, 0, 1).
 
 **Point here:** Ng: b_x and b_y lie between 0 and 1, while b_h and b_w can be greater than 1 when the object spans several cells. The YOLO paper keeps them in range with a sigmoid for the centre and an exponential for the size.
 
-**Transition:** Try it yourself: move a box.
+**Transition:** Step 4: the whole table.
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## target-play: Try it: move a box, and watch its cell write the record
+## target-photo: Step 4: the whole ground-truth table
 
-**Build 1:** Drag the box or its corner dot. The cell holding the centre lights up and writes the record. Try the finer grids: the same box, counted in smaller cells.
-
-- Ask: What happens to the record when the centre crosses a grid line?
-- Expected: Another cell takes over, and b_x or b_y jumps from near 1 to near 0.
-
-**Point here:** b_x and b_y always stay between 0 and 1. b_w and b_h grow as the cells shrink: the dog is 1.13 cells wide on the 3 × 2 grid and 11.3 on the 30 × 20 grid of 5.3.
-
-**Transition:** All six cells: the target for the photo.
-
-**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
-
-## target-photo: The target for the whole photo: six records
-
-**Build 1:** The whole target, one record per cell. The cat’s cell and the dog’s cell hold the records we just wrote.
+**Build 1:** The ground-truth table, one record per cell. Cells (1, 0) and (1, 1) hold the cat’s and the dog’s records, written in step 3.
 
 - Ask: Which two rows are filled in first?
 - Expected: Cells (1, 0) and (1, 1): the cat’s and the dog’s.
@@ -1093,20 +1080,33 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 - Ask: What do the other four cells hold?
 - Expected: Object? = 0; the box and the classes are “?”, left out of the loss.
 
-**Build 3:** Six records of seven numbers: these 42 numbers are what the network should write for this photo.
+**Build 3:** Six records of seven numbers: this table is what the network should learn to output for this photo.
 
 - Ask: How many numbers is the target?
 - Expected: 6 × 7 = 42.
 
 **Point here:** Ng writes this target as a 3 × 3 × 8 block for his 3 × 3 grid and three classes; ours is 2 × 3 × 7.
 
-**Transition:** The same target, built in code.
+**Transition:** Try it: move a box and watch the table.
 
 **Source:** Our annotation of the courtyard photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## target-code: Building the target in code, one line at a time
+## target-play: Try it: move a box, and watch its ground truth change
 
-**Build 1:** Build the target in code. Every cell starts as “no object”: a 2 × 3 × 7 block of zeros. The “?” entries stay 0; the loss will skip them.
+**Build 1:** Drag the box or its corner dot. The cell holding the centre lights up with its ground-truth record. Try the finer grids: the same box, counted in smaller cells.
+
+- Ask: What happens to the record when the centre crosses a grid line?
+- Expected: Another cell takes over, and b_x or b_y jumps from near 1 to near 0.
+
+**Point here:** b_x and b_y always stay between 0 and 1. b_w and b_h grow as the cells shrink: the dog is 1.13 cells wide on the 3 × 2 grid and 11.3 on the 30 × 20 grid of 5.3.
+
+**Transition:** The same steps in code.
+
+**Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## target-code: The ground-truth table in code, one line at a time
+
+**Build 1:** The ground truth in code. Every cell starts as “no object”: a 2 × 3 × 7 block of zeros. The “?” entries stay 0; the loss skips them.
 
 - Ask: Why start from zeros?
 - Expected: Most cells hold no centre, so object? = 0 is their right target, and their other entries are skipped anyway.
@@ -1148,31 +1148,100 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 **Point here:** The tensor has no “?”: the entries we do not care about are zeros, and the loss reads only object? where object? is 0. Real YOLO code does the same with a mask. Run on our two boxes, this function gives exactly the numbers of the last slides.
 
-**Transition:** Train: compare the network’s block with this target.
+**Transition:** Part 2: what the network predicts.
 
 **Source:** Our annotation of the courtyard photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## loss-grid: Training: Part 4’s loss in every cell
+## grid-structure: Prediction: a CNN outputs a table of the same shape
 
-**Build 1:** Training compares the network’s block with the target, one cell at a time. In the two cells with a centre every number counts, as for Part 4’s cat photo.
+**Build 1:** Part 2, the prediction. A small CNN shrinks the photo three times, averages each cell’s region, and writes 7 numbers there: a 2 × 3 × 7 table.
 
-- Ask: Which numbers count in the dog’s cell?
-- Expected: All seven: object?, the box and the two class scores.
+- Ask: What shape is the network’s output?
+- Expected: 2 × 3 × 7, the shape of the ground-truth table.
 
-**Build 2:** In the four empty cells only object? counts, as for Part 4’s empty floor.
+**Build 2:** Convolutions keep the photo’s layout, so output position (r, c) belongs to cell (r, c): top-left to top-left. The colours show the six pairs.
 
-- Ask: Which count in an empty cell?
-- Expected: Only object?.
+- Ask: Which output position goes with the bottom-left cell?
+- Expected: (1, 0), the bottom-left one: the layout is kept.
 
-**Build 3:** Add up the six cells’ losses and lower the total by gradient descent. One loss trains the whole network.
+**Build 3:** So the network’s record for cell (1, 1) is compared with the ground truth for cell (1, 1), and so on for all six cells.
 
-- Ask: How is the network trained?
-- Expected: Add the cells’ losses into one number and lower it by gradient descent.
+- Ask: Why can we compare the two tables position by position?
+- Expected: Both have one record per cell, in the same layout.
 
-**Build 4:** In code: a mask m marks the cells with a centre. object? is compared in every cell, the other six numbers only where m is true.
+**Build 4:** Its last step puts each number in range: a sigmoid keeps object?, b_x, b_y and the class scores between 0 and 1; an exponential keeps b_w and b_h positive.
 
-- Ask: Which entries does the second sum use?
-- Expected: Entries 1 to 6 (the box and the two classes), only in the cells where m is true.
+- Ask: Why squash the raw numbers?
+- Expected: So each one means what the record says: a score between 0 and 1, a centre inside its cell, a size above 0. Ng mentions the same sigmoid and exponential.
+
+**Point here:** This small network has 24,039 weights; we train it on this one photo in a few seconds (scripts/run_models.py toy). Ng draws 100 × 100 × 3 → ConvNet → 3 × 3 × 8. Real YOLOs shrink the photo 32 times and keep 30 × 20 positions (5.4).
+
+**Transition:** Line the two tables up.
+
+**Source:** A small CNN trained on this photo by scripts/run_models.py. The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## align-loss: Line the two tables up: the loss, cell by cell
+
+**Build 1:** Before training the network knows nothing: scores and positions near 0.5, sizes near 1. Line up its record for cell (1, 1) with the ground truth.
+
+- Ask: Which record do we compare with the ground truth for cell (1, 1)?
+- Expected: The network’s record at output position (1, 1).
+
+**Build 2:** Part 4’s loss for this cell: square the seven differences and add them up, 1.35. The network is far from the dog’s record.
+
+- Ask: Which difference is largest, and why?
+- Expected: cat: the truth is 0, the untrained network says 0.52.
+
+**Build 3:** An empty cell, (0, 0): only object? counts, (ô − 0)² ≈ 0.24. The “?” entries are skipped.
+
+- Ask: Why only one entry in cell (0, 0)?
+- Expected: The truth there is “no object”: the box and classes are “?”, so they are skipped.
+
+**Build 4:** Every cell’s loss, written in its cell. Their sum, 3.38, is the one number that training pushes down.
+
+- Ask: Which cells contribute most to the loss?
+- Expected: The two cells with a centre, (1, 0) and (1, 1): the network has not learnt their records yet.
+
+**Point here:** The untrained network is our small CNN with its random starting weights (seed 0). Its sigmoid outputs start near 0.5 and its exponential ones near 1; Ng’s squared-error loss treats every number alike.
+
+**Transition:** Training pushes the loss down.
+
+**Source:** A small CNN trained on this photo by scripts/run_models.py. The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
+
+## train-toy: Training: the predicted table moves toward the ground truth
+
+**Build 1:** Gradient descent on that loss, using this one photo: 300 small steps. The loss starts at 3.38.
+
+- Ask: What does each step change?
+- Expected: All the network’s weights, a little, in the direction that lowers the loss.
+
+**Build 2:** By step 50 the record for cell (1, 1) has moved toward the dog’s: object? 0.63, b_h 1.63, dog 0.97.
+
+- Ask: Which numbers move first?
+- Expected: The box numbers and the class scores come close by step 50; object? takes longest.
+
+**Build 3:** By step 300 the loss is 0.002 and the record reads almost exactly the dog’s ground truth.
+
+- Ask: Has this network learnt to find dogs?
+- Expected: No: it has memorised one photo. A real detector trains on many thousands of photos so that new ones come out right.
+
+**Point here:** Adam, learning rate 0.003, on this one photo: the network memorises it, which is enough to show the mechanics. YOLOv8 was trained on COCO’s 118,000 photos.
+
+**Transition:** The same loss for all cells at once, in code.
+
+**Source:** A small CNN trained on this photo by scripts/run_models.py.
+
+## loss-grid: The loss for all cells at once, in symbols and in code
+
+**Build 1:** Written once for all cells: object? is compared in every cell; the other six numbers only where the ground truth’s object?, o, is 1.
+
+- Ask: What does the factor o do?
+- Expected: It switches the box and class terms off in cells with no object: o = 0 there.
+
+**Build 2:** In code: a mask m marks the cells with a centre. These three lines are the loss the small network was trained with.
+
+- Ask: What are p and y in the code?
+- Expected: p is the network’s 2 × 3 × 7 table, y the ground-truth table.
 
 **Point here:** YOLOv1 weighted the box terms by 5 and the empty cells’ object? terms by 0.5, because empty cells far outnumber the others. Appendix B works the loss through with the real network’s numbers.
 
@@ -1180,40 +1249,104 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## two-in-a-cell: Two centres in one cell? Use smaller cells
+## two-in-a-cell: Two centres in one cell? Try smaller cells
 
-**Build 1:** A cell writes one record. On the crowd photo a 3 × 2 grid puts 5 people’s centres in one cell, which can report only one of them.
+**Build 1:** A cell writes one record. On a 3 × 2 grid the 11 people’s centres fall in just 3 cells, so 8 people get no record. Try smaller cells.
 
-- Ask: How many of those five people can the crowded cell report?
-- Expected: One.
+- Ask: How many people get no record on the 3 × 2 grid? And on 40 × 22?
+- Expected: 8 of 11 on 3 × 2. None on 40 × 22: with 32-pixel cells every centre has a cell of its own.
 
-**Build 2:** Smaller cells fix it: with 32-pixel cells, every person’s centre has a cell of its own. Ng uses 19 × 19 cells for the same reason.
+**Point here:** The cell size is our choice, and smaller cells make two centres in one cell rare. YOLOv1 cut its 448-pixel input into 7 × 7 cells of 64 pixels; YOLOv8 uses cells of 32, 16 and 8 pixels (Part 7). Objects whose centres nearly coincide can still share a cell; the next design handles that.
 
-- Ask: Why do smaller cells help?
-- Expected: Small cells rarely hold two centres.
-
-**Point here:** Ng: the grid cell idea works as long as no cell holds two objects’ midpoints, and a fine grid (19 × 19) makes that rare. His second fix, anchor boxes (two records per cell, one tall and one wide), is in Appendix B; YOLOv8 does without them.
-
-**Transition:** The real grid on our photo.
+**Transition:** Or keep the big cells, and give each cell two boxes.
 
 **Source:** Our annotation of the crowd photo (data/annotations.json). The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
+## two-boxes: Another design: two boxes in every cell
+
+**Build 1:** A person stands in front of a car. On 416-pixel cells, 3 × 2 of them, both centres fall in cell (1, 1), whose one record can hold only one.
+
+- Ask: Why can one record per cell not describe this photo?
+- Expected: Both centres fall in cell (1, 1), and one record holds one object.
+
+**Build 2:** Another design gives every cell two boxes, each with a template shape chosen before training: box 1 is tall, box 2 is wide.
+
+- Ask: How big are the two templates, in cells?
+- Expected: Tall: 166 × 416 pixels, 0.4 × 1 cell. Wide: 832 × 333 pixels, 2 × 0.8 cells.
+
+**Build 3:** Each box has its own 7-number record: object?, b_x, b_y, b_w, b_h, person, car. So a cell now writes 2 × 7 = 14 numbers.
+
+- Ask: How big is the whole table now?
+- Expected: 2 × 3 cells × 14 numbers = 84.
+
+**Point here:** YOLOv1 gave each cell two boxes; YOLOv2 to v5 gave each cell several template shapes, called anchor boxes. Two objects of the same shape in one cell, or three objects, still collide, which fine grids make rare. YOLOv8 dropped the templates and writes one box per cell, on three grids (Part 7).
+
+**Transition:** Which object goes in which box?
+
+**Source:** A photo generated for these slides (SOURCES.md); our boxes, checked by eye (data/person-car.json).
+
+## anchor-person: Which box gets the person? The template that fits best
+
+**Build 1:** Which box gets the person? Centre each template on the person’s box, so that only shapes count. The person fits inside the tall one: IoU 0.68.
+
+- Ask: Why is the overlap with the tall template the person’s whole box?
+- Expected: The person, 115 × 409, fits inside the tall template, 166 × 416: so the overlap is the person and the union is the template.
+
+**Build 2:** The wide template overlaps the person only 115 × 333 pixels and makes a big union: IoU 0.13. The tall template fits better, so the person goes to box 1.
+
+- Ask: Which box does the person go to?
+- Expected: Box 1, the tall one: IoU 0.68 against 0.13.
+
+**Point here:** Centring both boxes on one point compares shape only; Part 3’s IoU does the rest. Our two templates were picked by hand for this photo; YOLOv2 to v5 pick theirs by k-means on the training boxes.
+
+**Transition:** And the car?
+
+**Source:** A photo generated for these slides (SOURCES.md); our boxes, checked by eye (data/person-car.json).
+
+## anchor-car: The car goes to the wide box, and both are kept
+
+**Build 1:** The car is the other way round. The wide template fits inside it, IoU 0.94; the tall one reaches only 0.18. The car goes to box 2.
+
+- Ask: Which box does the car go to?
+- Expected: Box 2, the wide one: IoU 0.94 against 0.18.
+
+**Build 2:** So cell (1, 1)’s ground truth holds both: box 1 the person’s record and box 2 the car’s, each box in the cell’s units. No object is lost.
+
+- Ask: What would cell (1, 1) hold if only the person were there?
+- Expected: Box 1: the person’s record. Box 2: object? 0, and “?” for the rest.
+
+**Point here:** Each box’s record is written as before: the centre and size in the cell’s units, then the classes. YOLOv2 to v5 also predict small corrections to each template’s size. A box whose template matches no object learns object? = 0.
+
+**Transition:** Back to one box per cell, on the real grid.
+
+**Source:** A photo generated for these slides (SOURCES.md); our boxes, checked by eye (data/person-car.json).
+
 ## fine-grid: In practice: small cells of 32 pixels
 
-**Build 1:** Real YOLOs use many small cells. YOLOv8n’s cells are 32 pixels: 30 × 20 = 600 of them on our photo.
+**Build 1:** Real YOLOs use small cells. YOLOv8n’s are 32 × 32 pixels, so our 960 × 640 photo becomes 30 × 20 = 600 cells. Same rules, smaller cells.
 
 - Ask: How many cells does YOLOv8n’s grid have on our photo?
-- Expected: 30 × 20 = 600.
+- Expected: 30 × 20 = 600: 960 ÷ 32 across and 640 ÷ 32 down.
 
-**Build 2:** Same rule, smaller cells: the dog’s centre (588, 336) falls in cell (10, 18), row 10 and column 18.
+**Build 2:** The dog’s annotated box is (407, 83, 768, 588). Its centre lies halfway along each side, (587.5, 335.5), which we rounded to (588, 336) earlier.
 
-- Ask: Which cell holds the dog’s centre now?
-- Expected: (10, 18): 588 ÷ 32 ≈ 18.4 and 336 ÷ 32 ≈ 10.5, rounded down.
+- Ask: Where is the centre of the box (407, 83, 768, 588)?
+- Expected: ((407 + 768) ÷ 2, (83 + 588) ÷ 2) = (587.5, 335.5).
 
-**Build 3:** Its target in that cell’s units: the centre at (0.36, 0.48), the size 11.3 × 15.8 cells. A big object spans many small cells.
+**Build 3:** In cells, the centre is 587.5 ÷ 32 ≈ 18.36 across and 335.5 ÷ 32 ≈ 10.48 down. Round down: column 18, row 10. The dog’s cell is (10, 18).
 
-- Ask: Why is b_w now about 11?
-- Expected: The dog is 361 pixels wide and a cell is 32: about 11 cells.
+- Ask: Which cell holds it?
+- Expected: (10, 18): row ⌊10.48⌋ = 10 and column ⌊18.36⌋ = 18, counting from 0.
+
+**Build 4:** Inside that cell, what is left after rounding down: b_x = 0.36 and b_y = 0.48 of a cell, measured from its top-left corner, (0, 0).
+
+- Ask: What are b_x and b_y?
+- Expected: The parts after the decimal point: 0.36 and 0.48, both between 0 and 1.
+
+**Build 5:** The size counts cells too: 361 pixels is about 11.3 cells wide, and 505 pixels about 15.8 cells tall. A big object spans many small cells.
+
+- Ask: Why is b_w now about 11, when it was 1.13 on the 3 × 2 grid?
+- Expected: The same 361 pixels, counted in 32-pixel cells instead of 320-pixel ones.
 
 **Point here:** YOLOv8n also reads two finer grids, of 16- and 8-pixel cells, for small objects (Part 7). Its record has no object? number: four box numbers and a score for each of 80 COCO classes (Appendix B).
 
@@ -1221,65 +1354,116 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 **Source:** The photographs are course-owned generated images (see SOURCES.md); every box and score drawn on them is computed.
 
-## decode: At test time: read the box back out of the cell
+## scores-80: What a cell writes: a box and 80 class scores
 
-**Build 1:** At test time there is no annotation, only what the dog’s cell writes: four box numbers, and a score for each of 80 classes. Dog scores 0.87.
+**Build 1:** What does a cell write? 84 numbers: 4 for its box, then 80 class scores, one for each of the 80 classes YOLOv8n learned from COCO, in a fixed order.
 
-- Ask: What did the dog’s cell write?
-- Expected: Box numbers about (0.39, 0.37, 11.3, 16.0) and a dog score of 0.87.
+- Ask: How many numbers does a cell write, and why 80 scores?
+- Expected: 84: four for the box and one score for each of COCO’s 80 classes.
 
-**Build 2:** Undo the cell units: the centre is the cell’s corner plus b_x and b_y cells, and the size is b_w by b_h cells, all times 32 pixels.
+**Build 2:** Each score is one yes/no answer between 0 and 1: is this cell’s box that class? A sigmoid squashes each raw output: dog 1.91 becomes 0.87, cat −9.25 becomes 0.0001.
 
-- Ask: Where is the box’s centre, in pixels?
-- Expected: About (588, 332).
+- Ask: Why do the 80 scores not add up to 1?
+- Expected: Each comes from its own sigmoid: a separate yes/no answer per class, not a share of 1.
 
-**Build 3:** The box sits on the dog, IoU 0.98 with our annotation. The target was (0.36, 0.48, 11.3, 15.8); training got close.
+**Build 3:** No object? number: on the wall all 80 answers are near 0, which means nothing is here. A box’s score is its highest class score; its class is that class.
+
+- Ask: How does YOLOv8n say “nothing here” without an object? number?
+- Expected: All 80 scores are near 0; the highest on this wall cell is potted plant, 0.0001. The score filter drops such boxes.
+
+**Point here:** COCO’s 80 classes run from person, bicycle and car to hair drier and toothbrush; cat and dog are numbers 16 and 17. In training each score gets binary cross-entropy against 1 for the true class in an object’s cells and 0 for the other 79, and 0 for all 80 everywhere else (Appendix B). YOLOv5 and earlier had a separate objectness score; YOLOv8 folds it into the class scores. Bars below 0.001 are too short to see: no cell has a ninth-highest score above 0.001.
+
+**Transition:** Now read the box numbers back into pixels.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## decode: At test time: read the centre back out of the cell
+
+**Build 1:** At test time there is no annotation. Cell (10, 18) wrote these four box numbers, and of its 80 class scores the highest is dog, 0.87.
+
+- Ask: What does the network write in the dog’s cell?
+- Expected: Four box numbers, about (0.39, 0.37, 11.3, 16.0), and 80 class scores: dog 0.87, the rest below 0.01.
+
+**Build 2:** To read the box in pixels, undo the cell units. Start at the cell’s top-left corner: 18 cells of 32 pixels across, 576, and 10 cells down, 320.
+
+- Ask: Where is the top-left corner of cell (10, 18), in pixels?
+- Expected: (18 × 32, 10 × 32) = (576, 320).
+
+**Build 3:** Then step b_x and b_y of a cell from that corner: 0.39 × 32 ≈ 12 pixels right and 0.37 × 32 ≈ 12 down. The centre is (588, 332).
+
+- Ask: Where is the box’s centre?
+- Expected: (576 + 12, 320 + 12) = (588, 332).
+
+**Point here:** YOLOv8n actually writes, for each cell, the distances from the cell’s centre to the box’s four edges (Appendix B). We turn them into b_x, b_y, b_w and b_h, the form of our ground truth, so reading the box back mirrors writing it. The numbers are its real output at cell (10, 18).
+
+**Transition:** Then the size, and the box’s edges.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## decode-box: Then the size, and the box’s edges
+
+**Build 1:** The size is in cells too: 11.3 cells is 11.3 × 32 ≈ 362 pixels wide, and 16.0 cells is 512 pixels tall.
+
+- Ask: How wide is the box, in pixels?
+- Expected: 11.3 × 32 ≈ 362.
+
+**Build 2:** Each edge lies half the size from the centre: left 588 − 181 = 407 and right 769, top 332 − 256 = 76 and bottom 588.
+
+- Ask: Where are the box’s left and top edges?
+- Expected: 588 − 362 ÷ 2 = 407 and 332 − 512 ÷ 2 = 76.
+
+**Build 3:** That box sits on the dog: IoU 0.98 with our annotation. The network wrote (0.39, 0.37, 11.3, 16.0); the ground truth was (0.36, 0.48, 11.3, 15.8).
 
 - Ask: How close is the box to our annotation?
-- Expected: IoU 0.98: almost the same box.
+- Expected: IoU 0.98: almost the same box. Only the top edge differs much, 76 against 83.
 
-**Point here:** YOLOv8n’s real output at cell (10, 18), written in Ng’s cell units. The network writes numbers in every cell, never “?”: we read the box only where a class score is high.
+**Point here:** Our rounded steps give (407, 76, 769, 588); the exact output is (407.2, 75.6, 769.6, 588.1). The network writes numbers in every cell, never “?”: next, which cells to believe.
 
-**Transition:** Every cell does this. Point at a few.
+**Transition:** Every cell writes a box like this. Pick a few.
 
 **Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
 
-## cell-inspector: Every cell writes a record: point at one
+## cell-inspector: Every cell writes a box and 80 scores: pick one
 
-**Build 1:** Point at cells: near the dog they say dog and draw nearly the same box; on the wall every class score is tiny.
+**Build 1:** Pick a cell: its box, and its 80 class scores as bars. Near the dog the dog bar stands tall; on the wall all 80 lie flat.
 
 - Ask: What does a cell on the wall write?
-- Expected: A box of some kind, but every class score near 0, so its score is tiny and it will be dropped.
+- Expected: A box of some kind, but every class score is near 0.
 
-**Point here:** Every cell always writes a box. The score decides whether anyone looks at it.
+**Point here:** Every cell always writes a box: the network has no way to write “?”. The scores decide which boxes we believe, on the next slide.
 
-**Transition:** All the cells at once.
+**Transition:** All 600 cells at once.
 
 **Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
 
-## candidates: Every cell writes a box: keep the confident ones
+## candidates: 600 cells, up to 600 boxes: keep the confident ones
 
-**Build 1:** Read out every cell the same way: 600 boxes. The network never writes “?”, so cells on the wall and floor draw boxes too.
+**Build 1:** Decode every cell the same way: 600 cells, so up to 600 boxes. The network never writes “?”, so cells on the wall and the floor write boxes too.
 
 - Ask: Does a cell on the wall write a box?
-- Expected: Yes: every cell always writes one.
+- Expected: Yes: every cell always writes one, with 80 class scores.
 
-**Build 2:** Fade each box by its cell’s best class score. Almost all of them vanish: the score says which boxes to believe.
+**Build 2:** Which boxes do we believe? Score each box by its cell’s highest class score. Five sample cells: dog 0.87, cat 0.92, plant 0.89; wall and floor below 0.01.
 
-- Ask: What tells us which boxes to keep?
-- Expected: Its score: the highest of its 80 class scores.
+- Ask: What score does each box get?
+- Expected: Its cell’s highest class score: the best of the 80.
 
-**Build 3:** Keep the boxes scoring at least 0.25: 31 of them, 10 on the dog, 10 on the cat and 11 on two potted plants.
+**Build 3:** Keep a box only if its score is at least 0.25, Ultralytics’ default. The dog, cat and plant cells pass; the wall and floor cells are dropped.
 
-- Ask: How many boxes survive the score cut?
-- Expected: 31.
+- Ask: Which of the five sample boxes survive?
+- Expected: The dog’s, the cat’s and the plant’s; the wall and floor scores are below 0.01.
 
-**Build 4:** The dog’s ten boxes come from ten neighbouring cells, each of which saw nearly the same dog. To get one box per object, remove the duplicates.
+**Build 4:** Over all 600 cells, 30 pass: 10 on the dog, 10 on the cat, 10 on the big plant. A finer grid adds one small plant (Part 7): 31 boxes.
 
-- Ask: Why ten boxes for one dog?
-- Expected: Cells next to the dog’s centre see almost the same dog, so they are confident too.
+- Ask: How many boxes pass over the whole photo?
+- Expected: 30 of the 600 cells, plus one from a finer grid: 31.
 
-**Point here:** Ng (“YOLO Algorithm”): every cell writes its prediction; drop the low-probability ones, then run non-max suppression for each class. One of the 11 plant boxes comes from YOLOv8n’s 16-pixel grid (Part 7); the other 30 boxes come from the 32-pixel grid. YOLOv8 trains about ten cells per object as positives, which strengthens the cluster.
+**Build 5:** This was a score filter, not NMS. Each object still has about ten boxes, from neighbouring cells that see the same object; Part 6 removes the extras.
+
+- Ask: Is this NMS?
+- Expected: No. The score filter looks at each box alone. NMS compares boxes with each other and removes the duplicates; it comes in Part 6.
+
+**Point here:** Drop the low scores first, then remove duplicates for each class. YOLOv8 trains about ten cells per object as positives, which is why each object has about ten confident boxes. The 31st box comes from YOLOv8n’s 16-pixel grid (Part 7).
 
 **Transition:** The whole algorithm, step by step.
 
@@ -1287,7 +1471,7 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 ## yolo-steps: YOLO, the whole algorithm
 
-**Build 1:** Training, for every photo in the set: grid it, write each object’s record in its centre cell and “no object” elsewhere, then lower Part 4’s loss.
+**Build 1:** Training, for every photo in the set: build the ground-truth table from people’s boxes, predict a table, compare cell by cell, lower the loss.
 
 - Ask: Which step of training uses the annotation?
 - Expected: Building the target: the centre cell and the box in cell units come from the annotated boxes.
@@ -1321,7 +1505,7 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 ## dupes: Ten boxes for one dog
 
-**Build 1:** The ten cells that fired for the dog, and their scores, from 0.889 down to 0.766. Their boxes lie almost on top of each other.
+**Build 1:** The ten cells whose dog score passed 0.25: each cell’s own estimate that its box holds a dog, from 0.889 down to 0.766. Their boxes nearly coincide.
 
 - Ask: How many dogs are here?
 - Expected: One.
@@ -1330,6 +1514,8 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 - Ask: Which box would you keep?
 - Expected: The highest-scoring: cell (9, 19), 0.889.
+
+**Point here:** Each score is one of the cell’s 80 class scores, the one for dog, from YOLOv8n’s sigmoid output (5.4). It is the score the 0.25 filter used.
 
 **Transition:** The recipe, in general.
 
@@ -1596,9 +1782,18 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 **Notebook:** Notebook part 6 runs this function on the courtyard photo.
 
-**Transition:** Why does YOLOv8 have three grids?
+**Transition:** Part 6 in one slide.
 
 **Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## recap-6: Part 6 in one slide
+
+**Build 1:** Next: small and large objects: three grids.
+
+- Ask: Why does NMS repeat instead of keeping only the single best box?
+- Expected: There may be several objects; each round keeps the best box of one of them.
+
+**Transition:** Part 7.
 
 ## part-7: Part 7 · Small and large objects: three grids
 
@@ -1653,298 +1848,9 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 - Ask: Who decided this?
 - Expected: Training: an object’s positive cells are chosen where its box fits best, which for small objects is the fine grid.
 
-**Transition:** Part 7 in one slide.
+**Transition:** Boxes that turn.
 
 **Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
-
-## recap-7: Part 7 in one slide
-
-**Build 1:** Next: measure how good the detections are.
-
-- Ask: Which grid would you expect to find Part 1’s small bird?
-- Expected: The finest, 8 px: its best box did come from a stride-8 cell.
-
-**Transition:** Part 8.
-
-## part-8: Part 8 · Measuring a detector
-
-**Build 1:** We judge a detector against annotations, one detection at a time, then summarise.
-
-- Ask: A detector returned 12 boxes for 4 people. Is that good?
-- Expected: It depends: are the 4 people among them, and how confident were the 8 extra boxes?
-
-**Transition:** The rule for a correct detection.
-
-## tp-rule: When is a detection correct?
-
-**Build 1:** A detection counts as correct if its class is right and it overlaps an annotated box with IoU of at least 0.5.
-
-- Ask: What IoU counts as a hit?
-- Expected: At least 0.5, usually.
-
-**Build 2:** Each annotated object can be claimed once. Detections go in score order; the first good one claims it.
-
-- Ask: Why process detections in score order?
-- Expected: So the most confident detection claims the object, as in NMS.
-
-**Build 3:** Every detection that claims nothing is a false positive, including a duplicate that NMS missed.
-
-- Ask: Is a duplicate box on a found object right or wrong?
-- Expected: Wrong: a false positive.
-
-**Build 4:** Every annotated object left unclaimed is a false negative.
-
-- Ask: What is a false negative?
-- Expected: An object nobody found.
-
-**Point here:** This is a third kind of matching, after training assignment and NMS: predictions against annotations, greedy by score.
-
-**Transition:** Apply it to real detections.
-
-## street-eval: Real check: people in the street photo
-
-**Build 1:** We keep every person detection down to a score of 0.01, so that the wrong ones show up too.
-
-- Ask: How many annotated people?
-- Expected: Four.
-
-**Build 2:** The four most confident boxes each land on a different person.
-
-- Ask: Which detections are true positives?
-- Expected: The top four, each with IoU above 0.9.
-
-**Build 3:** The rest sit on the car’s windscreen, where nobody is.
-
-- Ask: What are the low-scoring boxes?
-- Expected: False positives on the car: the network half-sees a driver.
-
-**Transition:** Turn the counts into precision and recall.
-
-**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
-
-## pr-def: Precision and recall: two questions
-
-**Build 1:** Precision looks at the left circle, everything we reported: the fraction of it that was right.
-
-- Ask: What does precision divide by?
-- Expected: Everything reported: TP + FP.
-
-**Build 2:** Recall looks at the right circle, everything that was really there: the fraction of it we found.
-
-- Ask: What does recall divide by?
-- Expected: Everything really there: TP + FN.
-
-**Common misconception:** Neither alone is enough: report every possible box and recall is 1; report one sure box and precision is 1.
-
-**Transition:** The street photo, at two cut-offs.
-
-## pr-street: The street’s people at two score cut-offs
-
-**Build 1:** With the usual 0.25 score cut-off, the street photo is perfect: four people found, nothing extra. Precision 1, recall 1.
-
-- Ask: What are precision and recall at 0.25?
-- Expected: Both 1.
-
-**Build 2:** Keep everything down to 0.01 and the 8 windscreen boxes join: recall stays 1, precision drops to 0.33. The cut-off trades one for the other.
-
-- Ask: What happens at 0.01?
-- Expected: Precision falls to 0.33; recall stays 1.
-
-**Transition:** Now the other direction: Part 1’s bird.
-
-## bird-threshold: Back to the bird: a lower cut-off finds it
-
-**Build 1:** At the usual 0.25: the cat and the dog are found, the bird (0.098) is missed. Precision 1, recall 2/3.
-
-- Ask: What do precision and recall say at 0.25?
-- Expected: Precision 1, recall 2/3: everything reported was right, but the bird was missed.
-
-**Build 2:** At 0.05 the bird’s box gets through: recall 3/3, and nothing false comes with it. On the street, going lower brought eight false people.
-
-- Ask: Should we always lower the cut-off?
-- Expected: It depends on what a miss costs against a false alarm: a camera trap counting rare birds wants recall; a car that brakes for every false person wants precision.
-
-**Point here:** Only the seven annotated classes count here; the potted plants are ignored, as in the benchmark.
-
-**Transition:** Every cut-off at once: rank the detections.
-
-**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
-
-## pr-walk: Walk down the ranked list, one detection at a time
-
-**Build 1:** Six detections sorted by score; three objects in the photos. Lower the threshold one detection at a time and track precision and recall.
-
-- Ask: What will we track as we go down the list?
-- Expected: Cumulative TP and FP, then precision and recall.
-
-**Build 2:** #1 (0.95) claims object A: TP. Precision 1/1, recall 1/3.
-
-- Ask: Precision and recall after #1?
-- Expected: 1 and 1/3.
-
-**Build 3:** #2 (0.90) claims B: TP. 2/2, 2/3.
-
-- Ask: After #2?
-- Expected: 1 and 2/3.
-
-**Build 4:** #3 (0.80) lands on A again, already claimed: a duplicate, FP. Precision falls to 2/3; recall stays.
-
-- Ask: After #3, and why did precision fall?
-- Expected: 2/3 and 2/3: a false positive was added.
-
-**Build 5:** #4 (0.70) where nothing is: FP. 2/4, 2/3.
-
-- Ask: After #4?
-- Expected: 1/2 and 2/3.
-
-**Build 6:** #5 (0.60) claims C: TP. Recall reaches 1; precision 3/5.
-
-- Ask: After #5?
-- Expected: 3/5 and 1.
-
-**Build 7:** #6 (0.40): FP. 3/6, 3/3. Every point is one possible threshold.
-
-- Ask: What does each point on the curve stand for?
-- Expected: The detector run with that score threshold.
-
-**Transition:** Summarise the whole curve in one number.
-
-## ap-area: Average precision: the area under the curve
-
-**Build 1:** Smooth the zig-zag: at each recall, take the best precision reachable by lowering the threshold further. That is the envelope.
-
-- Ask: Why take the best precision at this recall or beyond?
-- Expected: A user would never pick a threshold whose precision is beaten at a higher recall.
-
-**Build 2:** Its area: a third of the recall at precision 1, another third at 1, the last third at 0.6. AP = 0.867.
-
-- Ask: What is the area?
-- Expected: 0.867
-
-**Build 3:** AP rewards ranking: correct detections should come before wrong ones. The street people scored AP = 1.
-
-- Ask: When is AP exactly 1?
-- Expected: When all objects are found before any false positive.
-
-**Point here:** COCO samples the envelope at 101 recall values instead: 0.865 here.
-
-**Transition:** The same computation in code.
-
-## ap-code: AP in code, one line at a time
-
-**Build 1:** AP in code, on the six ranked detections of the walk: write each one as a hit (1) or a miss (0), in score order.
-
-- Ask: What goes into the computation?
-- Expected: Only the hits and misses, in score order, and the number of objects.
-
-**Build 2:** Count the true positives so far, rank by rank.
-
-- Ask: What is tp after rank 3?
-- Expected: 2: ranks 1 and 2 were hits.
-
-**Build 3:** And the false positives so far.
-
-- Ask: What is fp after rank 4?
-- Expected: 2: ranks 3 and 4 were misses.
-
-**Build 4:** Precision at each rank: the true positives over everything reported up to that rank.
-
-- Ask: What is the precision at rank 3?
-- Expected: 2/3: two hits among three reported.
-
-**Build 5:** Recall at each rank: the true positives over the 3 objects.
-
-- Ask: What is the recall at rank 5?
-- Expected: 3/3 = 1: all three objects found.
-
-**Build 6:** The envelope: walk up from the bottom and keep the best precision seen so far, so the curve only steps down.
-
-- Ask: Why walk from the bottom up?
-- Expected: So each rank gets the best precision reachable at its recall or beyond.
-
-**Build 7:** The recall each rank adds: the width of its step. Only the three hits add any; the rows with width 0 do not count.
-
-- Ask: Which ranks add recall?
-- Expected: Ranks 1, 2 and 5, the hits.
-
-**Build 8:** Multiply each width by its height and add: ⅓ × 1 + ⅓ × 1 + ⅓ × 0.6 = 0.867, the area of the last slide.
-
-- Ask: What is AP?
-- Expected: 0.867
-
-**Point here:** This is the all-point area of Pascal VOC (2010 onwards). COCO instead reads the envelope at 101 recall values from 0 to 1 and averages them; here that gives 0.865.
-
-**Transition:** Now on real detections, live.
-
-## ap-play: Try it: AP on real detections
-
-**Build 1:** YOLOv8n’s 38 person detections on our eight photos, ranked by score, against 17 people. Raise the IoU threshold: from 0.85, loose boxes turn into false positives.
-
-- Ask: At which IoU threshold does AP first drop below 1?
-- Expected: At 0.85: a few boxes overlap their person with an IoU between 0.80 and 0.85.
-
-**Point here:** The AP here reads the envelope at 101 recall values, as COCO does. The mean of the ten thresholds is 0.919, the person AP of the next slides.
-
-**Transition:** One of those boxes, up close.
-
-**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
-
-## map-iou: COCO’s AP: the same, at ten IoU thresholds
-
-**Build 1:** Part 1’s 13-pixel pedestrian: YOLOv8n’s box is a pixel off, IoU 0.87. A true positive up to a threshold of 0.85; a false positive at 0.90 and 0.95.
-
-- Ask: Why does a one-pixel slip matter so much here?
-- Expected: The pedestrian is 13 pixels wide: one pixel is almost a tenth of its width.
-
-**Build 2:** Person AP at each of COCO’s ten thresholds: 1 up to 0.80, then 0.84, 0.79, 0.56, as boxes that are slightly loose stop counting.
-
-- Ask: Why does AP fall only at the strict thresholds?
-- Expected: Every person is found with IoU above 0.8; only some boxes are tighter than 0.85, 0.90 or 0.95.
-
-**Build 3:** COCO’s headline AP averages the ten: 0.919. It rewards boxes that are tight, not just roughly right.
-
-- Ask: What does averaging over thresholds reward?
-- Expected: Tight boxes: a box that is only roughly right counts at 0.5 but not at 0.9.
-
-**Point here:** COCO calls this AP (or AP@[.50:.95]); AP50 and AP75 are the values at 0.50 and 0.75. Small objects suffer most, because a pixel is a large share of their size; COCO also reports AP for small, medium and large objects.
-
-**Transition:** Average over the classes too.
-
-**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
-
-## map: mAP: average the AP over the classes
-
-**Build 1:** Do the same for every class and average: mAP. YOLOv8n on our eight photos ranges from 0.80 for bicycles to 1 for buses and cars: mAP 0.936.
-
-- Ask: What does mAP average over?
-- Expected: Classes (and, for COCO, also the ten IoU thresholds).
-
-**Build 2:** At IoU 0.5 alone every class scores 1, so mAP@0.5 is 1.000. On clean photos only the strict average tells detectors apart.
-
-- Ask: Why is mAP@0.5 exactly 1 here?
-- Expected: Every object of every class is found, ranked above every false box, with IoU above 0.5.
-
-**Build 3:** COCO’s 5,000 cluttered photos and 80 classes give YOLOv8n 0.373. Our handful of clean photos is a sanity check, not a benchmark.
-
-- Ask: Why is COCO’s number so much lower than ours?
-- Expected: COCO has 80 classes and crowded, cluttered, small objects; our eight photos are clean and easy. A handful of photos is not a benchmark.
-
-**Point here:** Our numbers come from our own evaluator (scripts/science.py) on our annotations; the COCO number is from the Ultralytics YOLOv8 documentation. DETR on the same photos: Appendix A.
-
-**Transition:** In code.
-
-**Source:** Our evaluator on data/annotations.json; COCO number: Ultralytics YOLOv8 documentation.
-
-## eval-code: Evaluation in code
-
-**Build 1:** Libraries do the matching, ranking and averaging. The notebook also has a twenty-line version that reproduces the walk-through.
-
-- Ask: Which number is COCO’s headline “AP”?
-- Expected: map: the mean over IoU 0.5 to 0.95 and over classes.
-
-**Notebook:** Notebook part 8 evaluates YOLOv8n on the eight photos with the hand-written evaluator.
-
-**Transition:** Before we close: boxes that turn.
 
 ## obb-crack: Boxes that turn: axis-aligned or oriented?
 
@@ -1988,21 +1894,322 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 **Point here:** The ships are drawn shapes, 280 × 40 pixels, 64 pixels apart along the quay; the IoUs are computed exactly (scripts/science.py). Oriented boxes bring their own trouble: 0° and 180° are the same box, and a 90° turn swaps w and h, so the loss must allow for that. DOTA (aerial images) and ICDAR (scene text) are the usual benchmarks.
 
-**Transition:** The lecture in one slide.
+**Transition:** Part 7 in one slide.
 
-## summary: One question, one answer
+## recap-7: Part 7 in one slide
 
-**Build 1:** The lecture’s question: how can a network with a fixed output return a variable, unordered set?
+**Build 1:** Next: measure how good the detections are.
 
-- Ask: State the lecture’s question in one sentence.
-- Expected: How a fixed-size output can describe a variable, unordered set.
+- Ask: Which grid would you expect to find Part 1’s small bird?
+- Expected: The finest, 8 px: its best box did come from a stride-8 cell.
 
-**Build 2:** In the dense answer, the score filter and NMS decide the list’s length, after the network.
+**Transition:** Part 8.
 
-- Ask: Where is the number of detections decided?
-- Expected: After the network: the score filter and NMS.
+## part-8: Part 8 · Measuring a detector
 
-**Point here:** Appendix A gives the other answer, DETR: a fixed set of 100 slots matched to objects in training, so no NMS.
+**Build 1:** We judge a detector against an annotation, box by box, then summarise.
+
+- Ask: A detector returned 8 boxes for 5 dogs. Is that good?
+- Expected: It depends: how many of the 5 dogs are among them, and how many of the 8 boxes are wrong?
+
+**Transition:** A teaching example.
+
+## eval-setup: A teaching example: five dogs, eight boxes
+
+**Build 1:** A teaching example. The annotation: five dogs, A to E, each with a box drawn by a person. Dog E is the small one far away, by the tree.
+
+- Ask: How many dogs are annotated?
+- Expected: Five: A to E.
+
+**Build 2:** A detector returned eight boxes, each with a dog score, sorted from 0.95 down to 0.20. Which of them are right?
+
+- Ask: How many boxes did the detector return?
+- Expected: Eight, each with a score.
+
+**Point here:** The dog boxes are ours (YOLOv8l proposals checked by eye). The eight detections are invented so that every kind of mistake appears once or twice. Real detections on real photos, with the same rules, are in Appendix B.
+
+**Transition:** When is a box right?
+
+**Source:** A photo generated for these slides (SOURCES.md); our dog boxes; the eight detections are made up for teaching (data/dog-park.json).
+
+## tp-rule: When is a box right? IoU ≥ 0.5 with a dog
+
+**Build 1:** Go through the boxes in score order. Box #1 overlaps dog B with IoU 0.88, at least 0.5: a true positive (TP). Dog B is found.
+
+- Ask: Why is box #1 a true positive?
+- Expected: Its IoU with dog B is 0.88, at least 0.5.
+
+**Build 2:** Box #6 holds dog D, but it is far too big: IoU 0.40, below 0.5. A false positive (FP), however close it is to a dog.
+
+- Ask: Box #6 contains dog D. Why is it a false positive?
+- Expected: Its IoU with D is only 0.40: the box is so much bigger than the dog that the union swamps the overlap.
+
+**Point here:** IoU ≥ 0.5 is the usual rule (Pascal VOC, and COCO’s AP50); 8.4 makes it stricter. Each dog can be found only once: if a second box ever landed on a dog already found, it would also count as a false positive, but NMS (Part 6) removes nearly all such duplicates before we measure. This is a third kind of matching, after training assignment and NMS: predictions against annotations.
+
+**Transition:** Now every box, in order.
+
+**Source:** A photo generated for these slides (SOURCES.md); our dog boxes; the eight detections are made up for teaching (data/dog-park.json).
+
+## eval-walk: Judge every box, in score order
+
+**Build 1:** Box #1, score 0.95: IoU 0.88 with dog B, at least 0.5. A true positive: B is found.
+
+- Ask: Which dog does box #1 find?
+- Expected: Dog B: IoU 0.88.
+
+**Build 2:** #2, 0.90: IoU 0.81 with dog A. A true positive: A is found.
+
+- Ask: And #2?
+- Expected: Dog A, IoU 0.81.
+
+**Build 3:** #3, 0.80: it sits on the bag. IoU 0 with every dog: a false positive, however sure the detector is.
+
+- Ask: Why is #3 wrong, though it scores 0.80?
+- Expected: It is on the bag: IoU 0 with every dog. A high score does not make a box right.
+
+**Build 4:** #4, 0.70: IoU 0.76 with dog C. A true positive.
+
+- Ask: And #4?
+- Expected: Dog C, IoU 0.76.
+
+**Build 5:** #5, 0.60: the bench. IoU 0 with every dog: another false positive.
+
+- Ask: Why is #5 wrong?
+- Expected: It is on the bench: IoU 0 with every dog.
+
+**Build 6:** #6, 0.45: it holds dog D but is far too big, IoU 0.40. Below 0.5, so a false positive, and D is not found yet.
+
+- Ask: #6 contains dog D. Why is it wrong?
+- Expected: Its IoU with D is 0.40, under 0.5: far too big a box.
+
+**Build 7:** #7, 0.35: IoU 0.68 with D, at least 0.5. A true positive: D is found.
+
+- Ask: Why is #7 right, after #6 failed?
+- Expected: Its IoU with D is 0.68, above 0.5.
+
+**Build 8:** #8, 0.20: a bush. A false positive. In all: 4 true positives and 4 false positives.
+
+- Ask: How many TP and FP in all?
+- Expected: 4 TP (#1, #2, #4, #7) and 4 FP (#3, #5, #6, #8).
+
+**Transition:** What did the boxes miss?
+
+**Source:** A photo generated for these slides (SOURCES.md); our dog boxes; the eight detections are made up for teaching (data/dog-park.json).
+
+## eval-fn: What was missed: FN. And why there is no TN
+
+**Build 1:** Dog E, far away by the tree, got no box at all: a false negative (FN), a miss. In all, 4 TP, 4 FP and 1 FN.
+
+- Ask: Which dog is a false negative, and why?
+- Expected: Dog E: no box found it.
+
+**Build 2:** A true negative would be “no box, and no dog”: every empty patch of grass, endlessly many. Detection never counts them, so it uses precision and recall, not accuracy.
+
+- Ask: Why can we not count true negatives?
+- Expected: “No dog, no box” holds for every empty place in the photo: there is no fixed number of them.
+
+**Point here:** Dog D shows that a box near a dog is not enough: had #7 been missing, #6 alone would have left D a false negative, as well as being a false positive itself.
+
+**Transition:** Turn the counts into two numbers.
+
+**Source:** A photo generated for these slides (SOURCES.md); our dog boxes; the eight detections are made up for teaching (data/dog-park.json).
+
+## pr-def: Precision and recall: two questions
+
+**Build 1:** Precision looks at what we reported, the left circle: 4 of our 8 boxes are right, so precision is 4/8 = 0.5.
+
+- Ask: What does precision divide by?
+- Expected: Everything reported: TP + FP, our 8 boxes.
+
+**Build 2:** Recall looks at what was really there, the right circle: we found 4 of the 5 dogs, so recall is 4/5 = 0.8.
+
+- Ask: What does recall divide by?
+- Expected: Everything really there: TP + FN, the 5 dogs.
+
+**Common misconception:** Neither alone is enough: a box on every patch of grass gives recall 1; one sure box gives precision 1.
+
+**Transition:** Change the score threshold, and both change.
+
+**Source:** A photo generated for these slides (SOURCES.md); our dog boxes; the eight detections are made up for teaching (data/dog-park.json).
+
+## pr-threshold: Raise or lower the score threshold
+
+**Build 1:** Keep only boxes scoring at least 0.85: #1 and #2, both right. Precision 2/2 = 1, but recall only 2/5 = 0.4: dogs C, D and E are missed.
+
+- Ask: What are precision and recall at 0.85?
+- Expected: 1 and 0.4: every kept box is right, but three dogs are missed.
+
+**Build 2:** Lower it to 0.5: five boxes, three right. Precision 3/5 = 0.6, recall 3/5 = 0.6. More dogs found, and more mistakes made.
+
+- Ask: What changes at 0.5?
+- Expected: Two more dogs could be found, but two wrong boxes come in: 0.6 and 0.6.
+
+**Build 3:** Lower it to 0.1: all eight boxes. Recall rises to 4/5 = 0.8 and precision falls to 4/8 = 0.5. The threshold trades one for the other.
+
+- Ask: Why can recall never reach 1 here?
+- Expected: Dog E has no box at all; no threshold can find it.
+
+**Transition:** Try any threshold.
+
+**Source:** A photo generated for these slides (SOURCES.md); our dog boxes; the eight detections are made up for teaching (data/dog-park.json).
+
+## pr-play: Try it: move the threshold, watch TP, FP and FN
+
+**Build 1:** Move the score threshold: boxes appear and disappear, each marked TP or FP, missed dogs FN. Watch the point move along the precision–recall curve. Then ask for a stricter IoU.
+
+- Ask: At which IoU does box #7 stop counting?
+- Expected: At 0.70: its IoU with dog D is 0.68, so D becomes a miss and #7 a false positive.
+
+**Transition:** Every threshold at once: the curve.
+
+**Source:** A photo generated for these slides (SOURCES.md); our dog boxes; the eight detections are made up for teaching (data/dog-park.json).
+
+## pr-curve: Every threshold at once: the precision–recall curve
+
+**Build 1:** Every threshold at once: go down the boxes in score order and count the true and false positives so far.
+
+- Ask: What are TP and FP after box #4?
+- Expected: 3 TP and 1 FP.
+
+**Build 2:** Precision at each row: TP so far ÷ boxes so far. Recall: TP so far ÷ 5 dogs. Each row is one threshold: keep the boxes down to it.
+
+- Ask: Precision and recall after #4?
+- Expected: 3/4 = 0.75 and 3/5 = 0.6.
+
+**Build 3:** Plot each row as a point, recall across and precision up: the precision–recall curve. Lowering the threshold walks it right: more dogs, less precision.
+
+- Ask: What does each point stand for?
+- Expected: The detector with its threshold just below that box’s score.
+
+**Transition:** One number for the whole curve.
+
+**Source:** A photo generated for these slides (SOURCES.md); our dog boxes; the eight detections are made up for teaching (data/dog-park.json).
+
+## ap-area: Average precision: the area under the curve
+
+**Build 1:** Smooth the zig-zag: at each recall, take the best precision still reachable by lowering the threshold. That is the envelope, solid; the raw curve is dashed.
+
+- Ask: Why use the best precision at this recall or beyond?
+- Expected: Nobody would pick a threshold whose precision is beaten by a lower threshold with more recall.
+
+**Build 2:** Average precision (AP) is the area under it: four strips of recall 0.2, at heights 1, 1, 0.75 and 0.57.
+
+- Ask: What are the strips?
+- Expected: Each true positive adds 1/5 of recall: a strip 0.2 wide, as tall as the envelope there.
+
+**Build 3:** AP = 0.2 × (1 + 1 + 0.75 + 0.57) ≈ 0.66. Recall never passes 0.8, because dog E has no box, so nothing is added beyond it.
+
+- Ask: When would AP be 1?
+- Expected: Only if every dog is found, and every true positive comes before every false positive.
+
+**Point here:** This is the all-point area (Pascal VOC, 2010 onwards). COCO reads the envelope at 101 recall values instead: 0.668 here, nearly the same.
+
+**Transition:** The same computation in code.
+
+**Source:** A photo generated for these slides (SOURCES.md); our dog boxes; the eight detections are made up for teaching (data/dog-park.json).
+
+## ap-code: AP in code, one line at a time
+
+**Build 1:** AP in code, on the eight ranked boxes: write each one as a hit (1) or a miss (0), in score order.
+
+- Ask: What goes into the computation?
+- Expected: Only the hits and misses, in score order, and the number of dogs.
+
+**Build 2:** Count the true positives so far, row by row.
+
+- Ask: What is tp after box #4?
+- Expected: 3: boxes 1, 2 and 4 were hits.
+
+**Build 3:** And the false positives so far.
+
+- Ask: What is fp after box #6?
+- Expected: 3: boxes 3, 5 and 6 were misses.
+
+**Build 4:** Precision at each row: the true positives over everything kept up to that row.
+
+- Ask: What is the precision at box #3?
+- Expected: 2/3: two hits among three boxes.
+
+**Build 5:** Recall at each row: the true positives over the 5 dogs.
+
+- Ask: What is the recall at box #7?
+- Expected: 4/5 = 0.8.
+
+**Build 6:** The envelope: walk up from the bottom and keep the best precision seen so far, so the curve only steps down.
+
+- Ask: Why walk from the bottom up?
+- Expected: So each row gets the best precision reachable at its recall or beyond.
+
+**Build 7:** The recall each row adds: the width of its strip. Only the four hits add any.
+
+- Ask: Which rows add recall?
+- Expected: Boxes 1, 2, 4 and 7, the hits.
+
+**Build 8:** Multiply each width by its height and add: 0.66, the area of the last slide.
+
+- Ask: What is AP?
+- Expected: 0.66
+
+**Point here:** The same function gives any AP in this lecture: only the hits list and the number of objects change.
+
+**Transition:** Stricter IoU.
+
+**Source:** A photo generated for these slides (SOURCES.md); our dog boxes; the eight detections are made up for teaching (data/dog-park.json).
+
+## map-iou: Stricter IoU: AP at ten thresholds
+
+**Build 1:** Box #7 overlaps dog D with IoU 0.68: a true positive if we ask for 0.5, a false positive from 0.7 up, and then D is a miss.
+
+- Ask: At which thresholds is box #7 a true positive?
+- Expected: 0.50 to 0.65: its IoU, 0.68, is at least those.
+
+**Build 2:** Recompute AP at each of COCO’s ten IoU thresholds, 0.5 to 0.95. Loose boxes stop counting one by one, and AP falls from 0.66 to 0.
+
+- Ask: Why does AP fall as the threshold rises?
+- Expected: Boxes whose IoU is below the threshold turn into false positives, and their dogs into misses.
+
+**Build 3:** COCO’s headline AP is the average of the ten: 0.43. AP50, 0.66, asks only for rough boxes; the average rewards tight ones.
+
+- Ask: What does averaging over thresholds reward?
+- Expected: Tight boxes: a box that is only roughly right counts at 0.5 but not at 0.9.
+
+**Point here:** AP50 = 0.66 and AP75 = 0.55 here. COCO calls the average AP (or AP@[.50:.95]); it also reports AP for small, medium and large objects. A real 13-pixel pedestrian, a pixel off, is in Appendix B.
+
+**Transition:** More than one class: mAP.
+
+**Source:** A photo generated for these slides (SOURCES.md); our dog boxes; the eight detections are made up for teaching (data/dog-park.json).
+
+## map: mAP: average the AP over the classes
+
+**Build 1:** One AP per class, then their mean: mAP. YOLOv8n on our eight photos ranges from 0.80 for bicycles to 1 for buses and cars: mAP 0.936.
+
+- Ask: What does mAP average over?
+- Expected: Classes (and, for COCO, also the ten IoU thresholds).
+
+**Build 2:** At IoU 0.5 alone every class scores 1, so mAP@0.5 is 1.000. On clean photos only the strict average tells detectors apart.
+
+- Ask: Why is mAP@0.5 exactly 1 here?
+- Expected: Every object of every class is found, ranked above every false box, with IoU above 0.5.
+
+**Build 3:** COCO’s 5,000 cluttered photos and 80 classes give YOLOv8n 0.373. Our handful of clean photos is a sanity check, not a benchmark.
+
+- Ask: Why is COCO’s number so much lower than ours?
+- Expected: COCO has 80 classes and crowded, cluttered, small objects; our eight photos are clean and easy. A handful of photos is not a benchmark.
+
+**Point here:** Our numbers come from our own evaluator (scripts/science.py) on our annotations; the COCO number is from the Ultralytics YOLOv8 documentation. DETR on the same photos: Appendix A.
+
+**Transition:** In code.
+
+**Source:** Our evaluator on data/annotations.json; COCO number: Ultralytics YOLOv8 documentation.
+
+## eval-code: Evaluation in code
+
+**Build 1:** Libraries do the matching, ranking and averaging. The notebook also has a twenty-line version that reproduces the walk-through.
+
+- Ask: Which number is COCO’s headline “AP”?
+- Expected: map: the mean over IoU 0.5 to 0.95 and over classes.
+
+**Notebook:** Notebook part 8 evaluates YOLOv8n on the eight photos with the hand-written evaluator.
 
 **Transition:** Three uses of IoU.
 
@@ -2025,48 +2232,48 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 **Point here:** Only assignment and evaluation use the annotations; NMS sees predictions only.
 
-**Transition:** Back to the six jobs.
+**Transition:** Part 8 in one slide.
 
-## apps-again: Back to the six jobs: the three everyday ones
+## recap-8: Part 8 in one slide
 
-**Build 1:** A pretrained COCO detector already knows these classes. What is hard in each job?
+**Build 1:** Next: the whole lecture, in one picture.
 
-- Ask: What makes each of these jobs hard?
-- Expected: Tiny far pedestrians; people who overlap; small animals with unsure scores.
+- Ask: Why does detection use precision and recall instead of accuracy?
+- Expected: Accuracy needs true negatives, and “no object, no box” has no fixed count.
 
-**Build 2:** What remains is tuning: the grids, the NMS threshold, the score cut-off.
+**Transition:** The whole lecture.
 
-- Ask: What would you change for each?
-- Expected: Rely on the fine grid; check the NMS threshold; lower the score cut-off.
+## pipeline: The whole lecture, as one flowchart
 
-**Transition:** The three specialist jobs.
+**Build 1:** Training: people box objects in photos; each box’s centre picks a cell; the network learns to write the same table, cell by cell.
 
-## apps-new: Back to the six jobs: the three new ones
+- Ask: Where do the training targets come from?
+- Expected: From people’s boxes: each box’s centre picks a cell, which gets the box in its units (5.2).
 
-**Build 1:** COCO has none of these classes, so no pretrained detector finds them as it is.
+**Build 2:** Test time: one pass writes a box and scores in every cell of three grids; the score filter and NMS leave one box per object.
 
-- Ask: Could a COCO detector do these jobs as it is?
-- Expected: No: their classes are not among COCO’s 80.
+- Ask: Where is the number of detections decided?
+- Expected: After the network: the score filter and NMS.
 
-**Build 2:** Label a few hundred photos with boxes, fine-tune the same detector, and measure precision and recall on photos it has not seen.
+**Build 3:** Measuring: match the detections to an annotation by IoU, count TP, FP and FN, and summarise them as precision, recall, AP and mAP.
 
-- Ask: What would you do first for the microscope job?
-- Expected: Annotate cells with boxes, fine-tune a pretrained detector on them, and measure precision and recall.
+- Ask: What does the measuring row need that test time does not?
+- Expected: An annotation of the test photos, to match the detections against.
 
-**Point here:** Fine-tuning starts from COCO weights: the CNN already knows edges, textures and shapes; only the heads must learn the new classes.
+**Point here:** The notes under each step say where the lecture covered it. Appendix A gives DETR, which replaces the score filter and NMS by matching a fixed set of slots to objects.
 
-**Transition:** Next lecture.
+**Transition:** The lecture in one slide.
 
-## next: Next: beyond boxes
+## summary: The lecture in one slide
 
-**Build 1:** Boxes are the coarsest description of where an object is. Next: masks, keypoints, and finding objects named in words.
+**Build 1:** Every cell writes a box; the score filter and NMS decide how many survive.
 
-- Ask: What does a mask give that a box does not?
-- Expected: Exactly which pixels are the object.
+- Ask: How does a fixed-size output give a list of any length?
+- Expected: Every cell writes a box; the score filter and NMS decide how many boxes survive.
+
+**Point here:** Next lecture: masks, keypoints and boxes found from words (Beyond Boxes). Appendix A gives the other answer to the question, DETR; Appendix B has more depth, real detections, and the six jobs of Part 1 revisited.
 
 **Transition:** End of the main route.
-
-**Source:** Masks: YOLOv8n-seg run on the photo (scripts/run_models.py).
 
 ## part-A: Appendix A · DETR: a fixed set of slots, matched to objects (optional)
 
@@ -2466,9 +2673,9 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 **Transition:** End of Appendix A. Appendix B: more depth.
 
-## fc-conv: Ng’s trick, step 1: write the dense layers as convolutions (optional)
+## fc-conv: One pass for every window, step 1: dense layers as convolutions (optional)
 
-**Build 1:** Ng’s toy classifier for 14 × 14 crops, drawn as blocks of numbers: a convolution, a max pool, two dense layers of 400 units, then 3 answers.
+**Build 1:** A toy classifier for 14 × 14 crops, drawn as blocks of numbers: a convolution, a max pool, two dense layers of 400 units, then 3 answers.
 
 - Ask: How many numbers does the 5 × 5 × 16 block hold?
 - Expected: 5 × 5 × 16 = 400.
@@ -2487,7 +2694,7 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 **Transition:** Now give it a bigger image.
 
-## conv-windows: Ng’s trick, step 2: a 16 × 16 image gives four answers at once (optional)
+## conv-windows: One pass for every window, step 2: four answers at once (optional)
 
 **Build 1:** Give the same network a 16 × 16 image. The top-left 14 × 14 window flows through exactly as before and ends in the top-left output.
 
@@ -2504,7 +2711,7 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 - Ask: How many times is each overlapping pixel processed?
 - Expected: Once, instead of once per window that contains it.
 
-**Build 4:** Ng’s next example: a 28 × 28 image gives 8 × 8 answers, 64 windows 2 pixels apart. The step is 2 because of the max pool.
+**Build 4:** A bigger example: a 28 × 28 image gives 8 × 8 answers, 64 windows 2 pixels apart. The step is 2 because of the max pool.
 
 - Ask: Why are the windows 2 pixels apart?
 - Expected: The 2 × 2 max pool halves the size, so one output step is 2 input pixels.
@@ -2542,20 +2749,6 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 - Ask: Why did YOLOv1 struggle with flocks of birds?
 - Expected: Each cell had one class vector: several small objects with centres in one cell could not all be described.
-
-## opt-anchors: Anchor boxes: two records per cell, one tall and one wide (optional)
-
-**Build 1:** Ng’s second fix: give each cell two records, one for a tall shape and one for a wide one, so that one cell can report a person and a car.
-
-- Ask: How many numbers does each cell write with two anchors?
-- Expected: 2 × 7 = 14: one 7-number record per anchor.
-
-**Build 2:** YOLOv2 to v5 predict small corrections to each anchor’s place and size; the anchor shapes come from k-means on the training boxes. YOLOv8 needs no anchors.
-
-- Ask: What must be chosen before training an anchor-based detector?
-- Expected: The anchor shapes, by hand or by k-means on the training boxes.
-
-**Point here:** Ng (“Anchor Boxes”): his 3 × 3 grid with two anchors and three classes gives a 3 × 3 × 16 output. Two objects of the same shape in one cell, or three objects, still collide, which a fine grid makes rare. He adds that anchors also let some outputs specialise in tall objects and others in wide ones.
 
 ## opt-ltrb: YOLOv8’s box: four distances from the cell centre (optional)
 
@@ -2721,3 +2914,133 @@ Planned main route: 120 minutes, including student responses. Optional slides ar
 
 - Ask: What did DETR’s successors mainly improve?
 - Expected: Training speed and small objects (deformable attention, multi-scale features, better query initialisation).
+
+## street-eval: Real detections: people in the street photo (optional)
+
+**Build 1:** We keep every person detection down to a score of 0.01, so that the wrong ones show up too.
+
+- Ask: How many annotated people?
+- Expected: Four.
+
+**Build 2:** The four most confident boxes each land on a different person.
+
+- Ask: Which detections are true positives?
+- Expected: The top four, each with IoU above 0.9.
+
+**Build 3:** The rest sit on the car’s windscreen, where nobody is.
+
+- Ask: What are the low-scoring boxes?
+- Expected: False positives on the car: the network half-sees a driver.
+
+**Transition:** Turn the counts into precision and recall.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## pr-street: The street’s people at two score cut-offs (optional)
+
+**Build 1:** With the usual 0.25 score cut-off, the street photo is perfect: four people found, nothing extra. Precision 1, recall 1.
+
+- Ask: What are precision and recall at 0.25?
+- Expected: Both 1.
+
+**Build 2:** Keep everything down to 0.01 and the 8 windscreen boxes join: recall stays 1, precision drops to 0.33. The cut-off trades one for the other.
+
+- Ask: What happens at 0.01?
+- Expected: Precision falls to 0.33; recall stays 1.
+
+**Transition:** Now the other direction: Part 1’s bird.
+
+## bird-threshold: Back to the bird: a lower cut-off finds it (optional)
+
+**Build 1:** At the usual 0.25: the cat and the dog are found, the bird (0.098) is missed. Precision 1, recall 2/3.
+
+- Ask: What do precision and recall say at 0.25?
+- Expected: Precision 1, recall 2/3: everything reported was right, but the bird was missed.
+
+**Build 2:** At 0.05 the bird’s box gets through: recall 3/3, and nothing false comes with it. On the street, going lower brought eight false people.
+
+- Ask: Should we always lower the cut-off?
+- Expected: It depends on what a miss costs against a false alarm: a camera trap counting rare birds wants recall; a car that brakes for every false person wants precision.
+
+**Point here:** Only the seven annotated classes count here; the potted plants are ignored, as in the benchmark.
+
+**Transition:** AP on all the real person boxes.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## ap-play: Try it: AP on real detections (optional)
+
+**Build 1:** YOLOv8n’s 38 person detections on our eight photos, ranked by score, against 17 people. Raise the IoU threshold: from 0.85, loose boxes turn into false positives.
+
+- Ask: At which IoU threshold does AP first drop below 1?
+- Expected: At 0.85: a few boxes overlap their person with an IoU between 0.80 and 0.85.
+
+**Point here:** The AP here reads the envelope at 101 recall values, as COCO does. The mean of the ten thresholds is 0.919, the person AP of the next slides.
+
+**Transition:** One of those boxes, up close.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## map-iou-real: Real detections: COCO’s ten IoU thresholds on a 13-pixel pedestrian (optional)
+
+**Build 1:** Part 1’s 13-pixel pedestrian: YOLOv8n’s box is a pixel off, IoU 0.87. A true positive up to a threshold of 0.85; a false positive at 0.90 and 0.95.
+
+- Ask: Why does a one-pixel slip matter so much here?
+- Expected: The pedestrian is 13 pixels wide: one pixel is almost a tenth of its width.
+
+**Build 2:** Person AP at each of COCO’s ten thresholds: 1 up to 0.80, then 0.84, 0.79, 0.56, as boxes that are slightly loose stop counting.
+
+- Ask: Why does AP fall only at the strict thresholds?
+- Expected: Every person is found with IoU above 0.8; only some boxes are tighter than 0.85, 0.90 or 0.95.
+
+**Build 3:** COCO’s headline AP averages the ten: 0.919. It rewards boxes that are tight, not just roughly right.
+
+- Ask: What does averaging over thresholds reward?
+- Expected: Tight boxes: a box that is only roughly right counts at 0.5 but not at 0.9.
+
+**Point here:** COCO calls this AP (or AP@[.50:.95]); AP50 and AP75 are the values at 0.50 and 0.75. Small objects suffer most, because a pixel is a large share of their size; COCO also reports AP for small, medium and large objects.
+
+**Transition:** Average over the classes too.
+
+**Source:** YOLOv8n (Ultralytics, COCO-trained) run on this photo by scripts/run_models.py; every value from data/science.json.
+
+## apps-again: Back to the six jobs: the three everyday ones (optional)
+
+**Build 1:** A pretrained COCO detector already knows these classes. What is hard in each job?
+
+- Ask: What makes each of these jobs hard?
+- Expected: Tiny far pedestrians; people who overlap; small animals with unsure scores.
+
+**Build 2:** What remains is tuning: the grids, the NMS threshold, the score cut-off.
+
+- Ask: What would you change for each?
+- Expected: Rely on the fine grid; check the NMS threshold; lower the score cut-off.
+
+**Transition:** The three specialist jobs.
+
+## apps-new: Back to the six jobs: the three new ones (optional)
+
+**Build 1:** COCO has none of these classes, so no pretrained detector finds them as it is.
+
+- Ask: Could a COCO detector do these jobs as it is?
+- Expected: No: their classes are not among COCO’s 80.
+
+**Build 2:** Label a few hundred photos with boxes, fine-tune the same detector, and measure precision and recall on photos it has not seen.
+
+- Ask: What would you do first for the microscope job?
+- Expected: Annotate cells with boxes, fine-tune a pretrained detector on them, and measure precision and recall.
+
+**Point here:** Fine-tuning starts from COCO weights: the CNN already knows edges, textures and shapes; only the heads must learn the new classes.
+
+**Transition:** Next lecture.
+
+## next: Next: beyond boxes (optional)
+
+**Build 1:** Boxes are the coarsest description of where an object is. Next: masks, keypoints, and finding objects named in words.
+
+- Ask: What does a mask give that a box does not?
+- Expected: Exactly which pixels are the object.
+
+**Transition:** End of the main route.
+
+**Source:** Masks: YOLOv8n-seg run on the photo (scripts/run_models.py).

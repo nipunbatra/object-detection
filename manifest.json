@@ -4,7 +4,7 @@
   "title": "Object detection",
   "series": "ES 667 Deep Learning",
   "subtitle": "From one label to a set of objects",
-  "minutes": 120,
+  "minutes": 130,
   "notebook": "object-detection.ipynb",
   "sections": [
     {
@@ -35,7 +35,7 @@
     {
       "id": "dense",
       "title": "Part 5 · A candidate at every place",
-      "minutes": 25
+      "minutes": 32
     },
     {
       "id": "nms",
@@ -45,17 +45,17 @@
     {
       "id": "scales",
       "title": "Part 7 · Three grids for three sizes",
-      "minutes": 6
+      "minutes": 9
     },
     {
       "id": "eval",
       "title": "Part 8 · Measuring a detector",
-      "minutes": 20
+      "minutes": 24
     },
     {
       "id": "wrap",
       "title": "Wrap-up",
-      "minutes": 8
+      "minutes": 4
     },
     {
       "id": "detr",
@@ -68,9 +68,9 @@
       "minutes": 0
     }
   ],
-  "coreSlides": 102,
-  "optionalSlides": 36,
-  "totalStates": 365,
+  "coreSlides": 111,
+  "optionalSlides": 43,
+  "totalStates": 404,
   "slides": [
     {
       "id": "title",
@@ -466,81 +466,129 @@
     },
     {
       "id": "grid-3x2",
-      "title": "YOLO: grid the photo, and let every cell predict a record",
+      "title": "YOLO, “You Only Look Once”: cut the photo into cells",
       "section": "dense",
-      "chapter": "5.2 YOLO: a record in every cell",
+      "chapter": "5.2 YOLO, part 1: the ground-truth table",
       "builds": 3,
       "optional": false
     },
     {
-      "id": "grid-structure",
-      "title": "The structure: one CNN pass writes all six records",
+      "id": "gt-annotate",
+      "title": "Step 1: a person draws a box around each animal",
       "section": "dense",
-      "chapter": "5.2 YOLO: a record in every cell",
+      "chapter": "5.2 YOLO, part 1: the ground-truth table",
       "builds": 3,
       "optional": false
     },
     {
       "id": "centre-cell",
-      "title": "Which cell answers for an animal? The one that holds its centre",
+      "title": "Step 2: the grid over the boxes, and each box’s centre",
       "section": "dense",
-      "chapter": "5.2 YOLO: a record in every cell",
+      "chapter": "5.2 YOLO, part 1: the ground-truth table",
       "builds": 3,
       "optional": false
     },
     {
       "id": "cell-box",
-      "title": "The cat’s box, measured in its cell",
+      "title": "Step 3: the cat’s box, in its cell’s units",
       "section": "dense",
-      "chapter": "5.2 YOLO: a record in every cell",
+      "chapter": "5.2 YOLO, part 1: the ground-truth table",
       "builds": 4,
       "optional": false
     },
     {
       "id": "dog-box",
-      "title": "The dog’s box is bigger than its cell",
+      "title": "Step 3: the dog’s box, bigger than its cell",
       "section": "dense",
-      "chapter": "5.2 YOLO: a record in every cell",
+      "chapter": "5.2 YOLO, part 1: the ground-truth table",
+      "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "target-photo",
+      "title": "Step 4: the whole ground-truth table",
+      "section": "dense",
+      "chapter": "5.2 YOLO, part 1: the ground-truth table",
       "builds": 3,
       "optional": false
     },
     {
       "id": "target-play",
-      "title": "Try it: move a box, and watch its cell write the record",
+      "title": "Try it: move a box, and watch its ground truth change",
       "section": "dense",
-      "chapter": "5.2 YOLO: a record in every cell",
+      "chapter": "5.2 YOLO, part 1: the ground-truth table",
       "builds": 1,
       "optional": false
     },
     {
-      "id": "target-photo",
-      "title": "The target for the whole photo: six records",
-      "section": "dense",
-      "chapter": "5.2 YOLO: a record in every cell",
-      "builds": 3,
-      "optional": false
-    },
-    {
       "id": "target-code",
-      "title": "Building the target in code, one line at a time",
+      "title": "The ground-truth table in code, one line at a time",
       "section": "dense",
-      "chapter": "5.2 YOLO: a record in every cell",
+      "chapter": "5.2 YOLO, part 1: the ground-truth table",
       "builds": 8,
       "optional": false
     },
     {
-      "id": "loss-grid",
-      "title": "Training: Part 4’s loss in every cell",
+      "id": "grid-structure",
+      "title": "Prediction: a CNN outputs a table of the same shape",
       "section": "dense",
-      "chapter": "5.2 YOLO: a record in every cell",
+      "chapter": "5.3 YOLO, part 2: predict, compare, train",
       "builds": 4,
       "optional": false
     },
     {
-      "id": "two-in-a-cell",
-      "title": "Two centres in one cell? Use smaller cells",
+      "id": "align-loss",
+      "title": "Line the two tables up: the loss, cell by cell",
       "section": "dense",
-      "chapter": "5.2 YOLO: a record in every cell",
+      "chapter": "5.3 YOLO, part 2: predict, compare, train",
+      "builds": 4,
+      "optional": false
+    },
+    {
+      "id": "train-toy",
+      "title": "Training: the predicted table moves toward the ground truth",
+      "section": "dense",
+      "chapter": "5.3 YOLO, part 2: predict, compare, train",
+      "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "loss-grid",
+      "title": "The loss for all cells at once, in symbols and in code",
+      "section": "dense",
+      "chapter": "5.3 YOLO, part 2: predict, compare, train",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "two-in-a-cell",
+      "title": "Two centres in one cell? Try smaller cells",
+      "section": "dense",
+      "chapter": "5.3 YOLO, part 2: predict, compare, train",
+      "builds": 1,
+      "optional": false
+    },
+    {
+      "id": "two-boxes",
+      "title": "Another design: two boxes in every cell",
+      "section": "dense",
+      "chapter": "5.3 YOLO, part 2: predict, compare, train",
+      "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "anchor-person",
+      "title": "Which box gets the person? The template that fits best",
+      "section": "dense",
+      "chapter": "5.3 YOLO, part 2: predict, compare, train",
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "anchor-car",
+      "title": "The car goes to the wide box, and both are kept",
+      "section": "dense",
+      "chapter": "5.3 YOLO, part 2: predict, compare, train",
       "builds": 2,
       "optional": false
     },
@@ -548,39 +596,55 @@
       "id": "fine-grid",
       "title": "In practice: small cells of 32 pixels",
       "section": "dense",
-      "chapter": "5.3 The real grid, and its boxes",
+      "chapter": "5.4 The real grid, and its boxes",
+      "builds": 5,
+      "optional": false
+    },
+    {
+      "id": "scores-80",
+      "title": "What a cell writes: a box and 80 class scores",
+      "section": "dense",
+      "chapter": "5.4 The real grid, and its boxes",
       "builds": 3,
       "optional": false
     },
     {
       "id": "decode",
-      "title": "At test time: read the box back out of the cell",
+      "title": "At test time: read the centre back out of the cell",
       "section": "dense",
-      "chapter": "5.3 The real grid, and its boxes",
+      "chapter": "5.4 The real grid, and its boxes",
+      "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "decode-box",
+      "title": "Then the size, and the box’s edges",
+      "section": "dense",
+      "chapter": "5.4 The real grid, and its boxes",
       "builds": 3,
       "optional": false
     },
     {
       "id": "cell-inspector",
-      "title": "Every cell writes a record: point at one",
+      "title": "Every cell writes a box and 80 scores: pick one",
       "section": "dense",
-      "chapter": "5.3 The real grid, and its boxes",
+      "chapter": "5.4 The real grid, and its boxes",
       "builds": 1,
       "optional": false
     },
     {
       "id": "candidates",
-      "title": "Every cell writes a box: keep the confident ones",
+      "title": "600 cells, up to 600 boxes: keep the confident ones",
       "section": "dense",
-      "chapter": "5.3 The real grid, and its boxes",
-      "builds": 4,
+      "chapter": "5.4 The real grid, and its boxes",
+      "builds": 5,
       "optional": false
     },
     {
       "id": "yolo-steps",
       "title": "YOLO, the whole algorithm",
       "section": "dense",
-      "chapter": "5.3 The real grid, and its boxes",
+      "chapter": "5.4 The real grid, and its boxes",
       "builds": 2,
       "optional": false
     },
@@ -588,7 +652,7 @@
       "id": "recap-5",
       "title": "Part 5 in one slide",
       "section": "dense",
-      "chapter": "5.3 The real grid, and its boxes",
+      "chapter": "5.4 The real grid, and its boxes",
       "builds": 1,
       "optional": false
     },
@@ -689,6 +753,14 @@
       "optional": false
     },
     {
+      "id": "recap-6",
+      "title": "Part 6 in one slide",
+      "section": "nms",
+      "chapter": "6.2 Thresholds and classes",
+      "builds": 1,
+      "optional": false
+    },
+    {
       "id": "part-7",
       "title": "Part 7 · Small and large objects: three grids",
       "section": "scales",
@@ -721,10 +793,26 @@
       "optional": false
     },
     {
+      "id": "obb-crack",
+      "title": "Boxes that turn: axis-aligned or oriented?",
+      "section": "scales",
+      "chapter": "7.2 Boxes that turn",
+      "builds": 3,
+      "optional": false
+    },
+    {
+      "id": "obb-ships",
+      "title": "Packed, slanted objects need the angle",
+      "section": "scales",
+      "chapter": "7.2 Boxes that turn",
+      "builds": 3,
+      "optional": false
+    },
+    {
       "id": "recap-7",
       "title": "Part 7 in one slide",
       "section": "scales",
-      "chapter": "7.1 Three grids",
+      "chapter": "7.2 Boxes that turn",
       "builds": 1,
       "optional": false
     },
@@ -737,58 +825,74 @@
       "optional": false
     },
     {
-      "id": "tp-rule",
-      "title": "When is a detection correct?",
+      "id": "eval-setup",
+      "title": "A teaching example: five dogs, eight boxes",
       "section": "eval",
       "chapter": "8.1 Right or wrong?",
-      "builds": 4,
+      "builds": 2,
       "optional": false
     },
     {
-      "id": "street-eval",
-      "title": "Real check: people in the street photo",
+      "id": "tp-rule",
+      "title": "When is a box right? IoU ≥ 0.5 with a dog",
       "section": "eval",
       "chapter": "8.1 Right or wrong?",
-      "builds": 3,
+      "builds": 2,
+      "optional": false
+    },
+    {
+      "id": "eval-walk",
+      "title": "Judge every box, in score order",
+      "section": "eval",
+      "chapter": "8.1 Right or wrong?",
+      "builds": 8,
+      "optional": false
+    },
+    {
+      "id": "eval-fn",
+      "title": "What was missed: FN. And why there is no TN",
+      "section": "eval",
+      "chapter": "8.1 Right or wrong?",
+      "builds": 2,
       "optional": false
     },
     {
       "id": "pr-def",
       "title": "Precision and recall: two questions",
       "section": "eval",
-      "chapter": "8.2 Precision, recall, AP",
+      "chapter": "8.2 Precision and recall",
       "builds": 2,
       "optional": false
     },
     {
-      "id": "pr-street",
-      "title": "The street’s people at two score cut-offs",
+      "id": "pr-threshold",
+      "title": "Raise or lower the score threshold",
       "section": "eval",
-      "chapter": "8.2 Precision, recall, AP",
-      "builds": 2,
+      "chapter": "8.2 Precision and recall",
+      "builds": 3,
       "optional": false
     },
     {
-      "id": "bird-threshold",
-      "title": "Back to the bird: a lower cut-off finds it",
+      "id": "pr-play",
+      "title": "Try it: move the threshold, watch TP, FP and FN",
       "section": "eval",
-      "chapter": "8.2 Precision, recall, AP",
-      "builds": 2,
+      "chapter": "8.2 Precision and recall",
+      "builds": 1,
       "optional": false
     },
     {
-      "id": "pr-walk",
-      "title": "Walk down the ranked list, one detection at a time",
+      "id": "pr-curve",
+      "title": "Every threshold at once: the precision–recall curve",
       "section": "eval",
-      "chapter": "8.2 Precision, recall, AP",
-      "builds": 7,
+      "chapter": "8.3 The precision–recall curve, and AP",
+      "builds": 3,
       "optional": false
     },
     {
       "id": "ap-area",
       "title": "Average precision: the area under the curve",
       "section": "eval",
-      "chapter": "8.2 Precision, recall, AP",
+      "chapter": "8.3 The precision–recall curve, and AP",
       "builds": 3,
       "optional": false
     },
@@ -796,23 +900,15 @@
       "id": "ap-code",
       "title": "AP in code, one line at a time",
       "section": "eval",
-      "chapter": "8.2 Precision, recall, AP",
+      "chapter": "8.3 The precision–recall curve, and AP",
       "builds": 8,
       "optional": false
     },
     {
-      "id": "ap-play",
-      "title": "Try it: AP on real detections",
-      "section": "eval",
-      "chapter": "8.2 Precision, recall, AP",
-      "builds": 1,
-      "optional": false
-    },
-    {
       "id": "map-iou",
-      "title": "COCO’s AP: the same, at ten IoU thresholds",
+      "title": "Stricter IoU: AP at ten thresholds",
       "section": "eval",
-      "chapter": "8.3 Stricter IoU, and mAP",
+      "chapter": "8.4 Stricter IoU, and mAP",
       "builds": 3,
       "optional": false
     },
@@ -820,7 +916,7 @@
       "id": "map",
       "title": "mAP: average the AP over the classes",
       "section": "eval",
-      "chapter": "8.3 Stricter IoU, and mAP",
+      "chapter": "8.4 Stricter IoU, and mAP",
       "builds": 3,
       "optional": false
     },
@@ -828,63 +924,39 @@
       "id": "eval-code",
       "title": "Evaluation in code",
       "section": "eval",
-      "chapter": "8.3 Stricter IoU, and mAP",
+      "chapter": "8.4 Stricter IoU, and mAP",
       "builds": 1,
-      "optional": false
-    },
-    {
-      "id": "obb-crack",
-      "title": "Boxes that turn: axis-aligned or oriented?",
-      "section": "wrap",
-      "chapter": "9.1 Boxes that turn",
-      "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "obb-ships",
-      "title": "Packed, slanted objects need the angle",
-      "section": "wrap",
-      "chapter": "9.1 Boxes that turn",
-      "builds": 3,
-      "optional": false
-    },
-    {
-      "id": "summary",
-      "title": "One question, one answer",
-      "section": "wrap",
-      "chapter": "9.2 Summary",
-      "builds": 2,
       "optional": false
     },
     {
       "id": "iou-uses",
       "title": "Three uses of IoU, easy to confuse",
-      "section": "wrap",
-      "chapter": "9.2 Summary",
+      "section": "eval",
+      "chapter": "8.4 Stricter IoU, and mAP",
       "builds": 3,
       "optional": false
     },
     {
-      "id": "apps-again",
-      "title": "Back to the six jobs: the three everyday ones",
-      "section": "wrap",
-      "chapter": "9.2 Summary",
-      "builds": 2,
+      "id": "recap-8",
+      "title": "Part 8 in one slide",
+      "section": "eval",
+      "chapter": "8.4 Stricter IoU, and mAP",
+      "builds": 1,
       "optional": false
     },
     {
-      "id": "apps-new",
-      "title": "Back to the six jobs: the three new ones",
+      "id": "pipeline",
+      "title": "The whole lecture, as one flowchart",
       "section": "wrap",
-      "chapter": "9.2 Summary",
-      "builds": 2,
+      "chapter": "9.1 The whole lecture",
+      "builds": 3,
       "optional": false
     },
     {
-      "id": "next",
-      "title": "Next: beyond boxes",
+      "id": "summary",
+      "title": "The lecture in one slide",
       "section": "wrap",
-      "chapter": "9.2 Summary",
+      "chapter": "9.1 The whole lecture",
       "builds": 1,
       "optional": false
     },
@@ -1050,7 +1122,7 @@
     },
     {
       "id": "fc-conv",
-      "title": "Ng’s trick, step 1: write the dense layers as convolutions",
+      "title": "One pass for every window, step 1: dense layers as convolutions",
       "section": "optional",
       "chapter": "",
       "builds": 3,
@@ -1058,7 +1130,7 @@
     },
     {
       "id": "conv-windows",
-      "title": "Ng’s trick, step 2: a 16 × 16 image gives four answers at once",
+      "title": "One pass for every window, step 2: four answers at once",
       "section": "optional",
       "chapter": "",
       "builds": 4,
@@ -1078,14 +1150,6 @@
       "section": "optional",
       "chapter": "",
       "builds": 1,
-      "optional": true
-    },
-    {
-      "id": "opt-anchors",
-      "title": "Anchor boxes: two records per cell, one tall and one wide",
-      "section": "optional",
-      "chapter": "",
-      "builds": 2,
       "optional": true
     },
     {
@@ -1171,6 +1235,70 @@
     {
       "id": "opt-detr-family",
       "title": "After DETR",
+      "section": "optional",
+      "chapter": "",
+      "builds": 1,
+      "optional": true
+    },
+    {
+      "id": "street-eval",
+      "title": "Real detections: people in the street photo",
+      "section": "optional",
+      "chapter": "",
+      "builds": 3,
+      "optional": true
+    },
+    {
+      "id": "pr-street",
+      "title": "The street’s people at two score cut-offs",
+      "section": "optional",
+      "chapter": "",
+      "builds": 2,
+      "optional": true
+    },
+    {
+      "id": "bird-threshold",
+      "title": "Back to the bird: a lower cut-off finds it",
+      "section": "optional",
+      "chapter": "",
+      "builds": 2,
+      "optional": true
+    },
+    {
+      "id": "ap-play",
+      "title": "Try it: AP on real detections",
+      "section": "optional",
+      "chapter": "",
+      "builds": 1,
+      "optional": true
+    },
+    {
+      "id": "map-iou-real",
+      "title": "Real detections: COCO’s ten IoU thresholds on a 13-pixel pedestrian",
+      "section": "optional",
+      "chapter": "",
+      "builds": 3,
+      "optional": true
+    },
+    {
+      "id": "apps-again",
+      "title": "Back to the six jobs: the three everyday ones",
+      "section": "optional",
+      "chapter": "",
+      "builds": 2,
+      "optional": true
+    },
+    {
+      "id": "apps-new",
+      "title": "Back to the six jobs: the three new ones",
+      "section": "optional",
+      "chapter": "",
+      "builds": 2,
+      "optional": true
+    },
+    {
+      "id": "next",
+      "title": "Next: beyond boxes",
       "section": "optional",
       "chapter": "",
       "builds": 1,

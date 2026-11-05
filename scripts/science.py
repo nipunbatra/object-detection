@@ -6,7 +6,7 @@
 Run scripts/run_models.py first. Each block below is one worked example of the lecture, in lecture order, and
 asserts what the slides say about it (for example that our NMS keeps exactly what Ultralytics keeps).
 """
-import itertools, json, math
+import itertools, json, math, re
 from collections import Counter
 from pathlib import Path
 
@@ -152,12 +152,26 @@ S['grid'] = {'stride': s, 'cols': gw, 'rows': gh, 'cells32': gw * gh, 'per_level
              'dog_centre_cell': [int(cy // s), int(cx // s)], 'dog_centre_in_cells': [r(cx / s, 2), r(cy / s, 2)],
              'pos_dog': pos_dog, 'pos_cat': pos_cat, 'fire_dog': fire('dog'), 'fire_cat': fire('cat'),
              'fire_plant': fire('potted plant'),
-             'map_dog': P['map32_dog'], 'map_cat': P['map32_cat'], 'records': P['cells32']}
+             'map_dog': P['map32_dog'], 'map_cat': P['map32_cat'],
+             'records': [[*x[:2], max(0.0, x[2]), max(0.0, x[3]), min(float(W), x[4]), min(float(H), x[5]), *x[6:]] for x in P['cells32']]}   # clipped to the photo, as Ultralytics does
 assert S['grid']['dog_centre_cell'] == [10, 18] and len(S['grid']['fire_dog']) == 10 and len(S['grid']['fire_cat']) == 10
 overlap = [c for c in pos_dog if c in S['grid']['fire_dog']]
 inside = lambda b: sum(b[0] < (cc + .5) * s < b[2] and b[1] < (rr + .5) * s < b[3] for rr in range(gh) for cc in range(gw))
 S['grid']['inside_dog'], S['grid']['inside_cat'] = inside(dog), inside(cat)
 S['grid']['dog_overlap'] = len(overlap)
+# five cells to look at on the 32-px grid: the dog's and the cat's centre cells, the surest plant cell, and one cell of
+# wall and one of floor, where every class score is below 0.01
+rec32 = {(x[0], x[1]): x for x in S['grid']['records']}
+plant32 = max((x for x in S['grid']['records'] if x[6] == 'potted plant'), key=lambda x: x[7])
+S['grid']['samples'] = [['dog', [10, 18]], ['cat', [14, 6]], ['plant', plant32[:2]], ['wall', [4, 8]], ['floor', [18, 25]]]
+# every stride-32 cell's eight highest class scores (run_models.py); no other score anywhere tops rest_max, too small to draw
+T32 = Y['photos']['cat-dog']['top32']
+S['grid']['top'] = T32['cells']
+assert len(T32['cells']) == 600 and T32['rest_max'] < 0.001
+assert all([Y['names'][i] for i, _ in T32['cells'][k][:3]] == x[6::2] and [round(v, 5) for _, v in T32['cells'][k][:3]] == [round(v, 5) for v in x[7::2]]
+           for k, x in enumerate(S['grid']['records']))
+assert rec32[(10, 18)][6] == 'dog' and rec32[(14, 6)][6] == 'cat' and rec32[(4, 8)][7] < 0.01 and rec32[(18, 25)][7] < 0.01
+assert sum(x[7] >= 0.25 for x in S['grid']['records']) == 30   # 10 dog, 10 cat, 10 plant; the 31st candidate is on the 16-px grid
 
 # the target and the prediction at cell (row 10, column 18)
 cell = P['dog_cell']
@@ -414,7 +428,8 @@ S['benchmark'] = {'yolo': evaluate(detections('yolo')), 'detr': evaluate(detecti
 # ---------------------------------------------------------------- what the opening slides show
 S['counts_by_photo'] = {n: len(nms([k for k in Y['photos'][n]['candidates'] if k['score'] >= 0.25], 0.7)[0]) for n in Y['photos']}
 S['finals'] = {n: [strip(k) for k in nms([k for k in Y['photos'][n]['candidates'] if k['score'] >= 0.25], 0.7)[0]] for n in Y['photos']}
-S['detr_finals'] = {n: [k for k in DT['detections'][n] if k['score'] >= 0.9] for n in DT['detections']}
+clip_to = lambda b, n: [max(0.0, b[0]), max(0.0, b[1]), min(float(Y['photos'][n]['size'][0]), b[2]), min(float(Y['photos'][n]['size'][1]), b[3])]
+S['detr_finals'] = {n: [{**k, 'box': clip_to(k['box'], n)} for k in DT['detections'][n] if k['score'] >= 0.9] for n in DT['detections']}
 S['annotations'] = A['photos']
 S['seg'] = M['seg']
 S['provenance'] = {'yolo': Y['model'], 'detr': DT['model'], 'torch': M['torch']}
@@ -547,6 +562,45 @@ assert S['windows']['big_n'] == [17, 7]
 S['windows']['big_best_iou'] = r(max(iou(dog, [x, y, x + 448, y + 448]) for x in range(0, Wp - 447, 32) for y in range(0, Hp - 447, 32)), 2)
 assert 0.7 < S['windows']['big_best_iou'] < 0.75
 
+# ---------------------------------------------------------------- Part 5: a toy YOLO trained on this one photo (run_models.py toy)
+TY = M['toy_yolo']
+S['toy'] = {k: TY[k] for k in ('target', 'snaps', 'steps', 'params', 'input', 'layers')}
+S['toy']['loss'] = TY['loss'][::5]
+S['toy']['loss0'], S['toy']['loss_end'] = TY['loss'][0], TY['loss'][-1]
+gt_rows = {(1, 1): [1, *S['ng3']['dog'], 0, 1], (1, 0): [1, *S['ng3']['cat'], 1, 0]}
+assert all(TY['target'][r_][c_] == v for (r_, c_), v in gt_rows.items()) and sum(TY['target'][r_][c_][0] for r_ in range(2) for c_ in range(3)) == 2
+assert TY['loss'][-1] < 0.05 < 1 < TY['loss'][0] and abs(sum(sum(row) for row in TY['snaps']['0']['cell_loss']) - TY['loss'][0]) < 1e-3
+# every record the toy writes is in range: scores and the centre between 0 and 1, sizes above 0
+assert all(0 <= v[0] <= 1 and 0 <= v[1] <= 1 and 0 <= v[2] <= 1 and v[3] > 0 and v[4] > 0 and 0 <= v[5] <= 1 and 0 <= v[6] <= 1
+           for sn in TY['snaps'].values() for row in sn['table'] for v in row)
+
+# ---------------------------------------------------------------- Part 5: two boxes per cell, on a person standing in front of a car
+# figures/person-car.jpg (1248 x 832) with cells of 416 px: a 3 x 2 grid. Both centres fall in cell (1, 1). Each of the
+# cell's two boxes has a template shape, tall or wide; an object goes to the template whose shape overlaps its box most.
+shape_iou = lambda wh, a: (min(wh[0], a[0]) * min(wh[1], a[1])) / (wh[0] * wh[1] + a[0] * a[1] - min(wh[0], a[0]) * min(wh[1], a[1]))
+PC = json.loads((ROOT / 'data/person-car.json').read_text())
+pcs, pcb = 416, dict(PC['boxes'])
+pc_c = {n: ((b_[0] + b_[2]) / 2, (b_[1] + b_[3]) / 2) for n, b_ in pcb.items()}
+pc_cell = {n: [int(c_[1] // pcs), int(c_[0] // pcs)] for n, c_ in pc_c.items()}
+pc_wh = {n: [b_[2] - b_[0], b_[3] - b_[1]] for n, b_ in pcb.items()}
+assert PC['size'] == [1248, 832] and pc_cell['person'] == pc_cell['car'] == [1, 1]
+pc_anc = {'tall': [round(0.4 * pcs), pcs], 'wide': [2 * pcs, round(0.8 * pcs)]}
+S['pc'] = {'size': PC['size'], 'cell': pcs, 'boxes': pcb, 'centres': {n: [r(v, 1) for v in c_] for n, c_ in pc_c.items()}, 'cells': pc_cell,
+           'records': {n: [r((pc_c[n][0] - pc_cell[n][1] * pcs) / pcs, 2), r((pc_c[n][1] - pc_cell[n][0] * pcs) / pcs, 2),
+                           r(pc_wh[n][0] / pcs, 2), r(pc_wh[n][1] / pcs, 2)] for n in pcb},
+           'anchors': pc_anc, 'iou': {n: {k: r(shape_iou(pc_wh[n], a_), 2) for k, a_ in pc_anc.items()} for n in pcb}}
+assert S['pc']['iou']['person']['tall'] > S['pc']['iou']['person']['wide'] and S['pc']['iou']['car']['wide'] > S['pc']['iou']['car']['tall']
+assert all(0 <= v < 1 for n in pcb for v in S['pc']['records'][n][:2])
+# the crowd for the grid-size figure: every person's box, and for each grid the cells holding two or more centres and the
+# people those cells cannot describe (one record per cell, so all but one of each crowded cell's people)
+S['crowd_cells']['boxes'] = [b_ for _, b_ in A['photos']['crowd']]
+by_grid = []
+for gn, gm in [(3, 2), (5, 3), (10, 6), (20, 11), (40, 22)]:
+    k_ = Counter((int(y // (Hc2 / gm)), int(x // (Wc2 / gn))) for x, y in cen)
+    by_grid.append([gn, gm, sum(v > 1 for v in k_.values()), sum(v - 1 for v in k_.values())])
+S['crowd_cells']['by_grid'] = by_grid
+assert by_grid[0][3] == 8 and by_grid[-1][2:] == [0, 0]
+
 # ---------------------------------------------------------------- Part 8: AP on real detections, and its IoU threshold
 # every YOLOv8n person detection on the eight photos (after NMS, score >= 0.01) against our annotated people
 gp = [{'photo': n, 'box': b} for n, lst in A['photos'].items() for c_, b in lst if c_ == 'person']
@@ -565,6 +619,46 @@ ex = max((x for x in rows85 if x['hit'] and x['iou'] < 0.9), key=lambda x: x['sc
 gex = max((g for g in gp if g['photo'] == ex['photo']), key=lambda g: iou(g['box'], ex['box']))
 S['ap_example'] = {'photo': ex['photo'], 'box': [round(v, 1) for v in ex['box']], 'gt': gex['box'], 'score': r(ex['score']), 'iou': r(ex['iou'], 2)}
 assert 0.85 <= S['ap_example']['iou'] < 0.9
+
+# ---------------------------------------------------------------- Part 8: a teaching example for TP, FP, FN, precision, recall and AP
+# figures/dog-park.jpg: five annotated dogs, A to E, and eight made-up detections whose scores interleave right and wrong
+# boxes (data/dog-park.json). E, far away, gets no box. Matching is the greedy rule above, at any IoU threshold.
+DP = json.loads((ROOT / 'data/dog-park.json').read_text())
+dpg = [{'photo': 'park', 'box': b_} for _, _, b_ in DP['gt']]
+dpd = [{'photo': 'park', 'score': s_, 'box': b_} for s_, b_, _ in sorted(DP['dets'], key=lambda x: -x[0])]
+dp_iou = [[iou(d_['box'], g_['box']) for g_ in dpg] for d_ in dpd]
+def teach_at(t, cut=0.0):
+    """TP or FP for every box scoring at least cut, the dogs left unclaimed (FN), and the curve over the kept boxes."""
+    rows_ = match_eval([d_ for d_ in dpd if d_['score'] >= cut], dpg, t)
+    got = {max(range(len(dpg)), key=lambda j: iou(x['box'], dpg[j]['box'])) for x in rows_ if x['hit']}
+    return rows_, [j for j in range(len(dpg)) if j not in got]
+t_rows, t_fn = teach_at(0.5)
+t_curve = pr_curve(t_rows, len(dpg))
+t_env = [max(c['precision'] for c in t_curve[i:]) for i in range(len(t_curve))]
+S['teach'] = {'size': DP['size'], 'view': [40, 100, 1290, 590],
+              'gt': [{'id': k_, 'name': n_, 'box': b_} for k_, n_, b_ in DP['gt']],
+              'dets': [{'rank': i + 1, 'score': d_['score'], 'box': d_['box'], 'what': w_} for i, (d_, (_, _, w_)) in enumerate(zip(dpd, sorted(DP['dets'], key=lambda x: -x[0])))],
+              'iou': [[r(v, 2) for v in row] for row in dp_iou],
+              'hit': [x['hit'] for x in t_rows], 'why': [x['why'] for x in t_rows], 'fn': [DP['gt'][j][0] for j in t_fn],
+              'curve': [{'tp': c['tp'], 'fp': c['fp'], 'p': r(c['precision']), 'r': r(c['recall'])} for c in t_curve],
+              'env': [r(v) for v in t_env], 'ap': r(ap_all_points(t_curve)), 'ap_coco101': r(ap_coco(t_curve)),
+              'cuts': [], 'thresholds': thrs, 'ap_by': []}
+for cut in (0.85, 0.5, 0.1):
+    rows_, fn_ = teach_at(0.5, cut)
+    tp_ = sum(x['hit'] for x in rows_)
+    S['teach']['cuts'].append({'cut': cut, 'kept': len(rows_), 'tp': tp_, 'fp': len(rows_) - tp_, 'fn': len(fn_), 'fn_ids': [DP['gt'][j][0] for j in fn_],
+                               'p': r(tp_ / len(rows_)), 'r': r(tp_ / len(dpg))})
+for t_ in thrs:
+    rows_, _ = teach_at(t_)
+    S['teach']['ap_by'].append(r(ap_all_points(pr_curve(rows_, len(dpg))), 2))
+S['teach']['ap_mean'] = r(np.mean(S['teach']['ap_by']), 2)
+# the story the slides tell: right, right, the bag, right, the bench, a box far too big on D, right, a bush; E is missed
+assert S['teach']['hit'] == [True, True, False, True, False, False, True, False] and S['teach']['fn'] == ['E']
+assert S['teach']['why'] == ['match', 'match', 'no truth here', 'match', 'no truth here', 'no truth here', 'match', 'no truth here']
+assert [max(row) for row in S['teach']['iou']] == [0.88, 0.81, 0.0, 0.76, 0.0, 0.4, 0.68, 0.0]
+assert [c['p'] for c in S['teach']['cuts']] == [1.0, 0.6, 0.5] and [c['r'] for c in S['teach']['cuts']] == [0.4, 0.6, 0.8]
+assert abs(S['teach']['ap'] - 0.2 * (1 + 1 + 0.75 + 4 / 7)) < 1e-3
+assert S['teach']['ap_by'] == [0.66, 0.66, 0.66, 0.66, 0.55, 0.55, 0.4, 0.2, 0.0, 0.0] and S['teach']['ap_mean'] == 0.43
 
 # ---------------------------------------------------------------- the wrap-up: axis-aligned against oriented boxes
 def obb_corners(cx, cy, w, h, deg):
@@ -623,6 +717,40 @@ sb = [[min(p[0] for p in q), min(p[1] for p in q), max(p[0] for p in q), max(p[1
 S['obb']['ships'] = {'corners': [[[round(v, 1) for v in p] for p in q] for q in ships], 'aabb': [[round(v, 1) for v in b] for b in sb],
                      'iou_obb': r(poly_iou(ships[0], ships[1]), 2), 'iou_aabb': r(iou(sb[0], sb[1]), 2)}
 assert S['obb']['ships']['iou_obb'] == 0 and 0.5 < S['obb']['ships']['iou_aabb'] < 0.7
+
+# ---------------------------------------------------------------- every number on the slides in its range
+UNIT = re.compile(r'(score|p|p_[a-z]+|iou|iou_[a-z]+|ap|ap50|ap75|map|map50|precision|recall|corr_dog)')
+
+
+def audit(x, key='', seen=None):
+    """Scores, probabilities, IoUs (not GIoU, which runs from -1 to 1), AP and precision/recall lie in [0, 1];
+    losses are not negative. Returns how many numbers it checked."""
+    seen = seen if seen is not None else [0]
+    if isinstance(x, dict):
+        for k, v in x.items():
+            audit(v, k, seen)
+    elif isinstance(x, list):
+        for v in x:
+            audit(v, key, seen)
+    elif isinstance(x, (int, float)) and not isinstance(x, bool):
+        if UNIT.fullmatch(key):
+            assert -1e-9 <= x <= 1 + 1e-9, (key, x)
+            seen[0] += 1
+        if re.search(r'loss|bce', key):
+            assert x >= 0, (key, x)
+            seen[0] += 1
+    return seen[0]
+
+
+S_checked = audit(S)
+assert S_checked > 500, S_checked   # 955 on 4 Nov 2026
+assert all(0 <= v <= 1 for v in S['ap_play']['ap_by']) and all(0 <= v <= 1 for row in S['convwin']['dog'] + S['convwin']['cat'] for v in row)
+inside = lambda b, wh: 0 <= b[0] < b[2] <= wh[0] and 0 <= b[1] < b[3] <= wh[1]
+assert all(inside(x[2:6], (W, H)) for x in S['grid']['records'])
+assert all(inside(k['box'], Y['photos'][n]['size']) for n, lst in S['detr_finals'].items() for k in lst)
+assert all(inside(k['box'], (W, H)) for k in S['nms_courtyard']['candidates'])
+assert all(inside(d['box'], S['ap_play']['sizes'][d['photo']]) for d in S['ap_play']['dets'])
+assert all(0 <= v < 1 for v in S['ng3']['dog'][:2] + S['ng3']['cat'][:2] + S['ng']['dog'][:2] + S['ng']['pred'][:2])
 
 (ROOT / 'data/science.json').write_text(json.dumps(S, separators=(',', ':')))
 print('wrote data/science.json', round((ROOT / 'data/science.json').stat().st_size / 1e3), 'kB')

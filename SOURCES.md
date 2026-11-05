@@ -19,6 +19,18 @@ and heat map in the lecture is drawn from computed data. Prompts and hashes of t
 | dog-occluded.jpg | imagen-dog-occluded.png | 1280 × 704 |
 | parcel.jpg, cells.jpg, defect.jpg | imagen-warehouse-parcel.png, imagen-microscopy-cells.png, imagen-industrial-defect.png | 1280 × 704 |
 
+## A photo made for the two-boxes slide
+
+`figures/person-car.jpg` (1248 × 832) was generated for this lecture on 4 Nov 2026 with Gemini 2.5 Flash Image
+(`gemini-2.5-flash-image`, aspect ratio 3:2) from this prompt: “A realistic, natural-looking photograph taken at eye level
+on a quiet residential street in daylight. A silver hatchback car is parked side-on to the camera, filling about two thirds
+of the frame width, fully visible from bumper to bumper, its wheels touching the road. A young adult in a plain blue shirt
+and dark trousers stands directly in front of the middle of the car, facing the camera, whole body visible from head to
+shoes, standing upright, centred on the car. Soft overcast light, a plain wall behind, nobody else in the scene, no text,
+no logos, no number plate visible. Sharp focus, documentary style, landscape orientation.” Its two boxes are in
+[data/person-car.json](data/person-car.json): the person from YOLOv8l, checked by eye; the car by eye, because YOLOv8l
+split it in two around the person.
+
 ## Hand-drawn boxes
 
 The cells, the parcel and the crack (Part 1) have no COCO class, so no detector in the lecture can find them. Their
@@ -67,3 +79,11 @@ by eye on a 5× zoom. The slides draw them in teal, the colour of annotations, n
 Earlier versions: the [attention-series object detection deck](https://github.com/nipunbatra/attention/tree/main/object-detection) and its source in `dl-teaching/attention-followups/object-detection/`; the DETR film's matching example (`dl-summaries/detr/math/detr_matching_example.py`) suggested the greedy-versus-optimal table.
 
 KaTeX 0.16 is bundled under its MIT licence (`shared/katex/LICENSE`).
+
+## A photo made for Part 8's teaching example
+
+`figures/dog-park.jpg` (1344 × 768) was generated with Gemini 2.5 Flash Image (`gemini-2.5-flash-image`, 16:9) on 4 November 2026, from this prompt:
+
+> A realistic, natural-looking photograph of a sunny city park lawn, taken at a standing adult's eye level, landscape orientation. Five dogs are spread out across the grass with clear space between them, each one fully visible from nose to tail: on the left a golden retriever lying down, near the centre a black labrador standing side-on, on the right a beagle sitting and facing the camera, in the front right a small white terrier walking, and far away in the background near a big tree on the left, one small brown dachshund, tiny in the frame. A brown leather shoulder bag lies on the grass between the labrador and the beagle, about the size of a small dog. A wooden bench and green bushes in the background. Soft natural light, no people, no text, no logos, sharp focus, documentary style.
+
+The five dog boxes are YOLOv8l proposals (scores 0.80 to 0.95), checked by eye on enlarged crops. The eight detections in `data/dog-park.json` are made up for teaching: boxes placed by hand on the dogs, the bag, the bench and a bush, and scores chosen so that right and wrong boxes interleave. `scripts/science.py` computes every IoU, verdict, precision, recall and AP from them and checks the story the slides tell.

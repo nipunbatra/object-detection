@@ -1,0 +1,28 @@
+{
+ "photo": "figures/person-car.jpg",
+ "size": [
+  1248,
+  832
+ ],
+ "boxes": [
+  [
+   "person",
+   [
+    593,
+    327,
+    708,
+    736
+   ]
+  ],
+  [
+   "car",
+   [
+    186,
+    386,
+    1072,
+    720
+   ]
+  ]
+ ],
+ "how": "person: YOLOv8l proposal (0.945), checked by eye; car: by eye on a 4x zoom (YOLOv8l split it in two around the person)"
+}

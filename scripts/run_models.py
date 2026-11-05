@@ -90,6 +90,25 @@ def yolo_record(raw, meta, k, names, top=3):
             'top': [[names[int(i)], round(float(sc[i]), 5)] for i in order]}
 
 
+def top_scores32(raw, off, n, k=8):
+    """Every stride-32 cell's k highest class scores as [class index, score], and the largest (k+1)-th score of
+    any cell: below it, the other classes' bars are too short to see, so k scores draw all 80 faithfully."""
+    sc = raw[off:off + n, 4:]
+    order = np.argsort(-sc, axis=1)
+    top = [[[int(i), round(float(sc[c, i]), 5)] for i in order[c, :k]] for c in range(n)]
+    return {'k': k, 'cells': top, 'rest_max': round(float(max(sc[c, order[c, k]] for c in range(n))), 5)}
+
+
+def yolo_scores32():
+    """Only the courtyard's stride-32 top scores, patched into data/models.json (python run_models.py scores32)."""
+    from ultralytics import YOLO
+    net = YOLO(YOLO_N).model.float().eval()
+    im = load('cat-dog')
+    raw = yolo_raw(net, im)
+    per_level = [(im.height // s) * (im.width // s) for s in STRIDES]
+    return top_scores32(raw, per_level[0] + per_level[1], per_level[2])
+
+
 def yolo_all():
     from ultralytics import YOLO
     m = YOLO(YOLO_N)
@@ -125,6 +144,7 @@ def yolo_all():
             for k in range(off, off + gh * gw):
                 rec = yolo_record(raw, meta, k, names)
                 photo['cells32'].append([rec['row'], rec['col'], *rec['box'], *[v for t in rec['top'] for v in t]])
+            photo['top32'] = top_scores32(raw, off, gh * gw)
             for tag, (rr, cc) in {'dog_cell': (10, 18), 'background_cell': (3, 3)}.items():
                 k = off + rr * gw + cc
                 rec = yolo_record(raw, meta, k, names)
@@ -270,8 +290,59 @@ def windows_vgg(size=224, step=32):
             'device': 'cpu', 'torch': torch.__version__}
 
 
+# ---------------------------------------------------------------- a toy YOLO for Part 5: one photo, a 3 x 2 grid, 7 numbers per cell
+def toy_yolo(steps=300, lr=1e-2, h=160, w=240):
+    """A tiny CNN whose output is a 2 x 3 x 7 table, trained on the courtyard photo alone with Ng's squared-error loss:
+    all 7 numbers in a cell that holds a centre, only object? elsewhere. Its last step keeps every number in range,
+    as YOLO does: a sigmoid for object?, b_x, b_y and the class scores (0 to 1), an exponential for b_w and b_h (above 0).
+    It memorises one photo; it shows the mechanics (the predicted table, compared with the ground truth, moving towards it)."""
+    A = json.loads((DATA / 'annotations.json').read_text())
+    s = 320
+    y = torch.zeros(2, 3, 7)
+    for name, (x1, y1, x2, y2) in A['photos']['cat-dog']:
+        cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+        r, c = int(cy // s), int(cx // s)
+        y[r, c] = torch.tensor([1, cx / s - c, cy / s - r, (x2 - x1) / s, (y2 - y1) / s, float(name == 'cat'), float(name == 'dog')])
+    x = torch.from_numpy(np.array(load('cat-dog').resize((w, h)))).permute(2, 0, 1)[None].float() / 255
+    torch.manual_seed(0)
+    net = torch.nn.Sequential(torch.nn.Conv2d(3, 16, 3, 2, 1), torch.nn.ReLU(), torch.nn.Conv2d(16, 32, 3, 2, 1), torch.nn.ReLU(),
+                              torch.nn.Conv2d(32, 64, 3, 2, 1), torch.nn.ReLU(), torch.nn.AdaptiveAvgPool2d((2, 3)), torch.nn.Conv2d(64, 7, 1))
+    m = y[..., 0] == 1
+    cell_loss = lambda p: (p[..., 0] - y[..., 0]) ** 2 + m * ((p[..., 1:] - y[..., 1:]) ** 2).sum(-1)
+    opt = torch.optim.Adam(net.parameters(), lr=lr)
+    hist, snaps = [], {}
+    with torch.enable_grad():
+        for step in range(steps + 1):
+            t = net(x)[0].permute(1, 2, 0)          # the raw numbers, any sign
+            pred = torch.cat([torch.sigmoid(t[..., :3]), torch.exp(t[..., 3:5]), torch.sigmoid(t[..., 5:])], -1)
+            per = cell_loss(pred)
+            L = per.sum()
+            hist.append(round(L.item(), 4))
+            if step in (0, 25, 50, 100, steps):
+                snaps[str(step)] = {'table': [[[round(float(v), 3) for v in pred[r, c].detach()] for c in range(3)] for r in range(2)],
+                                    'cell_loss': [[round(float(v), 4) for v in row] for row in per.detach()]}
+            if step < steps:
+                opt.zero_grad(); L.backward(); opt.step()
+    return {'target': [[[round(float(v), 3) for v in y[r, c]] for c in range(3)] for r in range(2)], 'snaps': snaps, 'loss': hist,
+            'steps': steps, 'lr': lr, 'input': [h, w], 'params': sum(q.numel() for q in net.parameters()),
+            'layers': ['conv 3x3 stride 2: 80 x 120 x 16', 'conv 3x3 stride 2: 40 x 60 x 32', 'conv 3x3 stride 2: 20 x 30 x 64',
+                       'average over each cell: 2 x 3 x 64', 'conv 1x1: 2 x 3 x 7', 'sigmoid (object?, b_x, b_y, classes), exp (b_w, b_h)']}
+
+
 if __name__ == '__main__':
     DATA.mkdir(exist_ok=True)
+    if sys.argv[1:] == ['toy']:
+        out = json.loads((DATA / 'models.json').read_text())
+        out['toy_yolo'] = toy_yolo()
+        print('toy', out['toy_yolo']['loss'][0], out['toy_yolo']['loss'][-1], out['toy_yolo']['params'])
+        (DATA / 'models.json').write_text(json.dumps(out, separators=(',', ':')))
+        sys.exit()
+    if sys.argv[1:] == ['scores32']:
+        out = json.loads((DATA / 'models.json').read_text())
+        out['yolo']['photos']['cat-dog']['top32'] = yolo_scores32()
+        print('scores32', len(out['yolo']['photos']['cat-dog']['top32']['cells']), out['yolo']['photos']['cat-dog']['top32']['rest_max'])
+        (DATA / 'models.json').write_text(json.dumps(out, separators=(',', ':')))
+        sys.exit()
     if sys.argv[1:] == ['windows']:
         out = json.loads((DATA / 'models.json').read_text())
         out['windows_vgg'] = windows_vgg()
@@ -284,6 +355,7 @@ if __name__ == '__main__':
     out['seg'] = seg_courtyard()
     out['detr'] = detr_all()
     out['windows_vgg'] = windows_vgg()
+    out['toy_yolo'] = toy_yolo()
     out['torch'] = torch.__version__
     (DATA / 'models.json').write_text(json.dumps(out, separators=(',', ':')))
     print('wrote', DATA / 'models.json', round((DATA / 'models.json').stat().st_size / 1e6, 2), 'MB')

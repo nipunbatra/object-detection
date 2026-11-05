@@ -1,0 +1,18 @@
+{
+ "photo": "figures/dog-park.jpg",
+ "size": [1344, 768],
+ "gt": [["A", "golden retriever", [68, 335, 395, 496]],
+        ["B", "black labrador", [486, 240, 756, 467]],
+        ["C", "beagle", [842, 324, 947, 507]],
+        ["D", "white terrier", [985, 453, 1222, 640]],
+        ["E", "dachshund, far away", [114, 160, 163, 195]]],
+ "dets": [[0.95, [480, 250, 765, 460], ""],
+          [0.90, [85, 323, 383, 506], ""],
+          [0.80, [634, 468, 834, 537], "the bag"],
+          [0.70, [830, 334, 954, 519], ""],
+          [0.60, [540, 118, 772, 194], "the bench"],
+          [0.45, [912, 373, 1280, 674], ""],
+          [0.35, [1013, 420, 1243, 634], ""],
+          [0.20, [1040, 105, 1230, 195], "a bush"]],
+ "how": "The five dogs: YOLOv8l proposals (scores 0.80 to 0.95), checked by eye on 4x crops. The eight detections are made up for teaching: boxes placed by hand around the dogs, the bag, the bench and a bush, and scores chosen so that right and wrong boxes interleave. Every IoU is computed from these boxes."
+}

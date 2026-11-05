@@ -96,15 +96,16 @@ function iouPlay(el,ctx,S){
 function cellInspector(el,ctx,S){
  const {W,H}=S.photo,s=S.grid.stride,recs=S.grid.records;
  const at=(r,c)=>recs[r*S.grid.cols+c];
- const best=S.grid.records.reduce((m,x)=>{(m[x[0]]??=[])[x[1]]=x[7];return m;},[]);
- const base=gridLines(W,H,s,{op:.45})+heat(best,s,{color:COL.guess,min:.05});
+ const base=gridLines(W,H,s,{op:.55});
  const info=(r,c)=>{const x=at(r,c),box=[x[2],x[3],x[4],x[5]];const top=[[x[6],x[7]],[x[8],x[9]],[x[10],x[11]]];
-  return {box,html:`<p><b>Cell: row ${r}, column ${c}</b></p><p class="muted">centre (${(c+.5)*s}, ${(r+.5)*s}) px</p><table style="font-size:20px;margin-top:8px"><tbody>${top.map(([n,p])=>`<tr><td>${esc(n)}</td><td style="text-align:right">${num(p,p<.01?4:3)}</td></tr>`).join('')}</tbody></table><p class="muted" style="margin-top:8px">its box: (${box.map(v=>Math.round(v)).join(', ')})</p>`};};
+  return {box,html:`<p><b>cell (${r}, ${c})</b> writes a box, dashed, and 80 class scores, one per COCO class, each from 0 to 1:</p>${scoreStrip(S.grid.top[r*S.grid.cols+c],S.cell.names,{W:460,bh:70,size:17,alt:`Cell (${r}, ${c})’s 80 class scores`})}<p style="margin-top:4px"><span class="muted">highest:</span> ${top.map(([n,p])=>`${esc(n)} ${p<.01?'&lt; 0.01':num(p,2)}`).join(' · ')}</p>`};};
  const draw=(r,c)=>{const {box}=info(r,c);return cell(r,c,s,{fill:'none',op:0,stroke:'#fff',w:5})+rect(box,{stroke:COL.guess,w:4,dash:'10 6'})+`<circle cx="${(c+.5)*s}" cy="${(r+.5)*s}" r="7" fill="#fff" stroke="${COL.guess}" stroke-width="3"/>`;};
+ const picks=S.grid.samples,where={dog:'the dog',cat:'the cat',plant:'a plant',wall:'the wall',floor:'the floor'};
  if(ctx.printing){el.innerHTML=`<div class="columns" style="grid-template-columns:1.6fr 1fr">${photo('cat-dog',W,H,base+draw(10,18),'Cell (10, 18) and its box')}<div class="w-panel">${info(10,18).html}</div></div>`;return;}
- el.innerHTML=`<div class="columns" style="grid-template-columns:1.6fr 1fr"><div class="w-fig">${photo('cat-dog',W,H,base+'<g class="live"></g>','Point at a cell to read its record')}</div><div class="w-panel"><div class="w-out"></div><p class="w-hint" style="margin-top:12px">Move over the photo. Purple shade: the cell’s best class score.</p></div></div>`;
+ el.innerHTML=`<div class="columns" style="grid-template-columns:1.6fr 1fr"><div class="w-fig">${photo('cat-dog',W,H,base+'<g class="live"></g>','Point at a cell to read its record')}</div><div class="w-panel"><div class="w-controls">${picks.map(([k,[r,c]])=>`<button type="button" class="w-pick" data-r="${r}" data-c="${c}">${where[k]}</button>`).join('')}</div><div class="w-out" style="margin-top:12px"></div><p class="w-hint" style="margin-top:12px">Or move over the photo to pick any cell.</p></div></div>`;
  const svgEl=el.querySelector('svg'),g=el.querySelector('.live'),out=el.querySelector('.w-out');
- const show=(r,c)=>{g.innerHTML=draw(r,c);out.innerHTML=info(r,c).html;};
+ const show=(r,c)=>{g.innerHTML=draw(r,c);out.innerHTML=info(r,c).html;for(const b of el.querySelectorAll('.w-pick'))b.setAttribute('aria-pressed',String(+b.dataset.r===r&&+b.dataset.c===c));};
+ for(const b of el.querySelectorAll('.w-pick'))b.addEventListener('click',()=>show(+b.dataset.r,+b.dataset.c));
  svgEl.addEventListener('pointermove',e=>{const p=svgPoint(svgEl,e),c=Math.floor(p.x/s),r=Math.floor(p.y/s);if(r>=0&&r<S.grid.rows&&c>=0&&c<S.grid.cols)show(r,c);});
  show(10,18);
 }
@@ -149,7 +150,7 @@ function targetPlay(el,ctx,S){
    `<circle cx="${b[2]}" cy="${b[3]}" r="14" fill="${COL.target}" stroke="#fff" stroke-width="3" data-drag="size" style="cursor:nwse-resize"/>`;};
  const keys=['object?','b<sub>x</sub>','b<sub>y</sub>','b<sub>w</sub>','b<sub>h</sub>','cat','dog'];
  const readout=b=>{const {r,c,v}=rec(b),n=(W/s)*(H/s);
-  return `<p><b>cell (${r}, ${c})</b> holds the centre and writes:</p><div class="ycol sm">${v.map((x,i)=>`<span>${keys[i]}</span><div class="t">${i&&i<5?num(x,2):x}</div>`).join('')}</div>`+
+  return `<p><b>cell (${r}, ${c})</b> holds the centre. Its ground truth:</p><div class="ycol sm">${v.map((x,i)=>`<span>${keys[i]}</span><div class="t">${i&&i<5?num(x,2):x}</div>`).join('')}</div>`+
    `<p class="w-hint" style="margin-top:8px">The other ${big(n-1)} cells: object? 0, the rest “?”.</p>`;};
  const controls=`<div class="w-controls">${grids.map(([z,t])=>`<button type="button" class="w-grid" data-s="${z}" aria-pressed="${z===s}">${t}</button>`).join('')}</div>`+
   `<div class="w-controls" style="margin-top:6px"><button type="button" class="w-obj" data-o="dog">the dog</button><button type="button" class="w-obj" data-o="cat">the cat</button></div>`;
@@ -201,7 +202,95 @@ function apPlay(el,ctx,S){
  show();
 }
 
+/** Tabs placed one by one at the first spot that hits no earlier tab: above a box's left or right end, below it,
+ inside its top corners, or beside it. items: {box, text, fill}; bounds [x, y, w, h] keeps tabs in view. */
+export function tabs(items,{size=28,bounds=null}={}){
+ const placed=[],h=size*1.35;let out='';
+ for(const it of items){const b=it.box,w=String(it.text).replace(/<[^>]+>/g,'').length*size*.56+18;
+  const spots=[[b[0],b[1]-h],[b[2]-w,b[1]-h],[b[0],b[3]],[b[2]-w,b[3]],[b[0],b[1]],[b[2]-w,b[1]],[b[2]+4,b[1]],[b[0]-w-4,b[1]]];
+  const fits=([x,y])=>(!bounds||(x>=bounds[0]&&y>=bounds[1]&&x+w<=bounds[0]+bounds[2]&&y+h<=bounds[1]+bounds[3]))&&!placed.some(q=>x<q[0]+q[2]&&q[0]<x+w&&y<q[1]+q[3]&&q[1]<y+h);
+  const s=spots.find(fits)||spots[0];placed.push([s[0],s[1],w,h]);
+  out+=`<g><rect x="${s[0].toFixed(1)}" y="${s[1].toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="5" fill="${it.fill}"/><text x="${(s[0]+9).toFixed(1)}" y="${(s[1]+h*.74).toFixed(1)}" fill="#fff" font-size="${size}" font-weight="600">${it.text}</text></g>`;}
+ return out;}
+/** A cell's 80 class scores as 80 bars, one per COCO class in COCO's order, each as tall as its score (1 = the
+ dashed line). top holds the cell's highest scores as [class index, score]; every other class scores under 0.001
+ (science.py checks), too little to see. box, if given, puts the four box numbers in front. */
+export function scoreStrip(top,names,{W=1100,bh=110,box=null,size=19,alt='A cell’s 80 class scores as bars'}={}){
+ const sc=Array(80).fill(0);top.forEach(([i,v])=>sc[i]=v);
+ const x0=box?300:44,bw=(W-x0-14)/80,yb=34+bh,best=top[0][0];let g='';
+ if(box)box.forEach((v,i)=>{const x=6+i*70;g+=`<rect x="${x}" y="${yb-62}" width="62" height="62" rx="6" fill="#fff" stroke="${COL.guess}" stroke-width="3"/>`+
+  label(x+31,yb-37,`b<tspan dy="5" font-size="${Math.round(size*.7)}">${'xywh'[i]}</tspan>`,{size,anchor:'middle',fill:COL.guess,weight:700})+label(x+31,yb-10,v,{size:size-2,anchor:'middle',fill:COL.ink});});
+ if(box)g+=label(6,yb-76,'the box, in cell units',{size:size-2,fill:COL.guess,weight:650});
+ g+=line(x0,34,W-14,34,{stroke:'#AAB3BC',w:1.2,dash:'5 4'})+label(x0-8,40,'1',{size:size-3,anchor:'end'})+line(x0,yb,W-14,yb,{stroke:'#AAB3BC',w:1.5})+label(x0-8,yb+5,'0',{size:size-3,anchor:'end'});
+ sc.forEach((v,i)=>{const h=Math.max(4,v*bh);g+=`<rect x="${(x0+i*bw+bw*.14).toFixed(1)}" y="${(yb-h).toFixed(1)}" width="${(bw*.72).toFixed(1)}" height="${h.toFixed(1)}" fill="${i===best&&v>=.01?COL.guess:'#8C96A0'}"/>`;});
+ const bx=x0+best*bw+bw/2,bv=sc[best];
+ const mid=(x0+W-14)/2,lx=bv>=.01?Math.min(Math.max(bx,x0+70),W-84):mid;
+ g+=label(lx,bv>=.01?yb-bv*bh-8:yb-22,bv>=.01?`${names[best]} ${num(bv,2)}`:`highest: ${names[best]}, under 0.01`,{size,anchor:'middle',fill:bv>=.01?COL.guess:COL.ink,weight:650,halo:true});
+ g+=label(x0,yb+24,names[0],{size:size-3})+label(W-14,yb+24,names[79],{size:size-3,anchor:'end'})+label((x0+W-14)/2,yb+24,'80 classes, in COCO’s order',{size:size-3,anchor:'middle'});
+ return fig(W,yb+34,g,alt);}
+
+/** The teaching example's verdicts at IoU threshold t: for each box in score order, the dog it claims (or -1). */
+export function teachMatch(T,t=.5){const c=new Set();return T.dets.map((d,i)=>{let bj=-1,bv=0;T.iou[i].forEach((x,j)=>{if(!c.has(j)&&x>=t-1e-9&&x>bv){bv=x;bj=j;}});if(bj>=0)c.add(bj);return bj;});}
+/** The teaching photo's boxes: the dogs (teal; amber with "FN" when missed and fn is set), then the detections up to
+ rank upto. Judged boxes are green (TP) or red (FP); unjudged ones purple with their rank; boxes under the score cut
+ are grey and unlabelled. current thickens one box. */
+export function teachSVG(T,{upto=T.dets.length,judge=true,t=.5,cut=0,current=-1,fn=false,dogs=true,size=30}={}){
+ const m=teachMatch(T,t),kept=T.dets.map((d,i)=>i<upto&&d.score>=cut-1e-9),found=new Set(m.filter((j,i)=>kept[i]&&j>=0));
+ let g='';const tb=[];
+ T.dets.forEach((d,i)=>{if(i>=upto)return;const on=kept[i],col=!on?'#9AA3AD':!judge?COL.guess:m[i]>=0?COL.green:COL.loss;
+  g+=rect(d.box,{stroke:col,w:i===current?8:on?4.5:3,dash:on?'':'10 8',op:on?1:.75});
+  if(on)tb.push({box:d.box,text:judge?`${m[i]>=0?'TP':'FP'} ${num(d.score,2)}`:`#${d.rank} ${num(d.score,2)}`,fill:col});});
+ if(dogs)T.gt.forEach((d,j)=>{const miss=fn&&!found.has(j);g=rect(d.box,{stroke:miss?COL.amber:COL.target,w:miss?5:3,dash:'12 7'})+g;
+  tb.push({box:d.box,text:miss?`${d.id}: FN`:d.id,fill:miss?COL.amber:COL.target});});
+ return g+tabs(tb,{size,bounds:T.view});}
+
+/** The crowd photo with every person's centre: choose the grid; a cell holding two or more centres turns red,
+ because one record per cell can describe only one of those people. */
+function crowdGrid(el,ctx,S){
+ const W=1280,H=704,C=S.crowd_cells,cents=C.centres,boxes=C.boxes,grids=[[3,2],[5,3],[10,6],[20,11],[40,22]];
+ const run=([n,m])=>{const cw=W/n,ch=H/m,cells=new Map();cents.forEach((q,i)=>{const k=`${Math.floor(q[1]/ch)},${Math.floor(q[0]/cw)}`;if(!cells.has(k))cells.set(k,[]);cells.get(k).push(i);});return {cw,ch,cells};};
+ const draw=g=>{const [n,m]=g,{cw,ch,cells}=run(g),thin=n>=20;let s='';
+  for(let i=1;i<n;i++)s+=line(i*cw,0,i*cw,H,{stroke:'#fff',w:thin?1.2:4});for(let j=1;j<m;j++)s+=line(0,j*ch,W,j*ch,{stroke:'#fff',w:thin?1.2:4});
+  const shared=new Set();for(const [k,ids] of cells){const [r,c]=k.split(',').map(Number),bad=ids.length>1;if(bad)ids.forEach(i=>shared.add(i));
+   s+=`<rect x="${c*cw}" y="${r*ch}" width="${cw}" height="${ch}" fill="${bad?COL.loss:COL.target}" fill-opacity="${bad?.32:.22}" stroke="${bad?COL.loss:COL.target}" stroke-width="${bad?5:2}"/>`;}
+  boxes.forEach((b,i)=>{const col=shared.has(i)?COL.loss:COL.target;s+=rect(b,{stroke:col,w:3})+`<circle cx="${cents[i][0]}" cy="${cents[i][1]}" r="9" fill="${col}" stroke="#fff" stroke-width="3"/>`;});
+  const crowded=[...cells.values()].filter(x=>x.length>1),lost=crowded.reduce((a,x)=>a+x.length-1,0);
+  const tail=`<dt>red cells</dt><dd>${crowded.length}</dd><dt>people with no record</dt><dd><b class="${lost?'miss':'hit'}">${lost}</b></dd></dl>`;
+  return {s,out:`<dl class="kv"><dt>people</dt><dd>${cents.length}</dd>${tail}`,print:`<dl class="kv"><dt>grid</dt><dd>${n} × ${m}</dd>${tail}`};};
+ const buttons=`<div class="w-controls">${grids.map((g,i)=>`<button type="button" class="w-g" data-i="${i}" aria-pressed="${i===0}">${g[0]} × ${g[1]}</button>`).join('')}</div>`;
+ if(ctx.printing){el.innerHTML=`<div class="columns" style="grid-template-columns:1fr 1fr">${[grids[0],grids[4]].map(g=>{const v=draw(g);return `<div>${photo('crowd',W,H,v.s,`The crowd on a ${g[0]} by ${g[1]} grid; cells holding several centres in red`)}<div class="w-panel" style="margin-top:8px">${v.print}</div></div>`;}).join('')}</div>`;return;}
+ el.innerHTML=`<div class="columns" style="grid-template-columns:1.6fr 1fr"><div class="w-fig">${photo('crowd',W,H,'<g class="live"></g>','The crowd with every person’s centre; cells holding several centres in red')}</div><div class="w-panel">${buttons}<div class="w-out" style="margin-top:12px"></div><p class="w-hint" style="margin-top:10px">Red: a cell holding two or more centres. Its one record can describe only one of those people.</p></div></div>`;
+ const g_=el.querySelector('.live'),out=el.querySelector('.w-out');
+ const show=i=>{const v=draw(grids[i]);g_.innerHTML=v.s;out.innerHTML=v.out;for(const b of el.querySelectorAll('.w-g'))b.setAttribute('aria-pressed',String(+b.dataset.i===i));};
+ for(const b of el.querySelectorAll('.w-g'))b.addEventListener('click',()=>show(+b.dataset.i));
+ show(0);
+}
+
+/** The teaching example, live: move the score cut and the IoU a box needs. Every kept box turns TP or FP, every dog
+ left unclaimed is FN; the counts, precision, recall, AP and the point on the precision-recall curve follow. */
+function prPlay(el,ctx,S){
+ const T=S.teach,[W,H]=T.size,n=T.gt.length;
+ const state=(cut,t)=>{const m=teachMatch(T,t),k=T.dets.filter(d=>d.score>=cut-1e-9).length,tp=m.slice(0,k).filter(j=>j>=0).length;
+  const curve=[];let a=0,b=0;m.forEach(j=>{j>=0?a++:b++;curve.push([a/n,a/(a+b)]);});
+  let ap=0,prev=0;curve.forEach(([r],i)=>{ap+=(r-prev)*Math.max(...curve.slice(i).map(q=>q[1]));prev=r;});
+  return {k,tp,fp:k-tp,fn:n-tp,curve,ap};};
+ const plot=(s)=>{const P=panel({W:330,H:272,L:52,B:58,T:28,R:12,xMin:0,xMax:1,yMin:0,yMax:1.05,ticksX:[0,.5,1],ticksY:[0,.5,1],xLabel:'recall',yLabel:'precision',fs:16});
+  let g=P.axes+`<polyline points="${s.curve.map(([r,p])=>`${P.x(r).toFixed(1)},${P.y(p).toFixed(1)}`).join(' ')}" fill="none" stroke="${COL.guess}" stroke-width="2.5"/>`;
+  s.curve.forEach(([r,p],i)=>{g+=`<circle cx="${P.x(r).toFixed(1)}" cy="${P.y(p).toFixed(1)}" r="${i===s.k-1?10:4.5}" fill="${i===s.k-1?COL.ink:COL.guess}" stroke="#fff" stroke-width="2"/>`;});
+  return `<div class="diagram-scroll"><svg class="plot wsvg" viewBox="0 0 330 272" style="max-width:300px" role="img" aria-label="Precision against recall, with the current threshold marked">${g}</svg></div>`;};
+ const read=(s,t)=>{const pr=s.k?`${s.tp}/${s.k} = ${num(s.tp/s.k,2)}`:'no boxes kept',row=(a,b)=>`<span style="color:var(--muted)">${a}</span><span>${b}</span>`;
+  return `<div style="display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:20px;line-height:1.35;font-variant-numeric:tabular-nums">${row('kept',`${s.k} of ${T.dets.length} boxes`)}${row('TP · FP · FN',`<b class="hit">${s.tp}</b> · <b class="miss">${s.fp}</b> · <b style="color:${COL.amber}">${s.fn}</b>`)}${row('precision',pr)}${row('recall',`${s.tp}/${n} = ${num(s.tp/n,2)}`)}${row(`AP, IoU ≥ ${num(t,2)}`,num(s.ap,2))}</div>`;};
+ if(ctx.printing){const s=state(.5,.5);el.innerHTML=`<div class="columns" style="grid-template-columns:1.5fr 1fr"><div>${photo('dog-park',W,H,teachSVG(T,{cut:.5,fn:true}),'Boxes kept at score 0.5, marked TP or FP; missed dogs marked FN',{view:T.view})}<p class="w-hint" style="margin-top:8px">keep scores ≥ 0.50, IoU ≥ 0.50</p></div><div class="w-panel">${read(s,.5)}${plot(s)}</div></div>`;return;}
+ el.innerHTML=`<div class="columns" style="grid-template-columns:1.5fr 1fr"><div class="w-fig">${photo('dog-park',W,H,'<g class="live"></g>','Boxes kept at the chosen score, marked TP or FP; missed dogs marked FN',{view:T.view})}`+
+  `<div class="w-controls" style="margin-top:10px"><label>keep scores ≥ <input class="w-cut" type="range" min="0.05" max="1" step="0.05" value="0.5"><span class="w-readout w-cut-out"></span></label><label>IoU ≥ <input class="w-t" type="range" min="0.5" max="0.95" step="0.05" value="0.5"><span class="w-readout w-t-out"></span></label></div></div>`+
+  `<div class="w-panel"><div class="w-out"></div><div class="w-plot" style="margin-top:10px"></div></div></div>`;
+ const g=el.querySelector('.live'),out=el.querySelector('.w-out'),pl=el.querySelector('.w-plot'),cut=el.querySelector('.w-cut'),th=el.querySelector('.w-t');
+ const show=()=>{const c=Math.round(+cut.value*100)/100,t=Math.round(+th.value*100)/100,s=state(c,t);g.innerHTML=teachSVG(T,{cut:c,t,fn:true});out.innerHTML=read(s,t);pl.innerHTML=plot(s);
+  el.querySelector('.w-cut-out').textContent=num(c,2);el.querySelector('.w-t-out').textContent=num(t,2);};
+ cut.addEventListener('input',show);th.addEventListener('input',show);show();
+}
+
 export function mount(stage,ctx,S){
- const fns={'iou-play':iouPlay,'cell-inspector':cellInspector,'nms-play':nmsPlay,'target-play':targetPlay,'ap-play':apPlay};
+ const fns={'iou-play':iouPlay,'cell-inspector':cellInspector,'nms-play':nmsPlay,'target-play':targetPlay,'ap-play':apPlay,'crowd-grid':crowdGrid,'pr-play':prPlay};
  for(const el of stage.querySelectorAll('.widget[data-widget]')){const f=fns[el.dataset.widget];if(!f)throw new Error('Unknown widget '+el.dataset.widget);f(el,ctx,S);}
 }

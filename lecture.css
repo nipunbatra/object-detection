@@ -74,3 +74,11 @@
 .ycol .t{border-color:#0F766E88}.ycol .q{border-color:#AAB3BC;color:var(--muted)}
 .ycol.sm{grid-auto-rows:32px;gap:4px 12px;font-size:19px}.ycol.sm>span{font-size:18px}
 .steps.cons,.steps.algo{font-size:24px}.steps.cons li,.steps.algo li{margin:8px 0}
+.photo-fig.mid svg{max-height:300px}
+.sum3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px;margin-top:6px}
+.sum3>div{border-top:5px solid var(--line);padding-top:10px}
+.sum3 h3{font-size:25px;margin-bottom:6px}
+.sum3 ul{margin:0;padding-left:22px;font-size:21px;line-height:1.42}
+.sum3 li{margin:3px 0}
+.sum3 .st{border-color:var(--p)}.sum3 .sd{border-color:var(--q)}.sum3 .sm{border-color:var(--d)}
+.reading .sum3{grid-template-columns:1fr}
