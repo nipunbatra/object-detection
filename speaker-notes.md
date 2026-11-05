@@ -809,24 +809,36 @@ Planned main route: 130 minutes, including student responses. Optional slides ar
 
 ## loss-y: The loss: compare only where it counts
 
-**Build 1:** When there is an object, all seven outputs are compared with the target. The loss adds up the squared differences.
+**Build 1:** Say the network writes these seven numbers for the cat photo; they are made up for this example. Line them up with the target.
 
-- Ask: Which entries count for the cat photo?
-- Expected: All seven.
+- Ask: Which numbers come from the network, and which from the annotation?
+- Expected: The network writes ŷ, all seven numbers, every time; the target y comes from the annotation.
 
-**Build 2:** When there is none, only object? is compared. The “?” entries are skipped: whatever the network writes there costs nothing.
+**Build 2:** There is an object, so all seven are compared: square each difference and add them up. The loss is 0.17.
 
-- Ask: Which entries count for the empty floor?
-- Expected: Only object?.
+- Ask: What is the loss for the cat photo?
+- Expected: (0.9 − 1)² + (0.6 − 0.67)² + … + (0.2 − 0)² ≈ 0.17.
 
-**Build 3:** Real detectors pick a better loss for each kind of entry, but the rule stays the same: skip the “?”.
+**Build 3:** For a patch of empty floor the network still writes seven numbers. The target has object? = 0 and “?” everywhere else.
+
+- Ask: Does the network write “?” for the floor?
+- Expected: No: it always writes seven numbers. The “?” is in the target.
+
+**Build 4:** Only object? is compared: (0.3 − 0)² = 0.09. Whatever the network writes under a “?” costs nothing.
+
+- Ask: Which entries count for the empty floor, and what is the loss?
+- Expected: Only object?: (0.3 − 0)² = 0.09. The other six are skipped.
+
+**Build 5:** Real detectors pick a better loss for each kind of entry, but the rule stays the same: skip the “?”.
 
 - Ask: What does a real detector use for the class entries?
 - Expected: Cross-entropy, as in classification.
 
-**Point here:** Ng (Course 4, Week 3, Object Localization) uses squared error in both cases for simplicity, then says that in practice the classes use log-likelihood, p_c a logistic loss, and the box squared error.
+**Point here:** The two predictions are made up for this example; the cat photo’s target is its real one. Ng (Course 4, Week 3, Object Localization) uses squared error in both cases for simplicity, then says that in practice the classes use log-likelihood, p_c a logistic loss, and the box squared error.
 
 **Transition:** Now two animals.
+
+**Source:** Our annotation of the single-cat photo (data/annotations.json); the two predictions are made up for this example.
 
 ## two-objects: Two animals, one box: which one should it draw?
 
@@ -835,7 +847,7 @@ Planned main route: 130 minutes, including student responses. Optional slides ar
 - Ask: Which animal should the single box describe?
 - Expected: There is no right answer: the task is ill-posed.
 
-**Build 2:** If some annotations list the dog first and some the cat, a squared error is smallest for the average of the two boxes: the network learns to hedge.
+**Build 2:** If half the annotations list the dog first and half the cat, the squared error is smallest for the average of the two boxes: the network learns to hedge.
 
 - Ask: What does a squared-error loss learn when the target flips between two boxes?
 - Expected: The average of the two boxes, the value that minimises the expected squared error.
@@ -2845,10 +2857,10 @@ Planned main route: 130 minutes, including student responses. Optional slides ar
 - Ask: Where does most of the dog cell’s class loss come from?
 - Expected: From the dog question: −log 0.871 = 0.139.
 
-**Build 2:** The box part: the L1 distance between the predicted and the target box numbers, in cells, as in Part 4.
+**Build 2:** The box part: the L1 distance between the predicted and the target box numbers, in cells.
 
 - Ask: How is the box part computed?
-- Expected: Four absolute differences: 0.029 + 0.113 + 0.042 + 0.234 = 0.418.
+- Expected: Four absolute differences, network against target: 0.03 + 0.11 + 0.04 + 0.23 ≈ 0.42.
 
 **Build 3:** At an empty cell there is no box to compare, only the class part, and it is tiny: every class there is already near 0.
 

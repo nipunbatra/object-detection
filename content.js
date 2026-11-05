@@ -12,6 +12,9 @@ const stack=(...a)=>`<div class="equation-stack">${a.join('')}</div>`;
 const ps=s=>`<p class="small">${s}</p>`;
 const bt=v=>big(v).replaceAll(',','{,}');   // a thousands comma inside TeX, without KaTeX's list spacing
 const sm=(...a)=>`<div class="equation-stack eq-sm">${a.join('')}</div>`;
+/** The kinds on every loss slide, coloured as in the figures and as \pcol, \qcol, \lcol in the formulas: the target y
+ *  (teal), the network’s prediction ŷ (purple), and the loss (red). */
+const kt=s=>`<span class="kt">${s}</span>`,kp=s=>`<span class="kp">${s}</span>`,kl=s=>`<span class="kl">${s}</span>`;
 /** Code shown one line per click: rows are [build, line], build 0 for a line always shown; the line of the current click is tinted. */
 const codeSteps=rows=>`<pre class="code code-steps"><code>${rows.map(([b,l])=>`<span class="cl"${b?` data-at="${b}"`:''}>${highlight(l)||' '}</span>`).join('')}</code></pre>`;
 /** Reveals inside an SVG figure: an HTML wrapper would break out of the SVG, so use a group. */
@@ -562,24 +565,37 @@ S_('target-y','onebox','Write the answer as numbers: the target for one photo',{
  expected:[`1; then about (${SG.norm.map(v=>num(v,2)).join(', ')}); then cat 1, dog 0.`,'Nothing: there is no box, so we do not care what the network writes there.','Only “object?”, with target 0.'],
  point:'This is how Andrew Ng introduces localisation (Deep Learning Specialization, Course 4, Week 3): y = (p_c, b_x, b_y, b_h, b_w, c_1, c_2, c_3), with “?” for every entry after p_c = 0.',
  transition:'The loss: compare where it counts.',source:'Our annotation of the single-cat photo (data/annotations.json). '+PHOTO_SRC});
-S_('loss-y','onebox','The loss: compare only where it counts',{builds:3,
- body:stack(`<div class="loss-row"><span class="sl">cat photo</span>${yvec([1,...SG.norm.map(v=>num(v,2)),1,0],'t')}</div>`,`<div class="eq-sm">${eq(R`\text{object}=1:\quad \mathcal{L}=\textstyle\sum_{i=1}^{7}(\hat y_i-y_i)^2`)}</div>`,
-  at(2,`<div class="loss-row"><span class="sl">empty floor</span>${yvec([0,'?','?','?','?','?','?'],['t','q','q','q','q','q','q'])}</div>`),at(2,`<div class="eq-sm">${eq(R`\text{object}=0:\quad \mathcal{L}=(\hat y_1-y_1)^2`)}</div>`),
-  at(3,small('In practice: cross-entropy for object? and the classes, and an L1 or squared loss for the box.'))),
- lines:['When there is an object, all seven outputs are compared with the target. The loss adds up the squared differences.',
-  'When there is none, only object? is compared. The “?” entries are skipped: whatever the network writes there costs nothing.',
+// the loss on two made-up predictions: for each case the network's ŷ, the target y and the squared differences
+const LD=S.loss_demo,f2=v=>Number.isInteger(v)?String(v):num(v,2),KEYS7=['object?',m('b_x'),m('b_y'),m('b_w'),m('b_h'),'cat','dog'];
+/** One record as a row of boxes, appearing at build b: kind p (the network’s ŷ), t (the target y), l (a loss term) or
+ *  q (“?”, or skipped), coloured as in the formulas. head puts the entry names in the boxes. */
+const lossRow=(label,vals,kinds,b,head=false)=>`<div class="loss-row" data-at="${b}"><span class="sl">${label}</span><div class="yvec sm kinds${head?'':' bare'}">`+
+ vals.map((v,i)=>`${i===1||i===5?'<i></i>':''}<div class="${Array.isArray(kinds)?kinds[i]:kinds}">${head?`<small>${KEYS7[i]}</small>`:''}${v}</div>`).join('')+'</div></div>';
+const lossLabs=yWord=>[kp(`network ${m('\\hat y')}`),kt(`${yWord} ${m('y')}`),kl(m('(\\hat y-y)^2'))],[labP,labT,labL]=lossLabs('target'),skip=k=>[k,...Array(6).fill('q')];
+S_('loss-y','onebox','The loss: compare only where it counts',{builds:5,
+ body:stack(cols(lossRow(labP,LD.cat.pred.map(String),'p',1,true)+lossRow(labT,LD.cat.target.map(f2),'t',1)+lossRow(labL,LD.cat.sq.map(v=>num(v,2)),'l',2),
+   stack(small('cat photo: an object, so all seven count'),at(2,`<div class="eq-sm">${eq(R`\lcol{\mathcal L}=\textstyle\sum_{i=1}^{7}(\qcol{\hat y_i}-\pcol{y_i})^2=\lcol{${num(LD.cat.loss,2)}}`)}</div>`)),'1.62fr 1fr'),
+  cols(lossRow(labP,LD.floor.pred.map(String),'p',3)+lossRow(labT,[0,'?','?','?','?','?','?'],skip('t'),3)+lossRow(labL,[f2(LD.floor.loss),'·','·','·','·','·','·'],skip('l'),4),
+   stack(at(3,small('empty floor: only object? counts')),at(4,`<div class="eq-sm">${eq(R`\lcol{\mathcal L}=(\qcol{\hat y_1}-\pcol{y_1})^2=(\qcol{${LD.floor.pred[0]}}-\pcol{0})^2=\lcol{${num(LD.floor.loss,2)}}`)}</div>`)),'1.62fr 1fr'),
+  at(5,small('In practice: cross-entropy for object? and the classes, and an L1 or squared loss for the box.'))),
+ lines:[`Say the network writes ${kp('these seven numbers')} for the cat photo; they are made up for this example. Line them up with ${kt('the target')}.`,
+  `There is an object, so all seven are compared: square each difference and add them up. The loss is ${kl(num(LD.cat.loss,2))}.`,
+  `For a patch of empty floor ${kp('the network still writes seven numbers')}. ${kt('The target')} has object? = 0 and “?” everywhere else.`,
+  `Only object? is compared: (${LD.floor.pred[0]} − 0)² = ${kl(num(LD.floor.loss,2))}. Whatever the network writes under a “?” costs nothing.`,
   'Real detectors pick a better loss for each kind of entry, but the rule stays the same: skip the “?”.'],
- ask:['Which entries count for the cat photo?','Which entries count for the empty floor?','What does a real detector use for the class entries?'],
- expected:['All seven.','Only object?.','Cross-entropy, as in classification.'],
- point:'Ng (Course 4, Week 3, Object Localization) uses squared error in both cases for simplicity, then says that in practice the classes use log-likelihood, p_c a logistic loss, and the box squared error.',
- transition:'Now two animals.'});
+ ask:['Which numbers come from the network, and which from the annotation?','What is the loss for the cat photo?','Does the network write “?” for the floor?','Which entries count for the empty floor, and what is the loss?','What does a real detector use for the class entries?'],
+ expected:['The network writes ŷ, all seven numbers, every time; the target y comes from the annotation.',`(0.9 − 1)² + (0.6 − 0.67)² + … + (0.2 − 0)² ≈ ${num(LD.cat.loss,2)}.`,'No: it always writes seven numbers. The “?” is in the target.',
+  `Only object?: (${LD.floor.pred[0]} − 0)² = ${num(LD.floor.loss,2)}. The other six are skipped.`,'Cross-entropy, as in classification.'],
+ point:'The two predictions are made up for this example; the cat photo’s target is its real one. Ng (Course 4, Week 3, Object Localization) uses squared error in both cases for simplicity, then says that in practice the classes use log-likelihood, p_c a logistic loss, and the box squared error.',
+ transition:'Now two animals.',source:'Our annotation of the single-cat photo (data/annotations.json); the two predictions are made up for this example.'});
 const ab=S.average_box;
 S_('two-objects','onebox','Two animals, one box: which one should it draw?',{builds:3,
  body:cols(courtyard(gtBox(DOG,'dog',{size:30})+gtBox(CAT,'cat',{size:30})+gat(2,prBox(ab.box,'',{w:6,dash:'14 8'})+pill(ab.box[0]+6,ab.box[3]-8,'the average',{fill:COL.guess,size:30})),'The dog box, the cat box, and their average'),
   stack(p('The annotation lists both animals. The head has room for one box.'),
-   at(2,p('Its safest single answer lies in between: the average box.')),
-   at(3,`<div class="eq-sm">${eq(R`\mathrm{IoU}(\text{avg},\text{dog})=${num(ab.iou_dog,3)}`)}${eq(R`\mathrm{IoU}(\text{avg},\text{cat})=${num(ab.iou_cat,3)}`)}</div>`)),'1.25fr 1fr'),
- lines:['One box head, two animals. Which should it draw?','If some annotations list the dog first and some the cat, a squared error is smallest for the average of the two boxes: the network learns to hedge.','A box between two objects describes neither of them.'],
+   at(2,stack(p('Its safest single answer lies in between: the average box.'),
+    `<div class="eq-sm">${eq(R`\lcol{\mathcal L}(\qcol{\hat b})=\tfrac12\|\qcol{\hat b}-\pcol{b_\text{dog}}\|^2+\tfrac12\|\qcol{\hat b}-\pcol{b_\text{cat}}\|^2`)}${eq(R`\text{smallest at }\qcol{\hat b}=\tfrac12(\pcol{b_\text{dog}}+\pcol{b_\text{cat}})`)}</div>`)),
+   at(3,`<div class="eq-sm">${eq(R`\mathrm{IoU}(\qcol{\text{avg}},\pcol{\text{dog}})=${num(ab.iou_dog,3)}`)}${eq(R`\mathrm{IoU}(\qcol{\text{avg}},\pcol{\text{cat}})=${num(ab.iou_cat,3)}`)}</div>`)),'1.25fr 1fr'),
+ lines:['One box head, two animals. Which should it draw?',`If half the annotations list the dog first and half the cat, the squared error is smallest for ${kp('the average')} of ${kt('the two boxes')}: the network learns to hedge.`,'A box between two objects describes neither of them.'],
  ask:['Which animal should the single box describe?','What does a squared-error loss learn when the target flips between two boxes?','Does the average box find either animal?'],
  expected:['There is no right answer: the task is ill-posed.','The average of the two boxes, the value that minimises the expected squared error.',`No: IoU ${num(ab.iou_dog,2)} and ${num(ab.iou_cat,2)}, both far below 0.5.`],
  misconception:'More training does not fix it: the hedge is the optimum of this loss for this task.',
@@ -846,32 +862,33 @@ const TS0=TY.snaps['0'],TG=TY.target,n2t=v=>num(v,2),ex=v=>Number.isInteger(v)?S
 const sqd=(p,t)=>p.map((v,i)=>(v-t[i])**2);
 const recTable=rows=>`<div class="table-sm xtight rec-table">${table(['',...KEYS],rows)}</div>`;
 const [dr_,dc_]=N3.dog_cell,dogT=TG[dr_][dc_],dogP=TS0.table[dr_][dc_],emT=TG[0][0],emP=TS0.table[0][0];
-const cellLossLabels=[0,1].flatMap(r=>[0,1,2].map(c=>label(c*s3+s3/2,r*s3+s3/2+18,sq(TS0.cell_loss[r][c]),{size:54,anchor:'middle',fill:COL.ink,weight:700,halo:true}))).join('');
+const cellLossLabels=[0,1].flatMap(r=>[0,1,2].map(c=>label(c*s3+s3/2,r*s3+s3/2+18,sq(TS0.cell_loss[r][c]),{size:54,anchor:'middle',fill:COL.loss,weight:700,halo:true}))).join('');
+const [labP5,labT5,labL5]=lossLabs('truth');
 S_('align-loss','dense','Line the two tables up: the loss, cell by cell',{builds:4,
  body:cols(grid3(allNames+gonly('1-2',ownCell(N3.dog_cell,COL.amber))+gonly(3,ownCell([0,0],COL.amber))+gat(4,cellLossLabels),'The six cells: the dog’s cell, then an empty cell, then every cell’s loss written inside it',{cls:'short'}),
-  `<div class="state-slot">${only('1-2',stack(`<p class="caption">cell (1, 1)</p>`+recTable([['truth',...dogT.map(ex)],['network',...dogP.map(n2t)],[at(2,'squared difference'),...sqd(dogP,dogT).map(v=>at(2,sq(v)))]]),
-    at(2,`<div class="eq-sm">${eq(R`\text{sum}=${num(TS0.cell_loss[dr_][dc_],2)}`)}</div>`)))}`+
-   `${only(3,stack(`<p class="caption">cell (0, 0)</p>`+recTable([['truth',...emT.map((v,i)=>i?'?':ex(v))],['network',...emP.map(n2t)],['squared difference',sq((emP[0]-emT[0])**2),...Array(6).fill('·')]]),
-    `<div class="eq-sm">${eq(R`(\hat o-0)^2\approx${sq(TS0.cell_loss[0][0])}`)}</div>`))}`+
-   `${only(4,`<div class="eq-sm">${eq(R`\mathcal{L}=\text{sum of the six}\approx${num(TY.loss0,2)}`)}</div>`)}</div>`,'0.9fr 1.1fr'),
- lines:['Before training the network knows nothing: scores and positions near 0.5, sizes near 1. Line up its record for cell (1, 1) with the ground truth.',
-  `Part 4’s loss for this cell: square the seven differences and add them up, ${num(TS0.cell_loss[dr_][dc_],2)}. The network is far from the dog’s record.`,
-  `An empty cell, (0, 0): only object? counts, (ô − 0)² ≈ ${sq(TS0.cell_loss[0][0])}. The “?” entries are skipped.`,
-  `Every cell’s loss, written in its cell. Their sum, ${num(TY.loss0,2)}, is the one number that training pushes down.`],
+  `<div class="state-slot">${only('1-2',stack(`<p class="caption">cell (1, 1)</p>`+recTable([[labP5,...dogP.map(v=>kp(n2t(v)))],[labT5,...dogT.map(v=>kt(ex(v)))],[at(2,labL5),...sqd(dogP,dogT).map(v=>at(2,kl(sq(v))))]]),
+    at(2,`<div class="eq-sm">${eq(R`\textstyle\sum_{i=1}^{7}(\qcol{\hat y_i}-\pcol{y_i})^2=\lcol{${num(TS0.cell_loss[dr_][dc_],2)}}`)}</div>`)))}`+
+   `${only(3,stack(`<p class="caption">cell (0, 0)</p>`+recTable([[labP5,...emP.map(v=>kp(n2t(v)))],[labT5,...emT.map((v,i)=>i?'?':kt(ex(v)))],[labL5,kl(sq((emP[0]-emT[0])**2)),...Array(6).fill('·')]]),
+    `<div class="eq-sm">${eq(R`(\qcol{\hat o}-\pcol{0})^2\approx\lcol{${sq(TS0.cell_loss[0][0])}}`)}</div>`))}`+
+   `${only(4,`<div class="eq-sm">${eq(R`\lcol{\mathcal{L}}=\text{sum of the six}\approx\lcol{${num(TY.loss0,2)}}`)}</div>`)}</div>`,'0.9fr 1.1fr'),
+ lines:[`Before training the network knows nothing: scores and positions near 0.5, sizes near 1. Line up ${kp('its record')} for cell (1, 1) with ${kt('the ground truth')}.`,
+  `Part 4’s loss for this cell: square the seven differences and add them up, ${kl(num(TS0.cell_loss[dr_][dc_],2))}. The network is far from the dog’s record.`,
+  `An empty cell, (0, 0): only object? counts, (ô − 0)² ≈ ${kl(sq(TS0.cell_loss[0][0]))}. The “?” entries are skipped.`,
+  `Every cell’s loss, written in its cell. Their sum, ${kl(num(TY.loss0,2))}, is the one number that training pushes down.`],
  ask:['Which record do we compare with the ground truth for cell (1, 1)?','Which difference is largest, and why?','Why only one entry in cell (0, 0)?','Which cells contribute most to the loss?'],
  expected:['The network’s record at output position (1, 1).',(()=>{const d=sqd(dogP,dogT),k=d.indexOf(Math.max(...d)),nm=['object?','b_x','b_y','b_w','b_h','cat','dog'][k];return `${nm}: the truth is ${ex(dogT[k])}, the untrained network says ${n2t(dogP[k])}.`;})(),'The truth there is “no object”: the box and classes are “?”, so they are skipped.','The two cells with a centre, (1, 0) and (1, 1): the network has not learnt their records yet.'],
  point:'The untrained network is our small CNN with its random starting weights (seed 0). Its sigmoid outputs start near 0.5 and its exponential ones near 1; Ng’s squared-error loss treats every number alike.',
  transition:'Training pushes the loss down.',source:'A small CNN trained on this photo by scripts/run_models.py. '+PHOTO_SRC});
 // training: the loss over 300 steps, and cell (1, 1)'s record at steps 0, 50 and 300
 const lossFig=(()=>{const top=Math.ceil(TY.loss0),P=panel({W:520,H:330,L:62,B:54,T:30,R:24,xMin:0,xMax:TY.steps,yMin:0,yMax:top,ticksX:[0,100,200,300],ticksY:[0,top/2,top],xLabel:'training step',yLabel:'loss',fs:19});
- const at5=st=>TY.loss[st/5],mark=(st,b,end)=>gat(b,`<circle cx="${P.x(st).toFixed(1)}" cy="${P.y(at5(st)).toFixed(1)}" r="9" fill="${COL.guess}" stroke="#fff" stroke-width="3"/>`+label(P.x(st)+(end?-14:st?14:22),P.y(at5(st))+(st?-12:16),`step ${st}`,{size:18,fill:COL.ink,anchor:end?'end':'start'}));
- return fig(520,330,P.axes+`<polyline points="${TY.loss.map((v,i)=>`${P.x(i*5).toFixed(1)},${P.y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${COL.guess}" stroke-width="3"/>`+mark(0,1)+mark(50,2)+mark(TY.steps,3,true),'The loss falling over 300 training steps');})();
-const snapRow=(st,b)=>[at(b,`step ${st}`),...TY.snaps[String(st)].table[dr_][dc_].map(v=>at(b,n2t(v)))];
+ const at5=st=>TY.loss[st/5],mark=(st,b,[dx,dy,anchor])=>gat(b,`<circle cx="${P.x(st).toFixed(1)}" cy="${P.y(at5(st)).toFixed(1)}" r="9" fill="${COL.loss}" stroke="#fff" stroke-width="3"/>`+label(P.x(st)+dx,P.y(at5(st))+dy,`step ${st}`,{size:18,fill:COL.ink,anchor}));
+ return fig(520,330,P.axes+`<polyline points="${TY.loss.map((v,i)=>`${P.x(i*5).toFixed(1)},${P.y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${COL.loss}" stroke-width="3"/>`+mark(0,1,[22,16,'start'])+mark(50,2,[10,-30,'start'])+mark(TY.steps,3,[-14,-12,'end']),'The loss falling over 300 training steps');})();
+const snapRow=(st,b)=>[at(b,kp(`${m('\\hat y')}, step ${st}`)),...TY.snaps[String(st)].table[dr_][dc_].map(v=>at(b,kp(n2t(v))))];
 S_('train-toy','dense','Training: the predicted table moves toward the ground truth',{builds:3,
- body:cols(lossFig,stack(`<p class="caption">cell (1, 1)</p>`+recTable([['truth',...dogT.map(ex)],snapRow(0,1),snapRow(50,2),snapRow(TY.steps,3)])),'0.95fr 1.05fr'),
- lines:[`Gradient descent on that loss, using this one photo: ${TY.steps} small steps. The loss starts at ${num(TY.loss0,2)}.`,
+ body:cols(lossFig,stack(`<p class="caption">cell (1, 1)</p>`+recTable([[labT5,...dogT.map(v=>kt(ex(v)))],snapRow(0,1),snapRow(50,2),snapRow(TY.steps,3)])),'0.95fr 1.05fr'),
+ lines:[`Gradient descent on that loss, using this one photo: ${TY.steps} small steps. The loss starts at ${kl(num(TY.loss0,2))}.`,
   `By step 50 the record for cell (1, 1) has moved toward the dog’s: object? ${n2t(TY.snaps['50'].table[dr_][dc_][0])}, b_h ${n2t(TY.snaps['50'].table[dr_][dc_][4])}, dog ${n2t(TY.snaps['50'].table[dr_][dc_][6])}.`,
-  `By step ${TY.steps} the loss is ${num(TY.loss_end,3)} and the record reads almost exactly the dog’s ground truth.`],
+  `By step ${TY.steps} the loss is ${kl(num(TY.loss_end,3))} and ${kp('the record')} reads almost exactly ${kt('the dog’s ground truth')}.`],
  ask:['What does each step change?','Which numbers move first?','Has this network learnt to find dogs?'],
  expected:['All the network’s weights, a little, in the direction that lowers the loss.','The box numbers and the class scores come close by step 50; object? takes longest.','No: it has memorised one photo. A real detector trains on many thousands of photos so that new ones come out right.'],
  point:'Adam, learning rate 0.01, on this one photo: the network memorises it, which is enough to show the mechanics. YOLOv8 was trained on COCO’s 118,000 photos.',
@@ -880,8 +897,9 @@ const emptyCells=[[0,0],[0,1],[0,2],[1,2]];
 const lossRows=[[2,'m = y[..., 0] == 1'],[2,'loss = ((p[..., 0] - y[..., 0])**2).sum()'],[2,'loss += ((p[m, 1:] - y[m, 1:])**2).sum()']];
 S_('loss-grid','dense','The loss for all cells at once, in symbols and in code',{builds:2,
  body:cols(grid3(allNames+cell(...N3.dog_cell,s3,{fill:COL.target,op:.3})+cell(...N3.cat_cell,s3,{fill:COL.target,op:.3})+emptyCells.map(([r,c])=>cell(r,c,s3,{fill:MUTED,op:.3})).join(''),'The two cells with a centre in teal, the four empty cells in grey',{cls:'short'}),
-  stack(`<div class="eq-sm">${eq(R`\mathcal{L}=\sum_{\text{cells}}\Big[(\hat o-o)^2+o\sum_{i=2}^{7}(\hat y_i-y_i)^2\Big]`)}</div>`,at(2,`<div class="code-xs">${codeSteps(lossRows)}</div>`)),'0.95fr 1.05fr'),
- lines:['Written once for all cells: object? is compared in every cell; the other six numbers only where the ground truth’s object?, o, is 1.',
+  stack(`<div class="eq-sm">${eq(R`\lcol{\mathcal{L}}=\sum_{\text{cells}}\Big[(\qcol{\hat o}-\pcol{o})^2+\pcol{o}\sum_{i=2}^{7}(\qcol{\hat y_i}-\pcol{y_i})^2\Big]`)}</div>`,at(2,`<div class="code-xs">${codeSteps(lossRows)}</div>`),
+   at(2,small(`${kp('p')}: the network’s 2 × 3 × 7 table; ${kt('y')}: the ground truth; m: its cells with a centre`))),'0.95fr 1.05fr'),
+ lines:[`Written once for all cells: object? is compared in every cell; the other six numbers only where the ground truth’s object?, ${kt('o')}, is 1.`,
   'In code: a mask m marks the cells with a centre. These three lines are the loss the small network was trained with.'],
  ask:['What does the factor o do?','What are p and y in the code?'],
  expected:['It switches the box and class terms off in cells with no object: o = 0 there.','p is the network’s 2 × 3 × 7 table, y the ground-truth table.'],
@@ -1681,11 +1699,11 @@ A_('giou','detr','One more measure: generalised IoU',{builds:3,
  transition:'The cost of one pairing.'});
 const c00={cls:MT.class[0][0],l1:MT.l1[0][0],g:MT.giou[0][0],t:MT.total[0][0]};
 A_('cost-one','detr','The cost of one pairing: query 61 and the left dog',{builds:4,
- body:stack(eq(R`C=-\,\qcol{p(\text{class})}\;+\;5\,\big\|\qcol{\hat b}-\pcol{b}\big\|_1\;-\;2\,\mathrm{GIoU}(\qcol{\hat b},\pcol{b})`),
-  at(2,eq(R`\text{class: }-p(\text{dog})=${num(c00.cls,3)}`)),
-  at(3,eq(R`\text{box, L1: }|${num(MT.q_boxes[0][0],3)}-${num(MT.target_boxes[0][0],3)}|+\dots=${num(c00.l1,3)},\quad\times5=${num(5*c00.l1,3)}`)),
-  at(3,eq(R`\text{box, GIoU: }${num(c00.g,3)},\quad\times(-2)=${num(-2*c00.g,3)}`)),
-  at(4,eq(R`C=${num(c00.cls,3)}+${num(5*c00.l1,3)}-${num(2*c00.g,3)}=\lcol{${num(c00.t,2)}}`))),
+ body:stack(eq(R`\lcol{C}=-\,\qcol{p(\text{class})}\;+\;5\,\big\|\qcol{\hat b}-\pcol{b}\big\|_1\;-\;2\,\mathrm{GIoU}(\qcol{\hat b},\pcol{b})`),
+  at(2,eq(R`\text{class: }-\qcol{p(\text{dog})}=${num(c00.cls,3)}`)),
+  at(3,eq(R`\text{box, L1: }|\qcol{${num(MT.q_boxes[0][0],3)}}-\pcol{${num(MT.target_boxes[0][0],3)}}|+\dots=${num(c00.l1,3)},\quad\times5=${num(5*c00.l1,3)}`)),
+  at(3,eq(R`\text{box, }\mathrm{GIoU}(\qcol{\hat b},\pcol{b})=${num(c00.g,3)},\quad\times(-2)=${num(-2*c00.g,3)}`)),
+  at(4,eq(R`\lcol{C}=${num(c00.cls,3)}+${num(5*c00.l1,3)}-${num(2*c00.g,3)}=\lcol{${num(c00.t,2)}}`))),
  lines:['DETR’s matching cost has three parts: minus the probability of the target’s class, the L1 distance between boxes, and minus the GIoU. Weights 1, 5 and 2.','Query 61 gives “dog” probability 0.999: the class part is −0.999.',`Its normalised box differs from the left dog’s by ${num(c00.l1,3)} in total (L1), and GIoU is ${num(c00.g,3)}.`,`Total ${num(c00.t,2)}. Low cost = good pairing; negative is fine, only comparisons matter.`],
  ask:['Which part rewards the right class?','What are the L1 distance and GIoU here?','What is the total?','Is a negative cost a problem?'],
  expected:['−p(class): a higher probability lowers the cost.',`${num(c00.l1,3)} and ${num(c00.g,3)}.`,num(c00.t,2),'No: only which pairing is cheapest matters.'],
@@ -1714,10 +1732,10 @@ A_('greedy','detr','Why not let each object grab its cheapest slot?',{builds:3,
  transition:'After matching: the loss.'});
 const ML=S.match_loss,mp=ML.pairs[0];
 A_('match-loss','detr','After matching: the loss',{builds:3,
- body:sm(at(1,eq(R`\text{q61}\to\text{left dog: }\ -\log ${num(MT.q_p[0],3)}+5\times${num(mp.l1,3)}+2\times(1-${num(mp.giou,3)})`)),
+ body:sm(at(1,eq(R`\qcol{\text{q61}}\to\pcol{\text{left dog}}\text{: }\ -\log\qcol{${num(MT.q_p[0],3)}}+5\times${num(mp.l1,3)}+2\times(1-${num(mp.giou,3)})`)),
   at(1,eq(R`=${num(mp.ce,3)}+${num(5*mp.l1,3)}+${num(2*mp.giou_loss,3)}=\lcol{${num(mp.ce+5*mp.l1+2*mp.giou_loss,3)}}`)),
-  at(2,eq(R`\text{q2}\to\text{no object: }\ 0.1\times(-\log ${num(ML.unmatched.p_none,3)})=${num(-0.1*Math.log(ML.unmatched.p_none),4)}`)),
-  at(3,eq(R`\text{q90 (a plant)}\to\text{no object: }\ 0.1\times(-\log ${num(ML.unmatched_plant.p_none,3)})=\lcol{${num(ML.unmatched_plant.weighted,3)}}`))),
+  at(2,eq(R`\qcol{\text{q2}}\to\pcol{\text{no object}}\text{: }\ 0.1\times(-\log\qcol{${num(ML.unmatched.p_none,3)}})=\lcol{${num(-0.1*Math.log(ML.unmatched.p_none),4)}}`)),
+  at(3,eq(R`\qcol{\text{q90 (a plant)}}\to\pcol{\text{no object}}\text{: }\ 0.1\times(-\log\qcol{${num(ML.unmatched_plant.p_none,3)}})=\lcol{${num(ML.unmatched_plant.weighted,3)}}`))),
  point:'Our target list holds only the two dogs, so the loss would teach q90 to call the pot nothing. What is annotated decides what is learned; COCO does label potted plants.',
  lines:['A matched query learns its object: cross-entropy for the class, plus L1 and 1 − GIoU for the box. q61 is already almost perfect: tiny loss.','An unmatched query learns “no object”, its cross-entropy weighted by 0.1 because most queries are empty. q2 already says no object: almost no loss.',`q90 named a real plant, but plants are not in this target list, so it pays ${num(ML.unmatched_plant.weighted,2)} for being right.`],
  ask:['What does a matched query learn?','What does an unmatched query learn, and why the weight 0.1?','Why is q90 penalised?'],
@@ -1867,7 +1885,7 @@ const recordFig=({boxes,bars,marks=null,boxAt=1,alt,heading='80 class scores (do
 const dogMark=`<line x1="${330+16*8.2-3}" y1="${236-170}" x2="${330+17*8.2+1}" y2="${236-170}" stroke="${COL.target}" stroke-width="4"/>`+label(330+17*8.2+6,236-170+6,'target 1',{size:18,fill:COL.target,weight:650});
 O('prediction-record','What the trained network wrote at cell (10, 18)',{builds:2,
  body:stack(recordFig({keys:NGK,boxes:[{vals:NG.dog.map(v=>num(v,3)),col:COL.target,name:'target'},{vals:NG.pred.map(v=>num(v,3)),col:COL.guess,name:'prediction'}],bars:[{vals:CELL.scores,col:COL.guess}],marks:dogMark,boxAt:2,alt:'Predicted record against the target'}),
-  `<div class="state-slot">${only(1,ps(`Dog: ${num(CELL.p_dog,3)} (target 1). Cat ${num(CELL.top[1][1],4)}, skateboard ${num(CELL.top[2][1],5)}; the other 77 are smaller still (targets 0).`))}${only(2,ps('Box: close to the target. The predicted centre sits a little higher, and the box is a little taller.'))}</div>`),
+  `<div class="state-slot">${only(1,ps(`Dog: ${kp(num(CELL.p_dog,3))} (${kt('target&nbsp;1')}). Cat ${kp(num(CELL.top[1][1],4))}, skateboard ${kp(num(CELL.top[2][1],5))}; the other 77 are smaller still (${kt('targets&nbsp;0')}).`))}${only(2,ps(`Box: ${kp('the prediction')} is close to ${kt('the target')}. Its centre sits a little higher, and the box is a little taller.`))}</div>`),
  lines:['The real network’s scores at this cell: dog a little below its target of 1, every other class near its target of 0.','Its box, in cell units, is close to the target too. The loss turns all these differences into one number to reduce.'],
  ask:['How far is each class score from its target?','Which box number is furthest off?'],
  expected:[`Dog: 1 − ${num(CELL.p_dog,3)} = ${num(1-CELL.p_dog,3)} too low; the others are near 0, their target.`,`b_h: ${NG.pred[3]} against ${NG.dog[3]}, ${NG.l1_terms[3]} cells.`],
@@ -1878,25 +1896,25 @@ const bcePlot=()=>{const P=panel({W:560,H:380,L:66,B:58,T:34,xMin:0,xMax:1,yMin:
  const mark=(x,txt,dx,dy,anchor='start')=>`<circle cx="${P.x(x).toFixed(1)}" cy="${P.y(-Math.log(x)).toFixed(1)}" r="8" fill="${COL.loss}" stroke="#fff" stroke-width="2"/>`+label(P.x(x)+dx,P.y(-Math.log(x))+dy,txt,{size:21,fill:COL.ink,weight:650,anchor});
  return fig(560,380,P.axes+`<polyline points="${pts.join(' ')}" fill="none" stroke="${COL.loss}" stroke-width="3"/>`+gat(2,mark(.1,num(-Math.log(.1),2),14,-6)+mark(.5,num(-Math.log(.5),2),10,-16)+mark(CELL.p_dog,num(CELL.bce_dog,3),0,-22,'middle')),'The loss −log p falls from very large near p = 0 to zero at p = 1');};
 O('bce','Scoring one yes/no answer: binary cross-entropy',{builds:2,
- body:cols(stack(eq(R`\text{yes }(y=1):\quad -\log p`),eq(R`\text{no }(y=0):\quad -\log(1-p)`),small('p: the score the network gave this class; y: the target, 1 or 0. Natural logarithms.')),bcePlot(),'1fr 1.1fr'),
+ body:cols(stack(eq(R`\text{yes }(\pcol{y}=1):\quad \lcol{-\log\qcol{p}}`),eq(R`\text{no }(\pcol{y}=0):\quad \lcol{-\log(1-\qcol{p})}`),small(`${kp('p')}: the score the network gave this class; ${kt('y')}: the target, 1 or 0. Natural logarithms.`)),bcePlot(),'1fr 1.1fr'),
  lines:['A class score answers one yes/no question. If the answer is yes, the loss is −log p; if no, −log(1 − p), the same curve mirrored.',`For a yes: sure and right costs almost nothing; unsure (0.5) costs ${num(-Math.log(.5),2)}; sure and wrong (0.1) costs ${num(-Math.log(.1),2)}. Our dog cell, ${num(CELL.p_dog,3)}: ${num(CELL.bce_dog,3)}.`],
  ask:['What is the loss for a yes answered with p = 1?','Why does the curve shoot up near p = 0?'],
  expected:['0: −log 1 = 0.','Being confidently wrong is punished hardest: −log p grows without bound as p → 0.'],
  point:'The two cases are one formula: BCE(p, y) = −[y log p + (1 − y) log(1 − p)].',
  transition:'Apply it to all 80 questions at our cell.'});
 O('loss-cells','The loss at two cells: the dog’s, and an empty one',{part:'B',builds:3,
- body:sm(eq(R`\text{dog’s cell, classes: }-\log ${num(CELL.p_dog,3)}+\textstyle\sum_{79}-\log(1-p_c)=${num(CELL.bce_dog,3)}+${num(CELL.bce_others,4)}=\lcol{${num(CELL.bce_total,3)}}`),
-  at(2,eq(R`\text{dog’s cell, box: }${NG.l1_terms.join('+')}=\lcol{${NG.l1}}\ \text{cells}`)),
-  at(3,eq(R`\text{empty cell }(${CELL.bg_row},${CELL.bg_col})\text{: }\textstyle\sum_{80}-\log(1-p_c)=\lcol{${num(CELL.bg_bce,4)}},\ \ \text{no box}`))),
+ body:sm(eq(R`\text{dog’s cell, classes: }\underbrace{-\log\qcol{${num(CELL.p_dog,3)}}}_{\text{dog: }\pcol{y=1}}+\underbrace{\textstyle\sum_{79}-\log(1-\qcol{p_c})}_{\text{the rest: }\pcol{y=0}}=${num(CELL.bce_dog,3)}+${num(CELL.bce_others,4)}=\lcol{${num(CELL.bce_total,3)}}`),
+  at(2,eq(R`\text{dog’s cell, box: }${NG.pred.map((v,i)=>R`|\qcol{${num(v,2)}}-\pcol{${num(NG.dog[i],2)}}|`).join('+')}=\lcol{${num(NG.l1,2)}}\ \text{cells}`)),
+  at(3,eq(R`\text{empty cell }(${CELL.bg_row},${CELL.bg_col})\text{: }\textstyle\sum_{80}-\log(1-\qcol{p_c})=\lcol{${num(CELL.bg_bce,4)}}\ \ (\text{all }\pcol{y=0}),\ \ \text{no box}`))),
  lines:['At the dog’s cell, the class part: dog is a yes, so −log 0.871. The other 79 are near-certain noes and add almost nothing.',
-  'The box part: the L1 distance between the predicted and the target box numbers, in cells, as in Part 4.',
+  `The box part: the L1 distance between ${kp('the predicted')} and ${kt('the target')} box numbers, in cells.`,
   'At an empty cell there is no box to compare, only the class part, and it is tiny: every class there is already near 0.'],
  ask:['Where does most of the dog cell’s class loss come from?','How is the box part computed?','Why is there no box term at an empty cell?'],
- expected:['From the dog question: −log 0.871 = 0.139.',`Four absolute differences: ${NG.l1_terms.join(' + ')} = ${NG.l1}.`,'There is no object there, so no box to compare with.'],
+ expected:['From the dog question: −log 0.871 = 0.139.',`Four absolute differences, network against target: ${NG.l1_terms.map(v=>num(v,2)).join(' + ')} ≈ ${num(NG.l1,2)}.`,'There is no object there, so no box to compare with.'],
  point:'Ng’s localiser used squared errors throughout; detectors today use binary cross-entropy for the classes and an L1 or IoU-based box loss.',
  transition:'Put the pieces together.'});
 O('loss-total','The loss for the whole photo, on the real grid',{part:'B',builds:3,
- body:stack(eq(R`\mathcal{L}=\underbrace{\sum_{\text{all 600 cells}}\ \sum_{c=1}^{80}\mathrm{BCE}(p_c,y_c)}_{\text{class: every cell}}\;+\;\underbrace{\sum_{\text{object cells}}\mathcal{L}_\text{box}}_{\text{box: 2 cells here}}`),
+ body:stack(eq(R`\lcol{\mathcal{L}}=\underbrace{\sum_{\text{all 600 cells}}\ \sum_{c=1}^{80}\mathrm{BCE}(\qcol{p_c},\pcol{y_c})}_{\text{class: every cell}}\;+\;\underbrace{\sum_{\text{object cells}}\mathcal{L}_\text{box}(\qcol{\hat b},\pcol{b})}_{\text{box: 2 cells here}}`),
   at(2,`<div class="eq-sm">${eq(R`600\times80=${bt(48000)}\ \text{class terms},\qquad 2\ \text{box terms}`)}</div>`),
   at(3,p('One number for the photo; gradient descent lowers it.'))),
  lines:['The loss for the photo: class terms from every cell, box terms only from the cells that hold an object.',
@@ -1910,7 +1928,7 @@ O('opt-two-stage','Two-stage detectors: propose, then classify',{builds:1,
  body:stack(p('<b>Stage 1</b>, a region proposal network: about 2,000 boxes that might contain something. <b>Stage 2</b>: crop features for each proposal (RoI pooling), classify it and refine its box.'),p('R-CNN (2014) ran a CNN per proposal; Fast R-CNN (2015) shared one CNN pass; Faster R-CNN (2015) learned the proposals too. Mask R-CNN adds a mask per proposal: Lecture 23.'),small('torchvision’s fasterrcnn_resnet50_fpn returns post-processed detections: its NMS is already inside.')),
  ask:['What does the first stage output?'],expected:['Class-agnostic candidate boxes (proposals), to be classified by the second stage.']});
 O('opt-focal','Focal loss: quiet the easy background',{builds:1,
- body:stack(eq(R`\mathrm{FL}(p_t)=-(1-p_t)^{\gamma}\log p_t,\qquad p_t=\begin{cases}p&y=1\\1-p&y=0\end{cases}`),p(`A background cell with p = ${num(CELL.bg_max,3)}: p<sub>t</sub> = ${num(1-CELL.bg_max,3)}, so with γ = 2 its loss is multiplied by (1 − p<sub>t</sub>)² ≈ 10⁻⁶. Easy examples nearly vanish; hard ones keep their weight.`),small('RetinaNet (Lin et al., 2017) made one-stage detectors as accurate as two-stage ones this way.')),
+ body:stack(eq(R`\lcol{\mathrm{FL}(p_t)}=-(1-p_t)^{\gamma}\log p_t,\qquad p_t=\begin{cases}\qcol{p}&\pcol{y}=1\\1-\qcol{p}&\pcol{y}=0\end{cases}`),p(`A background cell (${kt('y = 0')}) with ${kp(`p = ${num(CELL.bg_max,3)}`)}: p<sub>t</sub> = ${num(1-CELL.bg_max,3)}, so with γ = 2 its loss is multiplied by (1 − p<sub>t</sub>)² ≈ 10⁻⁶. Easy examples nearly vanish; hard ones keep their weight.`),small('RetinaNet (Lin et al., 2017) made one-stage detectors as accurate as two-stage ones this way.')),
  ask:['Which examples does focal loss down-weight?'],expected:['Easy ones, where p_t is close to 1: mostly background.']});
 O('opt-formats','Box formats in practice',{builds:1,
  body:`<div class="table-sm">${table(['where','format','the dog'],[['torchvision','corners, pixels',`(${DOG.join(', ')})`],['COCO json','(x, y, w, h), top-left, pixels',`(${DOG[0]}, ${DOG[1]}, ${S.dog.w}, ${S.dog.h})`],['YOLO label file','normalised (c<sub>x</sub>, c<sub>y</sub>, w, h)',`(${nrm.map(v=>num(v,3)).join(', ')})`],['DETR output','normalised (c<sub>x</sub>, c<sub>y</sub>, w, h)','same as YOLO']])}</div>`,

@@ -477,6 +477,15 @@ assert S['bird_eval']['0.25']['fn'] == 1 and 'bird' in S['bird_eval']['0.05']['f
 # one object, written as a target vector (the single-cat photo)
 catb = [b for c_, b in A['photos']['cat'] if c_ == 'cat'][0]
 S['single'] = {'box': catb, 'size': Y['photos']['cat']['size'], 'norm': [r(v) for v in cxcywh(catb, *Y['photos']['cat']['size'])]}
+# Part 4's loss on two made-up predictions (the network's seven numbers): the cat photo, where all seven count, and a
+# patch of empty floor, where only object? counts and the "?" entries are skipped
+y_cat = [1, *cxcywh(catb, *Y['photos']['cat']['size']), 1, 0]
+pred_cat, pred_floor = [0.9, 0.6, 0.5, 0.4, 0.5, 0.7, 0.2], [0.3, 0.8, 0.2, 0.6, 0.1, 0.4, 0.7]
+sq_cat = [(p_ - t_) ** 2 for p_, t_ in zip(pred_cat, y_cat)]
+S['loss_demo'] = {'cat': {'pred': pred_cat, 'target': [r(v, 2) for v in y_cat], 'sq': [r(v, 2) for v in sq_cat], 'loss': r(sum(sq_cat), 2)},
+                  'floor': {'pred': pred_floor, 'loss': r(pred_floor[0] ** 2, 2)}}
+# the rounded squares add up to the rounded loss, so the slide's sum checks by eye
+assert r(sum(S['loss_demo']['cat']['sq']), 2) == S['loss_demo']['cat']['loss'] == 0.17 and S['loss_demo']['floor']['loss'] == 0.09
 
 # sliding windows over the courtyard: every 32 px, three sizes, three shapes; two neighbours share most pixels
 win, sh = 224, 32

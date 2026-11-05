@@ -45,6 +45,11 @@
 .yvec .t{border-color:#0F766E88}.yvec .q{border-color:#AAB3BC;color:var(--muted)}
 .yvec.sm{--yc:62px;font-size:20px;grid-auto-rows:64px}.yvec.sm>div small{font-size:14px}
 .loss-row{display:flex;align-items:center;gap:18px}.loss-row>.sl{width:130px;font-size:20px;color:var(--muted);font-weight:600}
+/* loss slides: the target y teal, the network's prediction ŷ purple, the loss red, as in the figures and the formulas */
+.kt{color:var(--p);font-weight:650}.kp{color:var(--q);font-weight:650}.kl{color:var(--loss);font-weight:650}
+.loss-row+.loss-row{margin-top:6px}.loss-row>.yvec{flex:1}.yvec.bare{grid-auto-rows:44px}
+.yvec.kinds .t{color:var(--p)}.yvec.kinds .p{border-color:#8B2CDE88;color:var(--q)}.yvec.kinds .l{border-color:#BE123C66;color:var(--loss)}
+.rec-table .kt,.rec-table .kp,.rec-table .kl{font-weight:600}
 /* K slots: one row per slot, a class and four box numbers, all cells one size */
 .slotgrid{display:grid;grid-template-columns:auto 150px repeat(4,88px);grid-template-rows:34px;grid-auto-rows:48px;gap:8px;font-size:24px;font-variant-numeric:tabular-nums}
 .slotgrid>b{align-self:end;text-align:center;font-size:19px;color:var(--muted);font-weight:600}
@@ -66,7 +71,7 @@
 .widget svg{touch-action:none}
 .widget .photo-fig svg{max-height:350px}
 .w-hint{font-size:17px;color:var(--muted)}
-@media(max-width:760px){.reading .qstrip{gap:2px}.reading .qstrip span{font-size:8px}.reading .cover{grid-template-columns:1fr}.reading .cover h1{font-size:34px}.reading .three,.reading .four{grid-template-columns:1fr 1fr}.reading .two-two{grid-template-columns:1fr}.reading .compare{grid-template-columns:1fr}.reading .record{font-size:19px}.reading .kv{font-size:19px}.reading .steps{font-size:20px}.reading .big-number{font-size:44px}.reading .photo-fig svg{max-height:none}.reading .yvec{--yc:minmax(0,1fr);font-size:14px;column-gap:3px;grid-auto-rows:56px}.reading .yvec>div small{font-size:12px}.reading .slotgrid{grid-template-columns:auto 1.6fr repeat(4,minmax(0,1fr));font-size:14px;gap:4px;grid-auto-rows:38px}.reading .slotgrid>b,.reading .slotgrid>.sl{font-size:12px}}
+@media(max-width:760px){.reading .qstrip{gap:2px}.reading .qstrip span{font-size:8px}.reading .cover{grid-template-columns:1fr}.reading .cover h1{font-size:34px}.reading .three,.reading .four{grid-template-columns:1fr 1fr}.reading .two-two{grid-template-columns:1fr}.reading .compare{grid-template-columns:1fr}.reading .record{font-size:19px}.reading .kv{font-size:19px}.reading .steps{font-size:20px}.reading .big-number{font-size:44px}.reading .photo-fig svg{max-height:none}.reading .yvec{--yc:minmax(0,1fr);font-size:14px;column-gap:3px;grid-auto-rows:56px}.reading .yvec>div small{font-size:12px}.reading .yvec.bare{grid-auto-rows:40px}.reading .loss-row{gap:8px}.reading .loss-row>.sl{width:70px;flex:none;font-size:14px}.reading .slotgrid{grid-template-columns:auto 1.6fr repeat(4,minmax(0,1fr));font-size:14px;gap:4px;grid-auto-rows:38px}.reading .slotgrid>b,.reading .slotgrid>.sl{font-size:12px}}
 /* one record as Ng writes it, a column: a label and a value per row */
 .ycol{display:grid;grid-template-columns:auto 84px;grid-auto-rows:40px;gap:5px 14px;align-items:center;font-size:22px;font-variant-numeric:tabular-nums;width:max-content}
 .ycol>span{text-align:right;color:var(--muted);font-weight:600;font-size:20px}

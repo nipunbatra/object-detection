@@ -70,7 +70,7 @@
   ],
   "coreSlides": 111,
   "optionalSlides": 43,
-  "totalStates": 404,
+  "totalStates": 406,
   "slides": [
     {
       "id": "title",
@@ -413,7 +413,7 @@
       "title": "The loss: compare only where it counts",
       "section": "onebox",
       "chapter": "4.1 One object, one box",
-      "builds": 3,
+      "builds": 5,
       "optional": false
     },
     {

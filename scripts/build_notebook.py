@@ -203,16 +203,21 @@ print('cat photo  :', [round(v, 3) for v in y_cat])
 print('empty floor:', [0, '?', '?', '?', '?', '?', '?'])
 assert [round(v, 3) for v in y_cat[1:5]] == S['single']['norm']
 """)
-md("The loss compares only where it counts: all seven numbers when there is an object, only object? when there is none. In code, tried on a made-up prediction:")
+md("The loss compares the network's seven numbers, ŷ, with the target, y, only where it counts: all seven when there is an object, only object? when there is none. In code, on the slide's two made-up predictions:")
 py("""
 def loss(p, y):
     if y[0] == 1:                                    # an object: all seven numbers count
         return sum((a - b) ** 2 for a, b in zip(p, y))
     return (p[0] - y[0]) ** 2                        # no object: only object? counts
 
-p = [0.9, 0.4, 0.6, 0.3, 0.5, 0.8, 0.1]              # a made-up prediction, to try the loss
-print('cat photo  :', round(loss(p, y_cat), 3))
-print('empty floor:', round(loss(p, [0, '?', '?', '?', '?', '?', '?']), 3))
+LD = S['loss_demo']                                  # two made-up predictions, as on the slide
+p_cat, p_floor, y_floor = LD['cat']['pred'], LD['floor']['pred'], [0, '?', '?', '?', '?', '?', '?']
+print('cat photo   network ŷ:', p_cat)
+print('            target y :', [round(v, 2) for v in y_cat])
+print('            (ŷ - y)² :', [round((a - b) ** 2, 2) for a, b in zip(p_cat, y_cat)], '-> loss', round(loss(p_cat, y_cat), 2))
+print('empty floor network ŷ:', p_floor)
+print('            target y :', y_floor, '-> loss', round(loss(p_floor, y_floor), 2), '(only object? counts)')
+assert round(loss(p_cat, y_cat), 2) == LD['cat']['loss'] and round(loss(p_floor, y_floor), 2) == LD['floor']['loss']
 """)
 md("""
 Two animals, one box. If half the annotations list the dog first and half the cat, the squared error is smallest for
