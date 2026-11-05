@@ -874,7 +874,7 @@ S_('train-toy','dense','Training: the predicted table moves toward the ground tr
   `By step ${TY.steps} the loss is ${num(TY.loss_end,3)} and the record reads almost exactly the dog’s ground truth.`],
  ask:['What does each step change?','Which numbers move first?','Has this network learnt to find dogs?'],
  expected:['All the network’s weights, a little, in the direction that lowers the loss.','The box numbers and the class scores come close by step 50; object? takes longest.','No: it has memorised one photo. A real detector trains on many thousands of photos so that new ones come out right.'],
- point:'Adam, learning rate 0.003, on this one photo: the network memorises it, which is enough to show the mechanics. YOLOv8 was trained on COCO’s 118,000 photos.',
+ point:'Adam, learning rate 0.01, on this one photo: the network memorises it, which is enough to show the mechanics. YOLOv8 was trained on COCO’s 118,000 photos.',
  transition:'The same loss for all cells at once, in code.',source:'A small CNN trained on this photo by scripts/run_models.py.'});
 const emptyCells=[[0,0],[0,1],[0,2],[1,2]];
 const lossRows=[[2,'m = y[..., 0] == 1'],[2,'loss = ((p[..., 0] - y[..., 0])**2).sum()'],[2,'loss += ((p[m, 1:] - y[m, 1:])**2).sum()']];
@@ -1182,7 +1182,7 @@ const nmsFig=b=>courtyard(b<=3?cand.candidates.map(thin).join('')+(b>=2?pill(R1.
  b===6?notR1.filter(k=>!gone1.has(kKey(k))).map(thin).join('')+thick(R1.keep,false):cand.kept.map(k=>thick(k,b===8)).join(''),`NMS on the courtyard’s boxes, step ${b}`);
 S_('nms-code','nms','NMS in code, one line at a time',{builds:8,
  body:cols(`<div class="code-xs">${codeSteps([[1,'def nms(boxes, scores, thr=0.7):'],[2,'    order = scores.argsort(descending=True)'],[3,'    keep = []'],[3,'    while order.numel() > 0:'],
-   [4,'        i, rest = order[0], order[1:]'],[4,'        keep.append(i)'],[5,'        ious = box_iou(boxes[[i]], boxes[rest])[0]'],[6,'        order = rest[ious <= thr]'],[8,'    return torch.stack(keep)']])}</div>`,
+   [4,'        i, rest = order[:1], order[1:]'],[4,'        keep.append(i)'],[5,'        ious = box_iou(boxes[i], boxes[rest])[0]'],[6,'        order = rest[ious <= thr]'],[8,'    return torch.cat(keep)']])}</div>`,
   `<div class="state-slot">${[1,2,3,4,5,6,7,8].map(b=>`<div data-only="${b}">${nmsFig(b)}</div>`).join('')}</div>`,'1.05fr 1fr'),
  lines:[`The greedy loop of 6.1 as a function. Its input: the ${cand.n_candidates} boxes that passed the score filter, with their scores.`,
   `Sort by score, best first. The best of all is a cat box, ${num(R1.keep.score,3)}.`,
@@ -1194,7 +1194,7 @@ S_('nms-code','nms','NMS in code, one line at a time',{builds:8,
   `Return the ${cand.kept.length} kept boxes, one per object. torchvision.ops.nms returns the same four.`],
  ask:['What goes into nms?','Why sort first?','When does the loop stop?','Is the top box ever deleted?','Which boxes overlap the kept cat box heavily?','Which line deletes the duplicates?','How many rounds does the loop run here?','How would you make it class-aware?'],
  expected:['The boxes that passed the score filter, and their scores.','So that each kept box is the best one left in its neighbourhood.','When no boxes are left in order.','No: it is kept as soon as it is first in line.',`Its ${R1.removed.length} twins, IoU ${num(r1Lo,2)} to ${num(r1Hi,2)}.`,'order = rest[ious <= thr].',`${NR.length}: one per object.`,'Run it once per class, or use torchvision.ops.batched_nms, which does exactly that.'],
- point:'This nms ignores classes; on these boxes it keeps the same four as class-aware NMS (checked in scripts/science.py). boxes[[i]] keeps a (1, 4) shape for box_iou.',
+ point:'This nms ignores classes; on these boxes it keeps the same four as class-aware NMS (checked in scripts/science.py). order[:1] keeps i a one-element index, so boxes[i] has the (1, 4) shape that box_iou expects.',
  demo:'Notebook part 6 runs this function on the courtyard’s 31 candidates and checks it against torchvision.ops.nms.',
  transition:'The dense answer, end to end.',source:YOLO_SRC});
 // the whole dense detector as a strip of real thumbnails: photo, one pass, 12,600 records, a box per cell, the score filter, NMS
@@ -1475,7 +1475,7 @@ S_('map-iou','eval','Stricter IoU: AP at ten thresholds',{builds:3,
   `COCO’s headline AP is the average of the ten: ${num(TE.ap_mean,2)}. AP50, ${num(TE.ap_by[0],2)}, asks only for rough boxes; the average rewards tight ones.`],
  ask:['At which thresholds is box #7 a true positive?','Why does AP fall as the threshold rises?','What does averaging over thresholds reward?'],
  expected:['0.50 to 0.65: its IoU, 0.68, is at least those.','Boxes whose IoU is below the threshold turn into false positives, and their dogs into misses.','Tight boxes: a box that is only roughly right counts at 0.5 but not at 0.9.'],
- point:`AP50 = ${num(TE.ap_by[0],2)} and AP75 = ${num(TE.ap_by[5],2)} here. COCO calls the average AP (or AP@[.50:.95]); it also reports AP for small, medium and large objects. A real 13-pixel pedestrian, a pixel off, is in Appendix B.`,
+ point:`AP50 = ${num(TE.ap_by[0],2)} and AP75 = ${num(TE.ap_by[5],2)} here. The mean is taken over the unrounded APs, ${num(TE.ap_mean,3)} ≈ ${num(TE.ap_mean,2)}; the rounded bars average ${num(TE.ap_by.reduce((a,b)=>a+b,0)/TE.ap_by.length,3)}. COCO calls the average AP (or AP@[.50:.95]); it also reports AP for small, medium and large objects. A real 13-pixel pedestrian, a pixel off, is in Appendix B.`,
  transition:'More than one class: mAP.',source:TE_SRC});
 const clsAP=Object.entries(BY.per_class).sort((a,b)=>b[1].ap-a[1].ap);
 S_('map','eval','mAP: average the AP over the classes',{builds:3,
@@ -1816,7 +1816,7 @@ O('conv-windows','One pass for every window, step 2: four answers at once',{buil
 const cwHeat=(map,col)=>map.flatMap((row,r)=>row.map((v,c)=>v>=.1?`<rect x="${WS/2-SH/2+c*SH}" y="${WS/2-SH/2+r*SH}" width="${SH}" height="${SH}" fill="${col}" fill-opacity="${(.82*v).toFixed(2)}"/>`:'')).join('');
 const cwLattice=(()=>{let g='';const x0=WS/2-SH/2,y0=x0,x1=x0+CW.cols*SH,y1=y0+CW.rows*SH;
  for(let i=0;i<=CW.cols;i++)g+=line(x0+i*SH,y0,x0+i*SH,y1,{stroke:'#fff',w:1.5});for(let j=0;j<=CW.rows;j++)g+=line(x0,y0+j*SH,x1,y0+j*SH,{stroke:'#fff',w:1.5});return `<g opacity=".8">${g}</g>`;})();
-O('conv-photo','The same trick on our photo: all 336 windows in one pass',{builds:3,
+O('conv-photo','The same trick on our photo: all 336 windows in one pass',{part:'B',builds:3,
  body:cols(courtyard(cwLattice+gonly(1,rect(win0,{stroke:COL.guess,w:7})+`<rect x="${WS/2-SH/2}" y="${WS/2-SH/2}" width="${SH}" height="${SH}" fill="${COL.guess}"/>`)+
    gat(2,cwHeat(CW.dog,COL.guess)+cwHeat(CW.cat,COL.amber)),'One answer per 224-pixel window, drawn at the window’s centre: purple where VGG16 says dog, orange where it says cat'),
   stack(`<div class="big-number">${CW.cols} × ${CW.rows}</div>`,p('answers from one pass of VGG16'),
@@ -1836,7 +1836,7 @@ const C0=CELL.centre,T0=CELL.target_ltrb;
 const ltrbFig=(vals,stroke,b,from=1)=>{const [l,t,r,bb]=vals,[cx,cy]=C0;const f=fsz(dogView,21,420);
  const A=(k,x2,y2,txt,tx,ty,anchor)=>`<g data-at="${from+k}">${arrow(cx,cy,x2,y2,{stroke,w:5,head:18})}${label(tx,ty,txt,{size:f,fill:stroke,weight:700,anchor,halo:true})}</g>`;
  return A(0,cx-l,cy,`l = ${num(l,1).replace('.0','')}`,cx-l/2,cy-14,'middle')+A(1,cx,cy-t,`t = ${num(t,1).replace('.0','')}`,cx+12,cy-t/2,'start')+A(2,cx+r,cy,`r = ${num(r,1).replace('.0','')}`,cx+r/2,cy+38,'middle')+A(3,cx,cy+bb,`b = ${num(bb,1).replace('.0','')}`,cx+12,cy+bb/2+30,'start');};
-O('opt-ltrb','YOLOv8’s box: four distances from the cell centre',{builds:5,
+O('opt-ltrb','YOLOv8’s box: four distances from the cell centre',{part:'B',builds:5,
  body:cols(grid(gtBox(DOG,'',{w:4})+cell(10,18,s32,{fill:COL.guess,op:.7})+`<circle cx="${C0[0]}" cy="${C0[1]}" r="9" fill="#fff" stroke="${COL.ink}" stroke-width="3"/>`+ltrbFig(T0,COL.target,null,2),'Arrows from the cell centre to the four sides of the dog’s box',{view:dogView}),
   sm(eq(R`\text{centre}=(18.5\times32,\ 10.5\times32)=(${C0[0]},\,${C0[1]})`),
    at(2,eq(R`l=${C0[0]}-${DOG[0]}=${T0[0]}`)),at(3,eq(R`t=${C0[1]}-${DOG[1]}=${T0[1]}`)),at(4,eq(R`r=${DOG[2]}-${C0[0]}=${T0[2]}`)),at(5,eq(R`b=${DOG[3]}-${C0[1]}=${T0[3]}`))),'1fr 1.1fr'),
@@ -1884,7 +1884,7 @@ O('bce','Scoring one yes/no answer: binary cross-entropy',{builds:2,
  expected:['0: −log 1 = 0.','Being confidently wrong is punished hardest: −log p grows without bound as p → 0.'],
  point:'The two cases are one formula: BCE(p, y) = −[y log p + (1 − y) log(1 − p)].',
  transition:'Apply it to all 80 questions at our cell.'});
-O('loss-cells','The loss at two cells: the dog’s, and an empty one',{builds:3,
+O('loss-cells','The loss at two cells: the dog’s, and an empty one',{part:'B',builds:3,
  body:sm(eq(R`\text{dog’s cell, classes: }-\log ${num(CELL.p_dog,3)}+\textstyle\sum_{79}-\log(1-p_c)=${num(CELL.bce_dog,3)}+${num(CELL.bce_others,4)}=\lcol{${num(CELL.bce_total,3)}}`),
   at(2,eq(R`\text{dog’s cell, box: }${NG.l1_terms.join('+')}=\lcol{${NG.l1}}\ \text{cells}`)),
   at(3,eq(R`\text{empty cell }(${CELL.bg_row},${CELL.bg_col})\text{: }\textstyle\sum_{80}-\log(1-p_c)=\lcol{${num(CELL.bg_bce,4)}},\ \ \text{no box}`))),
@@ -1895,7 +1895,7 @@ O('loss-cells','The loss at two cells: the dog’s, and an empty one',{builds:3,
  expected:['From the dog question: −log 0.871 = 0.139.',`Four absolute differences: ${NG.l1_terms.join(' + ')} = ${NG.l1}.`,'There is no object there, so no box to compare with.'],
  point:'Ng’s localiser used squared errors throughout; detectors today use binary cross-entropy for the classes and an L1 or IoU-based box loss.',
  transition:'Put the pieces together.'});
-O('loss-total','The loss for the whole photo, on the real grid',{builds:3,
+O('loss-total','The loss for the whole photo, on the real grid',{part:'B',builds:3,
  body:stack(eq(R`\mathcal{L}=\underbrace{\sum_{\text{all 600 cells}}\ \sum_{c=1}^{80}\mathrm{BCE}(p_c,y_c)}_{\text{class: every cell}}\;+\;\underbrace{\sum_{\text{object cells}}\mathcal{L}_\text{box}}_{\text{box: 2 cells here}}`),
   at(2,`<div class="eq-sm">${eq(R`600\times80=${bt(48000)}\ \text{class terms},\qquad 2\ \text{box terms}`)}</div>`),
   at(3,p('One number for the photo; gradient descent lowers it.'))),
@@ -1924,21 +1924,21 @@ O('opt-detr-family','After DETR',{builds:1,
 
 // real detections: the same evaluation on YOLOv8n's real boxes (moved from Part 8, which now uses a teaching example)
 const ES=S.eval_street,stG=ES.gt;
-O('street-eval','Real detections: people in the street photo',{builds:3,
+O('street-eval','Real detections: people in the street photo',{part:'B',builds:3,
  body:stack(photo('street',W2,H2,stG.map(b=>gtBox(b,'',{w:4})).join('')+gat(2,ES.rows.filter(r=>r.hit).map(r=>prBox(r.box,'TP',{size:22,w:3,fill:COL.green})).join(''))+gat(3,ES.rows.filter(r=>!r.hit).map(r=>rect(r.box,{stroke:COL.loss,w:2.5})).join('')),'Annotated people, and YOLOv8n’s detections marked true or false positives',{view:[60,322,1140,308]}),
   `<div class="state-slot">${only(1,ps(`Teal: the 4 annotated people. YOLOv8n’s person detections after NMS, down to score 0.01: ${ES.rows.length}.`))}${only(2,ps(`The 4 most confident (${ES.rows.filter(r=>r.hit).map(r=>num(r.score,3)).join(', ')}) each claim a different person, IoU ${ES.rows.filter(r=>r.hit).map(r=>num(r.iou,2)).join(', ')}: <span class="hit">4 TP</span>.`))}${only(3,ps(`The other ${ES.rows.length-4} (scores ${num(ES.rows[4].score,3)} down to ${num(ES.rows.at(-1).score,3)}) sit on the car’s windscreen, IoU 0 with every person: <span class="miss">${ES.rows.length-4} FP</span>. No person is missed: 0 FN.`))}</div>`),
  lines:['We keep every person detection down to a score of 0.01, so that the wrong ones show up too.','The four most confident boxes each land on a different person.','The rest sit on the car’s windscreen, where nobody is.'],
  ask:['How many annotated people?','Which detections are true positives?','What are the low-scoring boxes?'],
  expected:['Four.','The top four, each with IoU above 0.9.','False positives on the car: the network half-sees a driver.'],
  transition:'Turn the counts into precision and recall.',source:YOLO_SRC});
-O('pr-street','The street’s people at two score cut-offs',{builds:2,
+O('pr-street','The street’s people at two score cut-offs',{part:'B',builds:2,
  body:stack(`<div class="table-sm">${table(['keep scores ≥','TP','FP','FN','precision','recall'],[['0.25','4','0','0','4/4 = 1','4/4 = 1'],[at(2,'0.01'),at(2,'4'),at(2,String(ES.rows.length-4)),at(2,'0'),at(2,`4/${ES.rows.length} = ${num(4/ES.rows.length,2)}`),at(2,'4/4 = 1')]])}</div>`),
  lines:['With the usual 0.25 score cut-off, the street photo is perfect: four people found, nothing extra. Precision 1, recall 1.',`Keep everything down to 0.01 and the ${ES.rows.length-4} windscreen boxes join: recall stays 1, precision drops to ${num(4/ES.rows.length,2)}. The cut-off trades one for the other.`],
  ask:['What are precision and recall at 0.25?','What happens at 0.01?'],
  expected:['Both 1.',`Precision falls to ${num(4/ES.rows.length,2)}; recall stays 1.`],
  transition:'Now the other direction: Part 1’s bird.'});
 const BE=S.bird_eval,lo=BE['0.05'],hi=BE['0.25'];
-O('bird-threshold','Back to the bird: a lower cut-off finds it',{builds:2,
+O('bird-threshold','Back to the bird: a lower cut-off finds it',{part:'B',builds:2,
  body:cols(photo('cat-dog-bird',W2,H2,gtBox(B.gt,'',{w:2.5})+gat(2,prBox(B.best.box,'',{w:2})+pill(B.best.box[0],B.best.box[1]-2,`bird ${num(B.best.score,3)}`,{fill:COL.guess,size:14})),'The bird with our box, and YOLOv8n’s box once the cut-off is 0.05',{view:birdView}),
   stack(`<div class="table-sm tight">${table(['keep scores ≥','found','TP','FP','FN','precision','recall'],[['0.25',hi.found.join(', '),String(hi.tp),String(hi.fp),String(hi.fn),num(hi.precision,2),`${hi.tp}/${hi.tp+hi.fn}`],[at(2,'0.05'),at(2,lo.found.join(', ')),at(2,String(lo.tp)),at(2,String(lo.fp)),at(2,String(lo.fn)),at(2,num(lo.precision,2)),at(2,`${lo.tp}/${lo.tp+lo.fn}`)]])}</div>`),'0.8fr 1.4fr'),
  lines:[`At the usual 0.25: the cat and the dog are found, the bird (${num(B.best.score,3)}) is missed. Precision 1, recall ${hi.tp}/${hi.tp+hi.fn}.`,`At 0.05 the bird’s box gets through: recall ${lo.tp}/${lo.tp+lo.fn}, and nothing false comes with it. On the street, going lower brought eight false people.`],
@@ -1947,7 +1947,7 @@ O('bird-threshold','Back to the bird: a lower cut-off finds it',{builds:2,
  point:'Only the seven annotated classes count here; the potted plants are ignored, as in the benchmark.',
  transition:'AP on all the real person boxes.',source:YOLO_SRC});
 const APP=S.ap_play;
-O('ap-play','Try it: AP on real detections',{builds:1,
+O('ap-play','Try it: AP on real detections',{part:'B',builds:1,
  body:widget('ap-play','Move the sliders: the IoU an overlap needs, and how far down the ranked list to keep'),
  lines:[`YOLOv8n’s ${APP.dets.length} person detections on our eight photos, ranked by score, against ${APP.gt.length} people. Raise the IoU threshold: from 0.85, loose boxes turn into false positives.`],
  ask:['At which IoU threshold does AP first drop below 1?'],expected:['At 0.85: a few boxes overlap their person with an IoU between 0.80 and 0.85.'],
@@ -1958,7 +1958,7 @@ const AE=S.ap_example,aeView=[AE.gt[0]-22,AE.gt[1]-12,(AE.gt[2]-AE.gt[0])+44,(AE
 const thrRow=fig(620,100,APP.thresholds.map((t,i)=>{const ok=AE.iou>=t,c=ok?COL.green:COL.loss;return `<rect x="${5+i*61}" y="6" width="55" height="44" rx="6" fill="${c}" fill-opacity=".16" stroke="${c}" stroke-width="2.5"/>`+
  label(5+i*61+27.5,35,ok?'TP':'FP',{size:19,anchor:'middle',fill:c,weight:700})+label(5+i*61+27.5,80,num(t).replace(/^0/,''),{size:17,anchor:'middle',fill:COL.ink});}).join(''),
  'At IoU thresholds up to 0.85 this box is a true positive; at 0.90 and 0.95 it is a false positive');
-O('map-iou-real','Real detections: COCO’s ten IoU thresholds on a 13-pixel pedestrian',{builds:3,
+O('map-iou-real','Real detections: COCO’s ten IoU thresholds on a 13-pixel pedestrian',{part:'B',builds:3,
  body:cols(photo('scale',W2,H2,gtBox(AE.gt,'',{w:.7})+rect(AE.box,{stroke:COL.guess,w:.7,dash:'1.6 1.1'}),'Part 1’s far pedestrian, about 13 pixels wide: our box and YOLOv8n’s box nearly coincide',{view:aeView,cls:'short'}),
   `<div class="state-slot">${only(1,stack(`<div class="eq-sm">${eq(R`\mathrm{IoU}(\text{YOLOv8n},\text{ours})\approx${num(AE.iou,2)}`)}</div>`,thrRow))}`+
   `${only('2-3',stack(apBars(APP.ap_by,APP.thresholds.map(t=>num(t).replace(/^0/,'')),{mean:APP.ap}),at(3,`<div class="eq-sm">${eq(R`\mathrm{AP}_{[.5:.95]}=\tfrac1{10}\sum_t\mathrm{AP}_t=${num(APP.ap,3)}`)}</div>`)))}</div>`,'0.62fr 1.38fr'),

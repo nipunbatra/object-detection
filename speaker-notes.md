@@ -922,7 +922,7 @@ Planned main route: 130 minutes, including student responses. Optional slides ar
 
 ## sliding-cons: What is wrong with sliding windows?
 
-**Build 1:** First, speed: one window size already means 336 separate runs of the classifier. VGG16 needs 28 s for them on a laptop, for one photo.
+**Build 1:** First, speed: one window size already means 336 separate runs of the classifier. VGG16 needs 29 s for them on a laptop, for one photo.
 
 - Ask: How many classifier runs does one window size need?
 - Expected: 336: one per crop.
@@ -932,7 +932,7 @@ Planned main route: 130 minutes, including student responses. Optional slides ar
 - Ask: Why is most of that work repeated?
 - Expected: Neighbouring crops overlap: 192 of their 224 columns are the same pixels.
 
-**Build 3:** Third, the box is only the window. The window VGG16 is surest about holds just the dog’s head: IoU 0.16 with the dog’s box.
+**Build 3:** Third, the box is only the window. The window VGG16 is surest about holds just the dog’s head: IoU 0.13 with the dog’s box.
 
 - Ask: Why is the surest window a poor box?
 - Expected: The classifier says “dog” for any crop with enough dog in it, and a window cannot change its shape to fit.
@@ -942,7 +942,7 @@ Planned main route: 130 minutes, including student responses. Optional slides ar
 - Ask: What would fix both problems?
 - Expected: One pass over the whole photo that writes the boxes directly.
 
-**Point here:** Ng lists the same costs: every crop is a full ConvNet pass; a coarse stride gives poor boxes and a fine one costs even more; and the best box may not even be square. His convolutional trick for the speed (one pass gives all 336 answers, 0.7 s instead of 28 s) is in Appendix B.
+**Point here:** Ng lists the same costs: every crop is a full ConvNet pass; a coarse stride gives poor boxes and a fine one costs even more; and the best box may not even be square. His convolutional trick for the speed (one pass gives all 336 answers, 0.8 s instead of 29 s) is in Appendix B.
 
 **Transition:** YOLO: grid the photo, and let every cell write a box.
 
@@ -1225,7 +1225,7 @@ Planned main route: 130 minutes, including student responses. Optional slides ar
 - Ask: Has this network learnt to find dogs?
 - Expected: No: it has memorised one photo. A real detector trains on many thousands of photos so that new ones come out right.
 
-**Point here:** Adam, learning rate 0.003, on this one photo: the network memorises it, which is enough to show the mechanics. YOLOv8 was trained on COCO’s 118,000 photos.
+**Point here:** Adam, learning rate 0.01, on this one photo: the network memorises it, which is enough to show the mechanics. YOLOv8 was trained on COCO’s 118,000 photos.
 
 **Transition:** The same loss for all cells at once, in code.
 
@@ -1707,7 +1707,7 @@ Planned main route: 130 minutes, including student responses. Optional slides ar
 - Ask: How would you make it class-aware?
 - Expected: Run it once per class, or use torchvision.ops.batched_nms, which does exactly that.
 
-**Point here:** This nms ignores classes; on these boxes it keeps the same four as class-aware NMS (checked in scripts/science.py). boxes[[i]] keeps a (1, 4) shape for box_iou.
+**Point here:** This nms ignores classes; on these boxes it keeps the same four as class-aware NMS (checked in scripts/science.py). order[:1] keeps i a one-element index, so boxes[i] has the (1, 4) shape that box_iou expects.
 
 **Notebook:** Notebook part 6 runs this function on the courtyard’s 31 candidates and checks it against torchvision.ops.nms.
 
@@ -2168,12 +2168,12 @@ Planned main route: 130 minutes, including student responses. Optional slides ar
 - Ask: Why does AP fall as the threshold rises?
 - Expected: Boxes whose IoU is below the threshold turn into false positives, and their dogs into misses.
 
-**Build 3:** COCO’s headline AP is the average of the ten: 0.43. AP50, 0.66, asks only for rough boxes; the average rewards tight ones.
+**Build 3:** COCO’s headline AP is the average of the ten: 0.44. AP50, 0.66, asks only for rough boxes; the average rewards tight ones.
 
 - Ask: What does averaging over thresholds reward?
 - Expected: Tight boxes: a box that is only roughly right counts at 0.5 but not at 0.9.
 
-**Point here:** AP50 = 0.66 and AP75 = 0.55 here. COCO calls the average AP (or AP@[.50:.95]); it also reports AP for small, medium and large objects. A real 13-pixel pedestrian, a pixel off, is in Appendix B.
+**Point here:** AP50 = 0.66 and AP75 = 0.55 here. The mean is taken over the unrounded APs, 0.436 ≈ 0.44; the rounded bars average 0.434. COCO calls the average AP (or AP@[.50:.95]); it also reports AP for small, medium and large objects. A real 13-pixel pedestrian, a pixel off, is in Appendix B.
 
 **Transition:** More than one class: mAP.
 
@@ -2732,7 +2732,7 @@ Planned main route: 130 minutes, including student responses. Optional slides ar
 - Ask: Which windows say dog?
 - Expected: Every window that holds a good part of the dog, even just its head.
 
-**Build 3:** On this laptop one pass takes 0.7 s; the 336 separate crops take 28 s. The two agree on 317 of the 336 windows.
+**Build 3:** On this laptop one pass takes 0.8 s; the 336 separate crops take 29 s. The two agree on 317 of the 336 windows.
 
 - Ask: Why do a few windows disagree with their crop?
 - Expected: VGG16 pads its convolutions with zeros: a crop sees zeros at its edges, while in the whole photo the same window sees its neighbours’ pixels.

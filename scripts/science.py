@@ -544,14 +544,16 @@ V = M['windows_vgg']
 d1, d2, c1, c2 = (np.array(V[k]) for k in ('dog_onepass', 'dog_crops', 'cat_onepass', 'cat_crops'))
 verdict = lambda d, c: np.where(d >= .5, 1, np.where(c >= .5, 2, 0))       # dog, cat or neither, at 0.5
 wbox = lambda row, col: [int(v) for v in (col * V['step'], row * V['step'], col * V['step'] + V['size'], row * V['step'] + V['size'])]
-bd, bc = np.unravel_index(d1.argmax(), d1.shape), np.unravel_index(c1.argmax(), c1.shape)
+# the surest windows of the crops, the method the slides describe, found before rounding (rounded, several tie at 0.99x)
+bd, bc = tuple(V['best']['dog_crops'][:2]), tuple(V['best']['cat_crops'][:2])
+assert V['best']['dog_onepass'][:2] == V['best']['dog_crops'][:2]   # the one pass agrees on the dog
 S['convwin'] = {'rows': V['rows'], 'cols': V['cols'], 'n': V['rows'] * V['cols'], 'step': V['step'], 'size': V['size'],
                 'dog': [[r(v, 2) for v in row] for row in d1.tolist()], 'cat': [[r(v, 2) for v in row] for row in c1.tolist()],
                 'agree': int((verdict(d1, c1) == verdict(d2, c2)).sum()), 'corr_dog': r(np.corrcoef(d1.ravel(), d2.ravel())[0, 1], 2),
                 'n_dog': int((d1 >= .5).sum()), 'n_cat': int((c1 >= .5).sum()),
                 't_onepass': V['t_onepass'], 't_crops': V['t_crops'], 'speedup': int(round(V['t_crops'] / V['t_onepass'])),
-                'best_dog': {'cell': [int(v) for v in bd], 'box': wbox(*bd), 'p': r(d1[bd], 2), 'iou': r(iou(wbox(*bd), dog), 2)},
-                'best_cat': {'cell': [int(v) for v in bc], 'box': wbox(*bc), 'p': r(c1[bc], 2), 'iou': r(iou(wbox(*bc), S['cat']['xyxy']), 2)}}
+                'best_dog': {'cell': list(bd), 'box': wbox(*bd), 'p': r(V['best']['dog_crops'][2], 2), 'iou': r(iou(wbox(*bd), dog), 2)},
+                'best_cat': {'cell': list(bc), 'box': wbox(*bc), 'p': r(V['best']['cat_crops'][2], 2), 'iou': r(iou(wbox(*bc), S['cat']['xyxy']), 2)}}
 CW = S['convwin']
 assert (CW['rows'], CW['cols'], CW['n']) == (14, 24, 336)
 assert CW['agree'] == 317 and CW['speedup'] >= 20 and CW['best_dog']['iou'] < S['windows']['best_dog']['iou'] < 0.3
@@ -648,17 +650,16 @@ for cut in (0.85, 0.5, 0.1):
     tp_ = sum(x['hit'] for x in rows_)
     S['teach']['cuts'].append({'cut': cut, 'kept': len(rows_), 'tp': tp_, 'fp': len(rows_) - tp_, 'fn': len(fn_), 'fn_ids': [DP['gt'][j][0] for j in fn_],
                                'p': r(tp_ / len(rows_)), 'r': r(tp_ / len(dpg))})
-for t_ in thrs:
-    rows_, _ = teach_at(t_)
-    S['teach']['ap_by'].append(r(ap_all_points(pr_curve(rows_, len(dpg))), 2))
-S['teach']['ap_mean'] = r(np.mean(S['teach']['ap_by']), 2)
+t_aps = [ap_all_points(pr_curve(teach_at(t_)[0], len(dpg))) for t_ in thrs]
+S['teach']['ap_by'] = [r(v, 2) for v in t_aps]
+S['teach']['ap_mean'] = r(np.mean(t_aps))   # the mean of the unrounded APs; the rounded bars average 0.434
 # the story the slides tell: right, right, the bag, right, the bench, a box far too big on D, right, a bush; E is missed
 assert S['teach']['hit'] == [True, True, False, True, False, False, True, False] and S['teach']['fn'] == ['E']
 assert S['teach']['why'] == ['match', 'match', 'no truth here', 'match', 'no truth here', 'no truth here', 'match', 'no truth here']
 assert [max(row) for row in S['teach']['iou']] == [0.88, 0.81, 0.0, 0.76, 0.0, 0.4, 0.68, 0.0]
 assert [c['p'] for c in S['teach']['cuts']] == [1.0, 0.6, 0.5] and [c['r'] for c in S['teach']['cuts']] == [0.4, 0.6, 0.8]
 assert abs(S['teach']['ap'] - 0.2 * (1 + 1 + 0.75 + 4 / 7)) < 1e-3
-assert S['teach']['ap_by'] == [0.66, 0.66, 0.66, 0.66, 0.55, 0.55, 0.4, 0.2, 0.0, 0.0] and S['teach']['ap_mean'] == 0.43
+assert S['teach']['ap_by'] == [0.66, 0.66, 0.66, 0.66, 0.55, 0.55, 0.4, 0.2, 0.0, 0.0] and S['teach']['ap_mean'] == 0.436
 
 # ---------------------------------------------------------------- the wrap-up: axis-aligned against oriented boxes
 def obb_corners(cx, cy, w, h, deg):

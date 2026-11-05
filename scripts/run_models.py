@@ -283,8 +283,11 @@ def windows_vgg(size=224, step=32):
     d2, c2 = masses(pc)
     grid = lambda t: [[r3(v) for v in row] for row in t.reshape(rows, cols).tolist()]
     top1 = lambda p: p.argmax(1).reshape(-1)
+    # the surest window, taken before rounding: to 3 decimals several windows tie at 0.99x
+    best = lambda t: [*divmod(int(t.reshape(-1).argmax()), cols), round(float(t.reshape(-1).max()), 6)]
     return {'model': 'VGG16, torchvision IMAGENET1K_V1', 'size': size, 'step': step, 'rows': rows, 'cols': cols,
             'dog_onepass': grid(d1[0]), 'cat_onepass': grid(c1[0]), 'dog_crops': grid(d2), 'cat_crops': grid(c2),
+            'best': {'dog_onepass': best(d1[0]), 'dog_crops': best(d2), 'cat_onepass': best(c1[0]), 'cat_crops': best(c2)},
             'top1_same': int((top1(one[0].reshape(1000, -1).T) == top1(pc)).sum()),
             't_onepass': round(t_one, 2), 't_crops': round(t_crops, 2), 'threads': torch.get_num_threads(),
             'device': 'cpu', 'torch': torch.__version__}
